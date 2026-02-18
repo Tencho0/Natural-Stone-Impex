@@ -5,9 +5,10 @@
 Inventory and order management system for a Bulgarian building materials shop called **Natural Stone Impex**. Two parts: a public customer storefront (no auth) and an admin panel (JWT auth, single user).
 
 **Full requirements**: `docs/technical-specification.md`
-**Business context**: `docs/prd.md`
+**Business context**: `docs/product-requirements.md`
 **Database design**: `docs/database-schema.md`
 **API contract**: `docs/api-endpoints.md`
+**Strict rules**: `docs/conventions.md` — READ THIS BEFORE WRITING ANY CODE
 **Current progress & task breakdown**: `planning/overview.md` and `planning/epics/`
 
 ## Tech Stack
