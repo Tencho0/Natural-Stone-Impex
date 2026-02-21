@@ -1,0 +1,11 @@
+@page "/product/{Id:int}"
+
+<PageTitle>Детайли за продукт — Natural Stone Impex</PageTitle>
+
+<h1>Детайли за продукт</h1>
+<p>Продукт №@Id</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}
