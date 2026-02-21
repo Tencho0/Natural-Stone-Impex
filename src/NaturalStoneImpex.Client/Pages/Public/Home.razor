@@ -1,6 +1,60 @@
 @page "/"
+@inject HttpClient Http
 
 <PageTitle>Начална страница — Natural Stone Impex</PageTitle>
 
 <h1>Начална страница</h1>
 <p>Добре дошли в Natural Stone Impex — вашият доставчик на строителни материали.</p>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">Проверка на връзката с API</h5>
+    </div>
+    <div class="card-body">
+        @if (_loading)
+        {
+            <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                <span>Проверка...</span>
+            </div>
+        }
+        else if (_error is not null)
+        {
+            <div class="alert alert-danger mb-0">
+                <strong>Грешка:</strong> @_error
+            </div>
+        }
+        else if (_healthResult is not null)
+        {
+            <div class="alert alert-success mb-0">
+                <strong>Статус:</strong> @_healthResult.Status
+                <br />
+                <strong>Време:</strong> @_healthResult.Timestamp.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private HealthCheckResult? _healthResult;
+    private string? _error;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _healthResult = await Http.GetFromJsonAsync<HealthCheckResult>("api/health");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private record HealthCheckResult(string Status, DateTime Timestamp);
+}
