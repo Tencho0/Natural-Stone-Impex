@@ -1,9 +1,13 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NaturalStoneImpex.Api.Data;
+using NaturalStoneImpex.Api.Data.Seed;
 using NaturalStoneImpex.Api.Middleware;
+using NaturalStoneImpex.Api.Models.Entities;
+using NaturalStoneImpex.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,11 +53,21 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
+builder.Services.AddScoped<IPasswordHasher<AdminUser>, PasswordHasher<AdminUser>>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// Apply pending migrations and seed data
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+    await DbSeeder.SeedAsync(db);
+}
 
 // Exception handling middleware
 app.UseMiddleware<ExceptionHandlingMiddleware>();
