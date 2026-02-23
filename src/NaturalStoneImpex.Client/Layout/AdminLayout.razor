@@ -1,7 +1,9 @@
 @inherits LayoutComponentBase
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
 
 <div class="d-flex" style="min-height: 100vh;">
-    <nav class="bg-dark text-light p-3" style="width: 250px; min-height: 100vh;">
+    <nav class="bg-dark text-light p-3 d-flex flex-column" style="width: 250px; min-height: 100vh;">
         <div class="mb-4">
             <a href="/admin" class="text-light text-decoration-none">
                 <h5 class="fw-bold">Natural Stone Impex</h5>
@@ -44,6 +46,12 @@
                 </a>
             </li>
         </ul>
+        <div class="mt-auto">
+            <hr class="border-secondary" />
+            <button class="btn btn-outline-light w-100" @onclick="HandleLogout">
+                <i class="bi bi-box-arrow-right me-2"></i> Изход
+            </button>
+        </div>
     </nav>
 
     <div class="flex-grow-1">
@@ -55,3 +63,11 @@
         </main>
     </div>
 </div>
+
+@code {
+    private void HandleLogout()
+    {
+        AuthService.Logout();
+        Navigation.NavigateTo("/admin/login");
+    }
+}

@@ -1,18 +1,24 @@
-<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
-    <NotFound>
-        <PageTitle>Страницата не е намерена</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <div class="container mt-5">
-                <div class="alert alert-warning">
-                    <h4>Страницата не е намерена</h4>
-                    <p>Съжаляваме, но търсената от вас страница не съществува.</p>
-                    <a href="/" class="btn btn-primary">Към началната страница</a>
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    <RedirectToLogin />
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Страницата не е намерена</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <div class="container mt-5">
+                    <div class="alert alert-warning">
+                        <h4>Страницата не е намерена</h4>
+                        <p>Съжаляваме, но търсената от вас страница не съществува.</p>
+                        <a href="/" class="btn btn-primary">Към началната страница</a>
+                    </div>
                 </div>
-            </div>
-        </LayoutView>
-    </NotFound>
-</Router>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
