@@ -1,6 +1,184 @@
 @page "/catalog"
+@using NaturalStoneImpex.Client.Models
+@using NaturalStoneImpex.Client.Services
+@using NaturalStoneImpex.Client.Components
+@inject IProductService ProductService
+@inject ICategoryService CategoryService
+@implements IDisposable
 
 <PageTitle>Каталог — Natural Stone Impex</PageTitle>
 
-<h1>Каталог</h1>
-<p>Тук ще бъдат показани всички продукти.</p>
+<h1 class="mb-4">Каталог</h1>
+
+<div class="row">
+    @* Category sidebar (desktop) *@
+    <div class="col-md-3 d-none d-md-block">
+        <div class="list-group mb-4">
+            <button class="list-group-item list-group-item-action @(_selectedCategoryId == null ? "active" : "")"
+                    @onclick="() => SelectCategory(null)">
+                Всички категории
+            </button>
+            @if (_categories != null)
+            {
+                @foreach (var category in _categories)
+                {
+                    <button class="list-group-item list-group-item-action @(_selectedCategoryId == category.Id ? "active" : "")"
+                            @onclick="() => SelectCategory(category.Id)">
+                        @category.Name
+                        <span class="badge bg-secondary float-end">@category.ProductCount</span>
+                    </button>
+                }
+            }
+        </div>
+    </div>
+
+    @* Main content *@
+    <div class="col-md-9">
+        @* Category dropdown (mobile) *@
+        <div class="d-md-none mb-3">
+            <select class="form-select" @onchange="OnCategoryDropdownChanged">
+                <option value="" selected="@(_selectedCategoryId == null)">Всички категории</option>
+                @if (_categories != null)
+                {
+                    @foreach (var category in _categories)
+                    {
+                        <option value="@category.Id" selected="@(_selectedCategoryId == category.Id)">@category.Name</option>
+                    }
+                }
+            </select>
+        </div>
+
+        @* Search bar *@
+        <div class="mb-4">
+            <input type="text"
+                   class="form-control"
+                   placeholder="Търсене на продукт..."
+                   value="@_searchInput"
+                   @oninput="OnSearchInput" />
+        </div>
+
+        @* Products grid *@
+        @if (_isLoading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Зареждане...</span>
+                </div>
+                <p class="mt-2 text-muted">Зареждане...</p>
+            </div>
+        }
+        else if (_products == null || !_products.Items.Any())
+        {
+            <div class="text-center py-5">
+                <p class="text-muted fs-5">Няма намерени продукти.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row g-4">
+                @foreach (var product in _products.Items)
+                {
+                    <div class="col-12 col-sm-6 col-md-4">
+                        <ProductCard Product="product" />
+                    </div>
+                }
+            </div>
+
+            <div class="mt-4">
+                <Pagination CurrentPage="_products.Page"
+                            TotalPages="_products.TotalPages"
+                            OnPageChanged="OnPageChanged" />
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<CategoryDto>? _categories;
+    private PaginatedResponse<ProductListDto>? _products;
+    private int? _selectedCategoryId;
+    private string _searchInput = string.Empty;
+    private string _currentSearch = string.Empty;
+    private int _currentPage = 1;
+    private bool _isLoading = true;
+    private const int PageSize = 12;
+
+    private System.Timers.Timer? _debounceTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var categoriesTask = CategoryService.GetAllAsync();
+        var productsTask = LoadProducts();
+        _categories = await categoriesTask;
+        await productsTask;
+    }
+
+    private async Task LoadProducts()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var search = string.IsNullOrWhiteSpace(_currentSearch) ? null : _currentSearch;
+            _products = await ProductService.GetAllAsync(_selectedCategoryId, search, _currentPage, PageSize);
+        }
+        catch
+        {
+            _products = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SelectCategory(int? categoryId)
+    {
+        _selectedCategoryId = categoryId;
+        _currentPage = 1;
+        await LoadProducts();
+    }
+
+    private async Task OnCategoryDropdownChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        _selectedCategoryId = string.IsNullOrEmpty(value) ? null : int.Parse(value);
+        _currentPage = 1;
+        await LoadProducts();
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _searchInput = e.Value?.ToString() ?? string.Empty;
+
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+
+        _debounceTimer = new System.Timers.Timer(300);
+        _debounceTimer.AutoReset = false;
+        _debounceTimer.Elapsed += async (_, _) =>
+        {
+            await InvokeAsync(async () =>
+            {
+                _currentSearch = _searchInput;
+                _currentPage = 1;
+                await LoadProducts();
+            });
+        };
+        _debounceTimer.Start();
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _currentPage = page;
+        await LoadProducts();
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+    }
+}
