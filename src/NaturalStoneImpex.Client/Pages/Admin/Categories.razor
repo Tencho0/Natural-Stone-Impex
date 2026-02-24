@@ -1,8 +1,302 @@
 @page "/admin/categories"
 @layout AdminLayout
 @attribute [Authorize]
+@inject ICategoryService CategoryService
+@inject IJSRuntime JS
 
 <PageTitle>Категории — Natural Stone Impex</PageTitle>
 
-<h1>Категории</h1>
-<p>Тук ще бъде управлението на категории.</p>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Категории</h1>
+    <button class="btn btn-primary" @onclick="OpenAddModal">
+        <i class="bi bi-plus-lg me-1"></i> Добави категория
+    </button>
+</div>
+
+@if (_successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @_successMessage
+        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @_errorMessage
+        <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+
+@if (_isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Зареждане...</span>
+        </div>
+    </div>
+}
+else if (_categories.Count == 0)
+{
+    <div class="alert alert-info">Няма добавени категории.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 60px;">№</th>
+                    <th>Име</th>
+                    <th style="width: 140px;">Брой продукти</th>
+                    <th style="width: 160px;">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < _categories.Count; i++)
+                {
+                    var category = _categories[i];
+                    <tr>
+                        <td>@(i + 1)</td>
+                        <td>@category.Name</td>
+                        <td>@category.ProductCount</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEditModal(category)" title="Редактиране">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenDeleteModal(category)" title="Изтриване">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="categoryModalLabel">@(_editingCategoryId is null ? "Добави категория" : "Редактиране на категория")</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Затвори"></button>
+            </div>
+            <EditForm Model="_formModel" OnValidSubmit="HandleSave">
+                <DataAnnotationsValidator />
+                <div class="modal-body">
+                    @if (_modalError is not null)
+                    {
+                        <div class="alert alert-danger">@_modalError</div>
+                    }
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Име</label>
+                        <InputText id="categoryName" class="form-control" @bind-Value="_formModel.Name" disabled="@_isSaving" />
+                        <ValidationMessage For="() => _formModel.Name" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@_isSaving">Отказ</button>
+                    <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                        @if (_isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        }
+                        Запази
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Потвърждение за изтриване</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Затвори"></button>
+            </div>
+            <div class="modal-body">
+                @if (_deleteError is not null)
+                {
+                    <div class="alert alert-danger">@_deleteError</div>
+                }
+                <p>Сигурни ли сте, че искате да изтриете категория „@_deletingCategory?.Name"?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@_isDeleting">Отказ</button>
+                <button type="button" class="btn btn-danger" @onclick="HandleDelete" disabled="@_isDeleting">
+                    @if (_isDeleting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    }
+                    Изтрий
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<CategoryDto> _categories = new();
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _isDeleting;
+    private string? _successMessage;
+    private string? _errorMessage;
+    private string? _modalError;
+    private string? _deleteError;
+    private int? _editingCategoryId;
+    private CategoryDto? _deletingCategory;
+    private readonly CategoryFormModel _formModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategoriesAsync();
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        _isLoading = true;
+
+        try
+        {
+            _categories = await CategoryService.GetAllAsync();
+        }
+        catch
+        {
+            _errorMessage = "Възникна грешка при зареждане на категориите.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OpenAddModal()
+    {
+        _editingCategoryId = null;
+        _formModel.Name = string.Empty;
+        _modalError = null;
+        await ShowModalAsync("categoryModal");
+    }
+
+    private async Task OpenEditModal(CategoryDto category)
+    {
+        _editingCategoryId = category.Id;
+        _formModel.Name = category.Name;
+        _modalError = null;
+        await ShowModalAsync("categoryModal");
+    }
+
+    private async Task OpenDeleteModal(CategoryDto category)
+    {
+        _deletingCategory = category;
+        _deleteError = null;
+        await ShowModalAsync("deleteModal");
+    }
+
+    private async Task HandleSave()
+    {
+        _isSaving = true;
+        _modalError = null;
+
+        try
+        {
+            string? error;
+
+            if (_editingCategoryId is null)
+            {
+                error = await CategoryService.CreateAsync(_formModel.Name);
+            }
+            else
+            {
+                error = await CategoryService.UpdateAsync(_editingCategoryId.Value, _formModel.Name);
+            }
+
+            if (error is not null)
+            {
+                _modalError = error;
+            }
+            else
+            {
+                await HideModalAsync("categoryModal");
+                _successMessage = _editingCategoryId is null
+                    ? "Категорията е добавена успешно."
+                    : "Категорията е обновена успешно.";
+                await LoadCategoriesAsync();
+                _ = AutoDismissSuccessAsync();
+            }
+        }
+        catch
+        {
+            _modalError = "Възникна грешка при свързване със сървъра.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        if (_deletingCategory is null) return;
+
+        _isDeleting = true;
+        _deleteError = null;
+
+        try
+        {
+            var error = await CategoryService.DeleteAsync(_deletingCategory.Id);
+
+            if (error is not null)
+            {
+                _deleteError = error;
+            }
+            else
+            {
+                await HideModalAsync("deleteModal");
+                _successMessage = "Категорията е изтрита успешно.";
+                await LoadCategoriesAsync();
+                _ = AutoDismissSuccessAsync();
+            }
+        }
+        catch
+        {
+            _deleteError = "Възникна грешка при свързване със сървъра.";
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+    }
+
+    private async Task AutoDismissSuccessAsync()
+    {
+        await Task.Delay(3000);
+        _successMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task ShowModalAsync(string modalId)
+    {
+        await JS.InvokeVoidAsync("eval", $"new bootstrap.Modal(document.getElementById('{modalId}')).show()");
+    }
+
+    private async Task HideModalAsync(string modalId)
+    {
+        await JS.InvokeVoidAsync("eval", $"bootstrap.Modal.getInstance(document.getElementById('{modalId}')).hide()");
+    }
+
+    private sealed class CategoryFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Името е задължително.")]
+        [System.ComponentModel.DataAnnotations.MinLength(2, ErrorMessage = "Името трябва да е поне 2 символа.")]
+        [System.ComponentModel.DataAnnotations.MaxLength(100, ErrorMessage = "Името не може да е повече от 100 символа.")]
+        public string Name { get; set; } = string.Empty;
+    }
+}
