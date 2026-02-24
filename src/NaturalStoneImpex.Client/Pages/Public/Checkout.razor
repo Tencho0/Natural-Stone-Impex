@@ -1,6 +1,485 @@
 @page "/checkout"
+@using NaturalStoneImpex.Client.Models
+@using NaturalStoneImpex.Client.Services
+@inject CartService CartService
+@inject IOrderService OrderService
+@inject NavigationManager Navigation
 
 <PageTitle>Поръчка — Natural Stone Impex</PageTitle>
 
-<h1>Поръчка</h1>
-<p>Тук ще бъде формата за поръчка.</p>
+<h1 class="mb-4">Поръчка</h1>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @_errorMessage
+        <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+
+@* Section 1 — Customer Type *@
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">1. Тип клиент</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-sm-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="customerType" id="typeIndividual"
+                           checked="@(_customerType == 0)"
+                           @onchange="() => OnCustomerTypeChanged(0)" />
+                    <label class="form-check-label fw-semibold" for="typeIndividual">
+                        Физическо лице
+                    </label>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="customerType" id="typeCompany"
+                           checked="@(_customerType == 1)"
+                           @onchange="() => OnCustomerTypeChanged(1)" />
+                    <label class="form-check-label fw-semibold" for="typeCompany">
+                        Фирма
+                    </label>
+                </div>
+            </div>
+        </div>
+        @if (_submitted && _customerType == null)
+        {
+            <div class="text-danger mt-2 small">Моля, изберете тип клиент.</div>
+        }
+    </div>
+</div>
+
+@* Section 2 — Customer Information *@
+@if (_customerType != null)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">2. Данни за клиента</h5>
+        </div>
+        <div class="card-body">
+            @if (_customerType == 0)
+            {
+                <div class="mb-3">
+                    <label for="fullName" class="form-label">Име и фамилия <span class="text-danger">*</span></label>
+                    <input type="text" id="fullName"
+                           class="form-control @(FieldError("fullName") != null ? "is-invalid" : "")"
+                           @bind="_fullName" />
+                    @if (FieldError("fullName") is string err1)
+                    {
+                        <div class="invalid-feedback">@err1</div>
+                    }
+                </div>
+                <div class="mb-3">
+                    <label for="phone" class="form-label">Телефонен номер <span class="text-danger">*</span></label>
+                    <input type="tel" id="phone"
+                           class="form-control @(FieldError("phone") != null ? "is-invalid" : "")"
+                           @bind="_phone" />
+                    @if (FieldError("phone") is string err2)
+                    {
+                        <div class="invalid-feedback">@err2</div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="mb-3">
+                    <label for="companyName" class="form-label">Име на фирмата <span class="text-danger">*</span></label>
+                    <input type="text" id="companyName"
+                           class="form-control @(FieldError("companyName") != null ? "is-invalid" : "")"
+                           @bind="_companyName" />
+                    @if (FieldError("companyName") is string err3)
+                    {
+                        <div class="invalid-feedback">@err3</div>
+                    }
+                </div>
+                <div class="mb-3">
+                    <label for="eik" class="form-label">ЕИК / Булстат <span class="text-danger">*</span></label>
+                    <input type="text" id="eik"
+                           class="form-control @(FieldError("eik") != null ? "is-invalid" : "")"
+                           placeholder="9 или 13 цифри"
+                           @bind="_eik" />
+                    @if (FieldError("eik") is string err4)
+                    {
+                        <div class="invalid-feedback">@err4</div>
+                    }
+                </div>
+                <div class="mb-3">
+                    <label for="mol" class="form-label">МОЛ <span class="text-danger">*</span></label>
+                    <input type="text" id="mol"
+                           class="form-control @(FieldError("mol") != null ? "is-invalid" : "")"
+                           @bind="_mol" />
+                    @if (FieldError("mol") is string err5)
+                    {
+                        <div class="invalid-feedback">@err5</div>
+                    }
+                </div>
+                <div class="mb-3">
+                    <label for="contactPerson" class="form-label">Лице за контакт <span class="text-danger">*</span></label>
+                    <input type="text" id="contactPerson"
+                           class="form-control @(FieldError("contactPerson") != null ? "is-invalid" : "")"
+                           @bind="_contactPerson" />
+                    @if (FieldError("contactPerson") is string err6)
+                    {
+                        <div class="invalid-feedback">@err6</div>
+                    }
+                </div>
+                <div class="mb-3">
+                    <label for="contactPhone" class="form-label">Телефон за контакт <span class="text-danger">*</span></label>
+                    <input type="tel" id="contactPhone"
+                           class="form-control @(FieldError("contactPhone") != null ? "is-invalid" : "")"
+                           @bind="_contactPhone" />
+                    @if (FieldError("contactPhone") is string err7)
+                    {
+                        <div class="invalid-feedback">@err7</div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@* Section 3 — Delivery Method *@
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">@(_customerType != null ? "3" : "2"). Метод на получаване</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="deliveryMethod" id="methodPickup"
+                           checked="@(_deliveryMethod == 0)"
+                           @onchange="() => OnDeliveryMethodChanged(0)" />
+                    <label class="form-check-label fw-semibold" for="methodPickup">
+                        Вземане от обекта
+                    </label>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="deliveryMethod" id="methodDelivery"
+                           checked="@(_deliveryMethod == 1)"
+                           @onchange="() => OnDeliveryMethodChanged(1)" />
+                    <label class="form-check-label fw-semibold" for="methodDelivery">
+                        Доставка
+                    </label>
+                </div>
+            </div>
+        </div>
+        @if (_submitted && _deliveryMethod == null)
+        {
+            <div class="text-danger small">Моля, изберете метод на получаване.</div>
+        }
+
+        @if (_deliveryMethod == 1)
+        {
+            <div class="mb-3">
+                <label for="address" class="form-label">Адрес за доставка <span class="text-danger">*</span></label>
+                <input type="text" id="address"
+                       class="form-control @(FieldError("address") != null ? "is-invalid" : "")"
+                       @bind="_address" />
+                @if (FieldError("address") is string err8)
+                {
+                    <div class="invalid-feedback">@err8</div>
+                }
+            </div>
+            <div class="alert alert-info mb-0">
+                Цената за доставка ще бъде определена и добавена от нас след получаване на поръчката.
+            </div>
+        }
+    </div>
+</div>
+
+@* Section 4 — Order Summary *@
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">@(_customerType != null ? "4" : "3"). Обобщение на поръчката</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table align-middle mb-3">
+                <thead>
+                    <tr>
+                        <th>Продукт</th>
+                        <th class="text-center">Количество</th>
+                        <th class="text-center">Мерна ед.</th>
+                        <th class="text-end">Ед. цена с ДДС</th>
+                        <th class="text-end">Общо</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td>@item.ProductName</td>
+                            <td class="text-center">@item.Quantity.ToString("F2")</td>
+                            <td class="text-center">@item.UnitDisplay</td>
+                            <td class="text-end">@item.UnitPriceWithVat.ToString("F2") €</td>
+                            <td class="text-end">@((item.Quantity * item.UnitPriceWithVat).ToString("F2")) €</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex flex-column align-items-end">
+            <div class="d-flex justify-content-between" style="min-width: 280px;">
+                <span>Сума без ДДС:</span>
+                <span>@CartService.GetTotalWithoutVat().ToString("F2") €</span>
+            </div>
+            <div class="d-flex justify-content-between" style="min-width: 280px;">
+                <span>Общо ДДС:</span>
+                <span>@CartService.GetTotalVat().ToString("F2") €</span>
+            </div>
+            <hr class="w-100" style="max-width: 280px;" />
+            <div class="d-flex justify-content-between fw-bold fs-5" style="min-width: 280px;">
+                <span>Обща сума с ДДС:</span>
+                <span>@CartService.GetTotalWithVat().ToString("F2") €</span>
+            </div>
+            @if (_deliveryMethod == 1)
+            {
+                <div class="text-muted small mt-2">Цената за доставка ще бъде добавена допълнително.</div>
+            }
+        </div>
+    </div>
+</div>
+
+@* Section 5 — Customer Info Summary *@
+@if (_customerType != null && HasCustomerInfo())
+{
+    <div class="card mb-4">
+        <div class="card-header text-muted">
+            <h5 class="mb-0">Вашите данни</h5>
+        </div>
+        <div class="card-body">
+            @if (_customerType == 0)
+            {
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Тип клиент:</dt>
+                    <dd class="col-sm-8">Физическо лице</dd>
+                    <dt class="col-sm-4">Име и фамилия:</dt>
+                    <dd class="col-sm-8">@_fullName</dd>
+                    <dt class="col-sm-4">Телефон:</dt>
+                    <dd class="col-sm-8">@_phone</dd>
+                </dl>
+            }
+            else
+            {
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Тип клиент:</dt>
+                    <dd class="col-sm-8">Фирма</dd>
+                    <dt class="col-sm-4">Име на фирмата:</dt>
+                    <dd class="col-sm-8">@_companyName</dd>
+                    <dt class="col-sm-4">ЕИК / Булстат:</dt>
+                    <dd class="col-sm-8">@_eik</dd>
+                    <dt class="col-sm-4">МОЛ:</dt>
+                    <dd class="col-sm-8">@_mol</dd>
+                    <dt class="col-sm-4">Лице за контакт:</dt>
+                    <dd class="col-sm-8">@_contactPerson</dd>
+                    <dt class="col-sm-4">Телефон за контакт:</dt>
+                    <dd class="col-sm-8">@_contactPhone</dd>
+                </dl>
+            }
+            @if (_deliveryMethod == 1 && !string.IsNullOrWhiteSpace(_address))
+            {
+                <hr />
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Метод на получаване:</dt>
+                    <dd class="col-sm-8">Доставка</dd>
+                    <dt class="col-sm-4">Адрес за доставка:</dt>
+                    <dd class="col-sm-8">@_address</dd>
+                </dl>
+            }
+            else if (_deliveryMethod == 0)
+            {
+                <hr />
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Метод на получаване:</dt>
+                    <dd class="col-sm-8">Вземане от обекта</dd>
+                </dl>
+            }
+        </div>
+    </div>
+}
+
+@* Submit Button *@
+<div class="d-grid mb-5">
+    <button class="btn btn-success btn-lg" @onclick="SubmitOrder" disabled="@_isSubmitting">
+        @if (_isSubmitting)
+        {
+            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+            <span>Изпращане...</span>
+        }
+        else
+        {
+            <span>Потвърди поръчката</span>
+        }
+    </button>
+</div>
+
+@code {
+    private IReadOnlyList<CartItem> _items = Array.Empty<CartItem>();
+
+    private int? _customerType;
+    private int? _deliveryMethod;
+
+    // Individual fields
+    private string _fullName = "";
+    private string _phone = "";
+
+    // Company fields
+    private string _companyName = "";
+    private string _eik = "";
+    private string _mol = "";
+    private string _contactPerson = "";
+    private string _contactPhone = "";
+
+    // Delivery
+    private string _address = "";
+
+    // State
+    private bool _submitted;
+    private bool _isSubmitting;
+    private string? _errorMessage;
+    private Dictionary<string, string> _fieldErrors = new();
+
+    protected override void OnInitialized()
+    {
+        _items = CartService.GetItems();
+
+        if (_items.Count == 0)
+        {
+            Navigation.NavigateTo("/cart");
+        }
+    }
+
+    private void OnCustomerTypeChanged(int type)
+    {
+        _customerType = type;
+        _fieldErrors.Clear();
+        _submitted = false;
+    }
+
+    private void OnDeliveryMethodChanged(int method)
+    {
+        _deliveryMethod = method;
+        _fieldErrors.Remove("address");
+    }
+
+    private string? FieldError(string field)
+    {
+        return _submitted && _fieldErrors.TryGetValue(field, out var error) ? error : null;
+    }
+
+    private bool HasCustomerInfo()
+    {
+        if (_customerType == 0)
+            return !string.IsNullOrWhiteSpace(_fullName) || !string.IsNullOrWhiteSpace(_phone);
+
+        return !string.IsNullOrWhiteSpace(_companyName) || !string.IsNullOrWhiteSpace(_eik);
+    }
+
+    private bool Validate()
+    {
+        _fieldErrors.Clear();
+
+        if (_customerType == null)
+        {
+            // Handled separately in the UI
+        }
+
+        if (_deliveryMethod == null)
+        {
+            // Handled separately in the UI
+        }
+
+        if (_customerType == 0)
+        {
+            if (string.IsNullOrWhiteSpace(_fullName))
+                _fieldErrors["fullName"] = "Полето е задължително.";
+            if (string.IsNullOrWhiteSpace(_phone))
+                _fieldErrors["phone"] = "Полето е задължително.";
+        }
+        else if (_customerType == 1)
+        {
+            if (string.IsNullOrWhiteSpace(_companyName))
+                _fieldErrors["companyName"] = "Полето е задължително.";
+            if (string.IsNullOrWhiteSpace(_eik))
+                _fieldErrors["eik"] = "Полето е задължително.";
+            else if (!System.Text.RegularExpressions.Regex.IsMatch(_eik.Trim(), @"^\d{9}$|^\d{13}$"))
+                _fieldErrors["eik"] = "ЕИК/Булстат трябва да е 9 или 13 цифри.";
+            if (string.IsNullOrWhiteSpace(_mol))
+                _fieldErrors["mol"] = "Полето е задължително.";
+            if (string.IsNullOrWhiteSpace(_contactPerson))
+                _fieldErrors["contactPerson"] = "Полето е задължително.";
+            if (string.IsNullOrWhiteSpace(_contactPhone))
+                _fieldErrors["contactPhone"] = "Полето е задължително.";
+        }
+
+        if (_deliveryMethod == 1 && string.IsNullOrWhiteSpace(_address))
+        {
+            _fieldErrors["address"] = "Полето е задължително.";
+        }
+
+        return _customerType != null && _deliveryMethod != null && _fieldErrors.Count == 0;
+    }
+
+    private async Task SubmitOrder()
+    {
+        _submitted = true;
+        _errorMessage = null;
+
+        if (!Validate())
+            return;
+
+        _isSubmitting = true;
+
+        try
+        {
+            var request = new CreateOrderRequest
+            {
+                CustomerType = _customerType!.Value,
+                DeliveryMethod = _deliveryMethod!.Value,
+                CustomerInfo = new CreateOrderCustomerInfo
+                {
+                    FullName = _customerType == 0 ? _fullName.Trim() : null,
+                    Phone = _customerType == 0 ? _phone.Trim() : null,
+                    CompanyName = _customerType == 1 ? _companyName.Trim() : null,
+                    Eik = _customerType == 1 ? _eik.Trim() : null,
+                    Mol = _customerType == 1 ? _mol.Trim() : null,
+                    ContactPerson = _customerType == 1 ? _contactPerson.Trim() : null,
+                    ContactPhone = _customerType == 1 ? _contactPhone.Trim() : null,
+                    Address = _deliveryMethod == 1 ? _address.Trim() : null
+                },
+                Items = _items.Select(i => new CreateOrderItemRequest
+                {
+                    ProductId = i.ProductId,
+                    Quantity = i.Quantity
+                }).ToList()
+            };
+
+            var (response, error) = await OrderService.PlaceOrderAsync(request);
+
+            if (error != null)
+            {
+                _errorMessage = error;
+            }
+            else if (response != null)
+            {
+                CartService.ClearCart();
+                Navigation.NavigateTo($"/order-confirmation/{response.OrderNumber}");
+            }
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Възникна неочаквана грешка. Моля, опитайте отново.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+}
