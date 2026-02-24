@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+    public DbSet<Category> Categories => Set<Category>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,5 +22,14 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Username).HasMaxLength(50).IsRequired();
             entity.Property(e => e.PasswordHash).HasMaxLength(500).IsRequired();
         });
+
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+        });
+
+        // Product is a placeholder until Epic 04 — exclude from migrations for now
+        modelBuilder.Ignore<Product>();
     }
 }
