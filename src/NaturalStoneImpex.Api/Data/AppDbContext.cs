@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
 
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Product> Products => Set<Product>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,7 +30,23 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
         });
 
-        // Product is a placeholder until Epic 04 — exclude from migrations for now
-        modelBuilder.Ignore<Product>();
+        modelBuilder.Entity<Product>(entity =>
+        {
+            entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(2000);
+            entity.Property(e => e.PriceWithoutVat).HasPrecision(18, 2);
+            entity.Property(e => e.VatAmount).HasPrecision(18, 2);
+            entity.Property(e => e.PriceWithVat).HasPrecision(18, 2);
+            entity.Property(e => e.StockQuantity).HasPrecision(18, 2);
+            entity.Property(e => e.ImagePath).HasMaxLength(500);
+
+            entity.HasOne(e => e.Category)
+                  .WithMany(c => c.Products)
+                  .HasForeignKey(e => e.CategoryId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.Name, e.CategoryId }).IsUnique();
+            entity.HasIndex(e => e.IsActive);
+        });
     }
 }
