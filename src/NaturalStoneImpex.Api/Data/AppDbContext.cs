@@ -12,6 +12,9 @@ public class AppDbContext : DbContext
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderCustomerInfo> OrderCustomerInfos => Set<OrderCustomerInfo>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,6 +50,53 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(e => new { e.Name, e.CategoryId }).IsUnique();
             entity.HasIndex(e => e.IsActive);
+        });
+
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.HasIndex(e => e.OrderNumber).IsUnique();
+            entity.Property(e => e.OrderNumber).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.DeliveryFee).HasPrecision(18, 2);
+
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        modelBuilder.Entity<OrderCustomerInfo>(entity =>
+        {
+            entity.HasOne(e => e.Order)
+                  .WithOne(o => o.CustomerInfo)
+                  .HasForeignKey<OrderCustomerInfo>(e => e.OrderId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.OrderId).IsUnique();
+            entity.Property(e => e.FullName).HasMaxLength(200);
+            entity.Property(e => e.Phone).HasMaxLength(20);
+            entity.Property(e => e.Address).HasMaxLength(500);
+            entity.Property(e => e.CompanyName).HasMaxLength(200);
+            entity.Property(e => e.Eik).HasMaxLength(13);
+            entity.Property(e => e.Mol).HasMaxLength(200);
+            entity.Property(e => e.ContactPerson).HasMaxLength(200);
+            entity.Property(e => e.ContactPhone).HasMaxLength(20);
+        });
+
+        modelBuilder.Entity<OrderItem>(entity =>
+        {
+            entity.Property(e => e.ProductName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Quantity).HasPrecision(18, 2);
+            entity.Property(e => e.UnitPriceWithoutVat).HasPrecision(18, 2);
+            entity.Property(e => e.VatAmount).HasPrecision(18, 2);
+            entity.Property(e => e.UnitPriceWithVat).HasPrecision(18, 2);
+
+            entity.HasOne(e => e.Order)
+                  .WithMany(o => o.Items)
+                  .HasForeignKey(e => e.OrderId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Product)
+                  .WithMany()
+                  .HasForeignKey(e => e.ProductId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
