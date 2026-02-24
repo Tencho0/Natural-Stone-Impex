@@ -2,6 +2,7 @@
 @using NaturalStoneImpex.Client.Models
 @using NaturalStoneImpex.Client.Services
 @inject IProductService ProductService
+@inject CartService CartService
 @inject NavigationManager Navigation
 
 <PageTitle>@(_product?.Name ?? "Детайли за продукт") — Natural Stone Impex</PageTitle>
@@ -101,6 +102,8 @@ else
     </div>
 }
 
+<ToastNotification @ref="_toast" />
+
 @code {
     [Parameter]
     public int Id { get; set; }
@@ -108,6 +111,7 @@ else
     private ProductDto? _product;
     private bool _isLoading = true;
     private decimal _quantity = 1;
+    private ToastNotification _toast = default!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -118,6 +122,20 @@ else
 
     private void AddToCart()
     {
-        // Will be connected in Session 3.3
+        if (_product == null || _quantity <= 0) return;
+
+        CartService.AddItem(new CartItem
+        {
+            ProductId = _product.Id,
+            ProductName = _product.Name,
+            UnitPriceWithVat = _product.PriceWithVat,
+            VatAmount = _product.VatAmount,
+            UnitPriceWithoutVat = _product.PriceWithoutVat,
+            Unit = _product.Unit,
+            UnitDisplay = _product.UnitDisplay,
+            Quantity = _quantity,
+            ImagePath = _product.ImagePath
+        });
+        _toast.Show("Продуктът е добавен в количката.");
     }
 }

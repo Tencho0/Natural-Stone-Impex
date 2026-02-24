@@ -1,0 +1,48 @@
+@implements IDisposable
+
+@if (_isVisible)
+{
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+        <div class="toast show align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    @Message
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="Hide" aria-label="Затвори"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isVisible;
+    private System.Threading.Timer? _timer;
+
+    [Parameter]
+    public string Message { get; set; } = string.Empty;
+
+    public void Show(string message)
+    {
+        Message = message;
+        _isVisible = true;
+        StateHasChanged();
+
+        _timer?.Dispose();
+        _timer = new System.Threading.Timer(_ =>
+        {
+            _isVisible = false;
+            InvokeAsync(StateHasChanged);
+        }, null, 2000, Timeout.Infinite);
+    }
+
+    private void Hide()
+    {
+        _isVisible = false;
+        _timer?.Dispose();
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

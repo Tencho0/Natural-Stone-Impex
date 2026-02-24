@@ -23,6 +23,8 @@ builder.Services.AddHttpClient("NaturalStoneImpex.Api", client =>
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("NaturalStoneImpex.Api"));
 
+builder.Services.AddSingleton<CartService>();
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IProductService, ProductService>();
