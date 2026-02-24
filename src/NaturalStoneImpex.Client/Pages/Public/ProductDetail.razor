@@ -1,11 +1,123 @@
-@page "/product/{Id:int}"
+@page "/products/{Id:int}"
+@using NaturalStoneImpex.Client.Models
+@using NaturalStoneImpex.Client.Services
+@inject IProductService ProductService
+@inject NavigationManager Navigation
 
-<PageTitle>Детайли за продукт — Natural Stone Impex</PageTitle>
+<PageTitle>@(_product?.Name ?? "Детайли за продукт") — Natural Stone Impex</PageTitle>
 
-<h1>Детайли за продукт</h1>
-<p>Продукт №@Id</p>
+@if (_isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Зареждане...</span>
+        </div>
+    </div>
+}
+else if (_product == null)
+{
+    <div class="text-center my-5">
+        <h3>Продуктът не е намерен.</h3>
+        <a href="/catalog" class="btn btn-outline-primary mt-3">Обратно към каталога</a>
+    </div>
+}
+else
+{
+    @* Breadcrumb *@
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/catalog">Каталог</a></li>
+            <li class="breadcrumb-item"><a href="/catalog?categoryId=@_product.CategoryId">@_product.CategoryName</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@_product.Name</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        @* Left column — Image *@
+        <div class="col-md-6 mb-4">
+            @if (!string.IsNullOrEmpty(_product.ImagePath))
+            {
+                <img src="@_product.ImagePath" alt="@_product.Name" class="img-fluid rounded" style="width: 100%; object-fit: cover;" />
+            }
+            else
+            {
+                <div class="bg-light d-flex align-items-center justify-content-center text-muted rounded" style="height: 400px;">
+                    <span class="fs-4">Няма снимка</span>
+                </div>
+            }
+        </div>
+
+        @* Right column — Product info *@
+        <div class="col-md-6">
+            <h2>@_product.Name</h2>
+            <span class="badge bg-secondary mb-3">@_product.CategoryName</span>
+
+            @if (!string.IsNullOrEmpty(_product.Description))
+            {
+                <p class="mt-3 text-muted">@_product.Description</p>
+            }
+
+            @* Price section *@
+            <div class="mt-4 mb-3">
+                <h3 class="fw-bold mb-1">Цена с ДДС: @_product.PriceWithVat.ToString("F2") €</h3>
+                <div class="text-muted">Цена без ДДС: @_product.PriceWithoutVat.ToString("F2") € без ДДС</div>
+                <div class="text-muted">ДДС: @_product.VatAmount.ToString("F2") € ДДС</div>
+            </div>
+
+            @* Stock status *@
+            <div class="mb-3">
+                @if (_product.StockQuantity > 0)
+                {
+                    <span class="badge bg-success">В наличност</span>
+                }
+                else
+                {
+                    <span class="badge bg-danger">Изчерпан</span>
+                }
+            </div>
+
+            @* Unit *@
+            <div class="mb-4">
+                <span>Мерна единица: @_product.UnitDisplay</span>
+            </div>
+
+            @* Order section *@
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Количество (@_product.UnitDisplay)</label>
+                <input type="number" class="form-control mb-3" style="max-width: 200px;"
+                       min="0.01" step="0.01"
+                       @bind="_quantity"
+                       disabled="@(_product.StockQuantity <= 0)" />
+
+                <button class="btn btn-primary btn-lg"
+                        disabled="@(_product.StockQuantity <= 0)"
+                        @onclick="AddToCart">
+                    Добави в количката
+                </button>
+            </div>
+
+            <a href="/catalog" class="text-decoration-none">← Обратно към каталога</a>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter]
     public int Id { get; set; }
+
+    private ProductDto? _product;
+    private bool _isLoading = true;
+    private decimal _quantity = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        _product = await ProductService.GetByIdAsync(Id);
+        _isLoading = false;
+    }
+
+    private void AddToCart()
+    {
+        // Will be connected in Session 3.3
+    }
 }
