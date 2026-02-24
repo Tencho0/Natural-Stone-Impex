@@ -44,16 +44,17 @@ public class ProductService : IProductService
         }
     }
 
-    public async Task<string?> CreateAsync(CreateProductRequest request)
+    public async Task<(int? ProductId, string? Error)> CreateAsync(CreateProductRequest request)
     {
         var response = await _httpClient.PostAsJsonAsync("api/products", request);
 
         if (!response.IsSuccessStatusCode)
         {
-            return await ExtractErrorAsync(response);
+            return (null, await ExtractErrorAsync(response));
         }
 
-        return null;
+        var product = await response.Content.ReadFromJsonAsync<ProductDto>();
+        return (product?.Id, null);
     }
 
     public async Task<string?> UpdateAsync(int id, UpdateProductRequest request)

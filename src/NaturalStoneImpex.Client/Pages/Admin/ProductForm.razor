@@ -1,0 +1,387 @@
+@page "/admin/products/new"
+@page "/admin/products/{ProductId:int}/edit"
+@layout AdminLayout
+@attribute [Authorize]
+@inject IProductService ProductService
+@inject ICategoryService CategoryService
+@inject NavigationManager Navigation
+
+<PageTitle>@(_isEditMode ? "Редактиране на продукт" : "Нов продукт") — Natural Stone Impex</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">@(_isEditMode ? "Редактиране на продукт" : "Нов продукт")</h1>
+</div>
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @_errorMessage
+        <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+
+@if (_isLoadingData)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Зареждане...</span>
+        </div>
+    </div>
+}
+else if (_loadError)
+{
+    <div class="alert alert-danger">Възникна грешка при зареждане на данните.</div>
+}
+else
+{
+    <EditForm Model="_formModel" OnValidSubmit="HandleSave">
+        <DataAnnotationsValidator />
+
+        <div class="row">
+            <div class="col-md-8">
+                <!-- Име -->
+                <div class="mb-3">
+                    <label for="productName" class="form-label">Име на продукта <span class="text-danger">*</span></label>
+                    <InputText id="productName" class="form-control" @bind-Value="_formModel.Name" disabled="@_isSaving" />
+                    <ValidationMessage For="() => _formModel.Name" />
+                </div>
+
+                <!-- Категория -->
+                <div class="mb-3">
+                    <label for="productCategory" class="form-label">Категория <span class="text-danger">*</span></label>
+                    <InputSelect id="productCategory" class="form-select" @bind-Value="_formModel.CategoryId" disabled="@_isSaving">
+                        <option value="0">-- Изберете категория --</option>
+                        @foreach (var category in _categories)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => _formModel.CategoryId" />
+                </div>
+
+                <!-- Описание -->
+                <div class="mb-3">
+                    <label for="productDescription" class="form-label">Описание</label>
+                    <InputTextArea id="productDescription" class="form-control" rows="4" @bind-Value="_formModel.Description" disabled="@_isSaving" />
+                    <ValidationMessage For="() => _formModel.Description" />
+                </div>
+
+                <!-- Prices row -->
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="priceWithoutVat" class="form-label">Цена без ДДС <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <InputNumber id="priceWithoutVat" class="form-control" @bind-Value="_formModel.PriceWithoutVat"
+                                         disabled="@_isSaving" @bind-Value:after="RecalculatePriceWithVat" step="0.01" />
+                            <span class="input-group-text">€</span>
+                        </div>
+                        <ValidationMessage For="() => _formModel.PriceWithoutVat" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="vatAmount" class="form-label">ДДС <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <InputNumber id="vatAmount" class="form-control" @bind-Value="_formModel.VatAmount"
+                                         disabled="@_isSaving" @bind-Value:after="RecalculatePriceWithVat" step="0.01" />
+                            <span class="input-group-text">€</span>
+                        </div>
+                        <ValidationMessage For="() => _formModel.VatAmount" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="priceWithVat" class="form-label">Цена с ДДС <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <InputNumber id="priceWithVat" class="form-control" @bind-Value="_formModel.PriceWithVat"
+                                         disabled="@_isSaving" step="0.01" />
+                            <span class="input-group-text">€</span>
+                        </div>
+                        <ValidationMessage For="() => _formModel.PriceWithVat" />
+                        @if (_priceValidationError is not null)
+                        {
+                            <div class="text-danger small mt-1">@_priceValidationError</div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Unit and Stock row -->
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="productUnit" class="form-label">Мерна единица <span class="text-danger">*</span></label>
+                        <InputSelect id="productUnit" class="form-select" @bind-Value="_formModel.Unit" disabled="@_isSaving">
+                            <option value="0">кг</option>
+                            <option value="1">м²</option>
+                        </InputSelect>
+                        <ValidationMessage For="() => _formModel.Unit" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="stockQuantity" class="form-label">Налично количество <span class="text-danger">*</span></label>
+                        <InputNumber id="stockQuantity" class="form-control" @bind-Value="_formModel.StockQuantity"
+                                     disabled="@_isSaving" step="0.01" />
+                        <ValidationMessage For="() => _formModel.StockQuantity" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image column -->
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label class="form-label">Снимка</label>
+
+                    @if (_imagePreviewUrl is not null)
+                    {
+                        <div class="mb-2">
+                            <img src="@_imagePreviewUrl" alt="Преглед" class="img-fluid rounded border" style="max-height: 250px;" />
+                        </div>
+                    }
+                    else if (_isEditMode && !string.IsNullOrEmpty(_existingImagePath))
+                    {
+                        <div class="mb-2">
+                            <img src="https://localhost:5001/@_existingImagePath" alt="Текуща снимка" class="img-fluid rounded border" style="max-height: 250px;" />
+                        </div>
+                    }
+
+                    <InputFile OnChange="OnImageSelected" accept=".jpg,.jpeg,.png" disabled="@_isSaving" class="form-control" />
+                    <div class="form-text">Позволени формати: .jpg, .png</div>
+                    @if (_imageError is not null)
+                    {
+                        <div class="text-danger small mt-1">@_imageError</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                @if (_isSaving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                }
+                Запази
+            </button>
+            <button type="button" class="btn btn-secondary" @onclick="NavigateBack" disabled="@_isSaving">
+                Отказ
+            </button>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int? ProductId { get; set; }
+
+    private bool _isEditMode => ProductId.HasValue;
+    private bool _isLoadingData = true;
+    private bool _loadError;
+    private bool _isSaving;
+    private string? _errorMessage;
+    private string? _priceValidationError;
+    private string? _imageError;
+    private string? _existingImagePath;
+    private string? _imagePreviewUrl;
+    private IBrowserFile? _selectedImage;
+
+    private List<CategoryDto> _categories = new();
+    private readonly ProductFormModel _formModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _categories = await CategoryService.GetAllAsync();
+
+            if (_isEditMode)
+            {
+                var product = await ProductService.GetByIdAsync(ProductId!.Value);
+                if (product is null)
+                {
+                    _loadError = true;
+                    return;
+                }
+
+                _formModel.Name = product.Name;
+                _formModel.Description = product.Description;
+                _formModel.CategoryId = product.CategoryId;
+                _formModel.PriceWithoutVat = product.PriceWithoutVat;
+                _formModel.VatAmount = product.VatAmount;
+                _formModel.PriceWithVat = product.PriceWithVat;
+                _formModel.Unit = product.Unit;
+                _formModel.StockQuantity = product.StockQuantity;
+                _existingImagePath = product.ImagePath;
+            }
+        }
+        catch
+        {
+            _loadError = true;
+        }
+        finally
+        {
+            _isLoadingData = false;
+        }
+    }
+
+    private void RecalculatePriceWithVat()
+    {
+        _formModel.PriceWithVat = _formModel.PriceWithoutVat + _formModel.VatAmount;
+        _priceValidationError = null;
+    }
+
+    private bool ValidatePriceConsistency()
+    {
+        if (_formModel.PriceWithVat != _formModel.PriceWithoutVat + _formModel.VatAmount)
+        {
+            _priceValidationError = "Цената с ДДС трябва да е равна на цената без ДДС + ДДС.";
+            return false;
+        }
+
+        _priceValidationError = null;
+        return true;
+    }
+
+    private async Task OnImageSelected(InputFileChangeEventArgs e)
+    {
+        _imageError = null;
+        _selectedImage = null;
+        _imagePreviewUrl = null;
+
+        var file = e.File;
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+
+        if (!allowedExtensions.Contains(extension))
+        {
+            _imageError = "Позволени формати: .jpg, .png";
+            return;
+        }
+
+        if (file.Size > 5 * 1024 * 1024)
+        {
+            _imageError = "Файлът не може да е по-голям от 5 MB.";
+            return;
+        }
+
+        _selectedImage = file;
+
+        // Generate preview
+        var buffer = new byte[file.Size];
+        await file.OpenReadStream(5 * 1024 * 1024).ReadAsync(buffer);
+        var base64 = Convert.ToBase64String(buffer);
+        var contentType = extension == ".png" ? "image/png" : "image/jpeg";
+        _imagePreviewUrl = $"data:{contentType};base64,{base64}";
+    }
+
+    private async Task HandleSave()
+    {
+        if (!ValidatePriceConsistency())
+            return;
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            int productId;
+
+            if (_isEditMode)
+            {
+                var updateRequest = new UpdateProductRequest
+                {
+                    Name = _formModel.Name,
+                    Description = _formModel.Description,
+                    CategoryId = _formModel.CategoryId,
+                    PriceWithoutVat = _formModel.PriceWithoutVat,
+                    VatAmount = _formModel.VatAmount,
+                    PriceWithVat = _formModel.PriceWithVat,
+                    Unit = _formModel.Unit,
+                    StockQuantity = _formModel.StockQuantity
+                };
+
+                var error = await ProductService.UpdateAsync(ProductId!.Value, updateRequest);
+                if (error is not null)
+                {
+                    _errorMessage = error;
+                    return;
+                }
+
+                productId = ProductId!.Value;
+            }
+            else
+            {
+                var createRequest = new CreateProductRequest
+                {
+                    Name = _formModel.Name,
+                    Description = _formModel.Description,
+                    CategoryId = _formModel.CategoryId,
+                    PriceWithoutVat = _formModel.PriceWithoutVat,
+                    VatAmount = _formModel.VatAmount,
+                    PriceWithVat = _formModel.PriceWithVat,
+                    Unit = _formModel.Unit,
+                    StockQuantity = _formModel.StockQuantity
+                };
+
+                var (newProductId, error) = await ProductService.CreateAsync(createRequest);
+                if (error is not null)
+                {
+                    _errorMessage = error;
+                    return;
+                }
+
+                productId = newProductId!.Value;
+            }
+
+            // Upload image if selected
+            if (_selectedImage is not null)
+            {
+                using var stream = _selectedImage.OpenReadStream(5 * 1024 * 1024);
+                var imageError = await ProductService.UploadImageAsync(productId, stream, _selectedImage.Name);
+                if (imageError is not null)
+                {
+                    _errorMessage = imageError;
+                    return;
+                }
+            }
+
+            Navigation.NavigateTo("/admin/products");
+        }
+        catch
+        {
+            _errorMessage = "Възникна грешка при свързване със сървъра.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/admin/products");
+    }
+
+    private sealed class ProductFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Името на продукта е задължително.")]
+        [System.ComponentModel.DataAnnotations.MinLength(2, ErrorMessage = "Името трябва да е поне 2 символа.")]
+        [System.ComponentModel.DataAnnotations.MaxLength(200, ErrorMessage = "Името не може да надвишава 200 символа.")]
+        public string Name { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.MaxLength(2000, ErrorMessage = "Описанието не може да надвишава 2000 символа.")]
+        public string? Description { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Range(1, int.MaxValue, ErrorMessage = "Категорията е задължителна.")]
+        public int CategoryId { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Range(0.01, (double)decimal.MaxValue, ErrorMessage = "Цената без ДДС трябва да е по-голяма от 0.")]
+        public decimal PriceWithoutVat { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Range(0, (double)decimal.MaxValue, ErrorMessage = "ДДС трябва да е по-голямо или равно на 0.")]
+        public decimal VatAmount { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Range(0.01, (double)decimal.MaxValue, ErrorMessage = "Цената с ДДС трябва да е по-голяма от 0.")]
+        public decimal PriceWithVat { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Range(0, 1, ErrorMessage = "Невалидна мерна единица.")]
+        public int Unit { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Range(0, (double)decimal.MaxValue, ErrorMessage = "Количеството трябва да е по-голямо или равно на 0.")]
+        public decimal StockQuantity { get; set; }
+    }
+}
