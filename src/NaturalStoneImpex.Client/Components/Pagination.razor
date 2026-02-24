@@ -1,0 +1,70 @@
+@if (TotalPages > 1)
+{
+    <nav aria-label="Навигация по страници">
+        <ul class="pagination justify-content-center">
+            <li class="page-item @(CurrentPage <= 1 ? "disabled" : "")">
+                <button class="page-link" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage - 1)" disabled="@(CurrentPage <= 1)">
+                    <span aria-hidden="true">&laquo;</span> Предишна
+                </button>
+            </li>
+
+            @foreach (var pageNum in GetPageNumbers())
+            {
+                @if (pageNum == -1)
+                {
+                    <li class="page-item disabled">
+                        <span class="page-link">&hellip;</span>
+                    </li>
+                }
+                else
+                {
+                    <li class="page-item @(pageNum == CurrentPage ? "active" : "")">
+                        <button class="page-link" @onclick="() => OnPageChanged.InvokeAsync(pageNum)">@pageNum</button>
+                    </li>
+                }
+            }
+
+            <li class="page-item @(CurrentPage >= TotalPages ? "disabled" : "")">
+                <button class="page-link" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage + 1)" disabled="@(CurrentPage >= TotalPages)">
+                    Следваща <span aria-hidden="true">&raquo;</span>
+                </button>
+            </li>
+        </ul>
+    </nav>
+}
+
+@code {
+    [Parameter] public int CurrentPage { get; set; }
+    [Parameter] public int TotalPages { get; set; }
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+
+    private List<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+
+        if (TotalPages <= 7)
+        {
+            for (var i = 1; i <= TotalPages; i++)
+                pages.Add(i);
+            return pages;
+        }
+
+        pages.Add(1);
+
+        if (CurrentPage > 3)
+            pages.Add(-1); // ellipsis
+
+        var start = Math.Max(2, CurrentPage - 1);
+        var end = Math.Min(TotalPages - 1, CurrentPage + 1);
+
+        for (var i = start; i <= end; i++)
+            pages.Add(i);
+
+        if (CurrentPage < TotalPages - 2)
+            pages.Add(-1); // ellipsis
+
+        pages.Add(TotalPages);
+
+        return pages;
+    }
+}

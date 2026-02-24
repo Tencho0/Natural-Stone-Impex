@@ -1,8 +1,316 @@
 @page "/admin/products"
 @layout AdminLayout
 @attribute [Authorize]
+@implements IDisposable
+@inject IProductService ProductService
+@inject ICategoryService CategoryService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Продукти — Natural Stone Impex</PageTitle>
 
-<h1>Продукти</h1>
-<p>Тук ще бъде списъкът с продукти.</p>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Продукти</h1>
+    <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/admin/products/new")'>
+        <i class="bi bi-plus-lg me-1"></i> Добави продукт
+    </button>
+</div>
+
+@if (_successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @_successMessage
+        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @_errorMessage
+        <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+
+<!-- Filters -->
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <select class="form-select" value="@_selectedCategoryId" @onchange="OnCategoryChanged">
+            <option value="">Всички категории</option>
+            @foreach (var category in _categories)
+            {
+                <option value="@category.Id">@category.Name</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-4">
+        <input type="text" class="form-control" placeholder="Търсене по име..."
+               value="@_searchText" @oninput="OnSearchInput" />
+    </div>
+</div>
+
+@if (_isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Зареждане...</span>
+        </div>
+    </div>
+}
+else if (_products.Items.Count == 0)
+{
+    <div class="alert alert-info">Няма намерени продукти.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 70px;">Снимка</th>
+                    <th>Име</th>
+                    <th>Категория</th>
+                    <th>Цена с ДДС</th>
+                    <th>Мерна ед.</th>
+                    <th>Наличност</th>
+                    <th style="width: 120px;">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var product in _products.Items)
+                {
+                    <tr class="@(!product.IsActive ? "table-secondary" : "")">
+                        <td>
+                            @if (!string.IsNullOrEmpty(product.ImagePath))
+                            {
+                                <img src="https://localhost:5001/@product.ImagePath" alt="@product.Name"
+                                     class="rounded" style="width: 50px; height: 50px; object-fit: cover;" />
+                            }
+                            else
+                            {
+                                <div class="bg-light border rounded d-flex align-items-center justify-content-center"
+                                     style="width: 50px; height: 50px;">
+                                    <i class="bi bi-image text-muted"></i>
+                                </div>
+                            }
+                        </td>
+                        <td>
+                            @product.Name
+                            @if (!product.IsActive)
+                            {
+                                <span class="badge bg-secondary ms-1">Деактивиран</span>
+                            }
+                        </td>
+                        <td>@product.CategoryName</td>
+                        <td>@product.PriceWithVat.ToString("F2") &euro;</td>
+                        <td>@product.UnitDisplay</td>
+                        <td>
+                            <span class="@GetStockCssClass(product.StockQuantity)">
+                                @product.StockQuantity.ToString("F2")
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1"
+                                    @onclick="() => NavigateToEdit(product.Id)"
+                                    title="Редактиране">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => OpenDeleteModal(product)"
+                                    title="Деактивиране">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <Pagination CurrentPage="_products.Page" TotalPages="_products.TotalPages" OnPageChanged="OnPageChanged" />
+}
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Потвърждение за деактивиране</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Затвори"></button>
+            </div>
+            <div class="modal-body">
+                @if (_deleteError is not null)
+                {
+                    <div class="alert alert-danger">@_deleteError</div>
+                }
+                <p>Сигурни ли сте, че искате да деактивирате продукт „@_deletingProduct?.Name"?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@_isDeleting">Отказ</button>
+                <button type="button" class="btn btn-danger" @onclick="HandleDelete" disabled="@_isDeleting">
+                    @if (_isDeleting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    }
+                    Деактивирай
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private PaginatedResponse<ProductListDto> _products = new();
+    private List<CategoryDto> _categories = new();
+    private bool _isLoading = true;
+    private bool _isDeleting;
+    private string? _successMessage;
+    private string? _errorMessage;
+    private string? _deleteError;
+    private ProductListDto? _deletingProduct;
+
+    private int? _selectedCategoryId;
+    private string _searchText = string.Empty;
+    private int _currentPage = 1;
+    private const int PageSize = 20;
+
+    private System.Timers.Timer? _debounceTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _debounceTimer = new System.Timers.Timer(300);
+        _debounceTimer.AutoReset = false;
+        _debounceTimer.Elapsed += async (_, _) =>
+        {
+            _currentPage = 1;
+            await InvokeAsync(async () =>
+            {
+                await LoadProductsAsync();
+                StateHasChanged();
+            });
+        };
+
+        try
+        {
+            _categories = await CategoryService.GetAllAsync();
+        }
+        catch
+        {
+            _errorMessage = "Възникна грешка при зареждане на категориите.";
+        }
+
+        await LoadProductsAsync();
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        _isLoading = true;
+
+        try
+        {
+            _products = await ProductService.GetAllAsync(_selectedCategoryId, _searchText, _currentPage, PageSize);
+        }
+        catch
+        {
+            _errorMessage = "Възникна грешка при зареждане на продуктите.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnCategoryChanged(ChangeEventArgs e)
+    {
+        _selectedCategoryId = int.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _currentPage = 1;
+        await LoadProductsAsync();
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _searchText = e.Value?.ToString() ?? string.Empty;
+        _debounceTimer?.Stop();
+        _debounceTimer?.Start();
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _currentPage = page;
+        await LoadProductsAsync();
+    }
+
+    private void NavigateToEdit(int productId)
+    {
+        Navigation.NavigateTo($"/admin/products/{productId}/edit");
+    }
+
+    private async Task OpenDeleteModal(ProductListDto product)
+    {
+        _deletingProduct = product;
+        _deleteError = null;
+        await ShowModalAsync("deleteModal");
+    }
+
+    private async Task HandleDelete()
+    {
+        if (_deletingProduct is null) return;
+
+        _isDeleting = true;
+        _deleteError = null;
+
+        try
+        {
+            var error = await ProductService.DeleteAsync(_deletingProduct.Id);
+
+            if (error is not null)
+            {
+                _deleteError = error;
+            }
+            else
+            {
+                await HideModalAsync("deleteModal");
+                _successMessage = "Продуктът е деактивиран успешно.";
+                await LoadProductsAsync();
+                _ = AutoDismissSuccessAsync();
+            }
+        }
+        catch
+        {
+            _deleteError = "Възникна грешка при свързване със сървъра.";
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+    }
+
+    private static string GetStockCssClass(decimal stock)
+    {
+        if (stock <= 10) return "text-danger fw-bold";
+        if (stock <= 50) return "text-warning fw-bold";
+        return "text-success fw-bold";
+    }
+
+    private async Task AutoDismissSuccessAsync()
+    {
+        await Task.Delay(3000);
+        _successMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task ShowModalAsync(string modalId)
+    {
+        await JS.InvokeVoidAsync("eval", $"new bootstrap.Modal(document.getElementById('{modalId}')).show()");
+    }
+
+    private async Task HideModalAsync(string modalId)
+    {
+        await JS.InvokeVoidAsync("eval", $"bootstrap.Modal.getInstance(document.getElementById('{modalId}')).hide()");
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+}
