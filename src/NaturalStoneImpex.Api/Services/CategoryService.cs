@@ -21,8 +21,7 @@ public class CategoryService : ICategoryService
             {
                 Id = c.Id,
                 Name = c.Name,
-                // ProductCount will use c.Products.Count once Product entity is added in Epic 04
-                ProductCount = 0,
+                ProductCount = c.Products.Count(p => p.IsActive),
                 CreatedAt = c.CreatedAt
             })
             .OrderBy(c => c.Name)
@@ -37,7 +36,7 @@ public class CategoryService : ICategoryService
             {
                 Id = c.Id,
                 Name = c.Name,
-                ProductCount = 0,
+                ProductCount = c.Products.Count(p => p.IsActive),
                 CreatedAt = c.CreatedAt
             })
             .FirstOrDefaultAsync();
@@ -92,11 +91,14 @@ public class CategoryService : ICategoryService
 
         await _context.SaveChangesAsync();
 
+        var productCount = await _context.Products
+            .CountAsync(p => p.CategoryId == id && p.IsActive);
+
         return new CategoryDto
         {
             Id = category.Id,
             Name = category.Name,
-            ProductCount = 0,
+            ProductCount = productCount,
             CreatedAt = category.CreatedAt
         };
     }
@@ -108,8 +110,9 @@ public class CategoryService : ICategoryService
         if (category is null)
             return (false, "Категорията не е намерена.");
 
-        // Product check will be enabled in Epic 04 when Product entity is added.
-        // The FK constraint (DeleteBehavior.Restrict) will also prevent deletion at the DB level.
+        var hasProducts = await _context.Products.AnyAsync(p => p.CategoryId == id);
+        if (hasProducts)
+            return (false, "Категорията не може да бъде изтрита, защото съдържа продукти.");
 
         _context.Categories.Remove(category);
         await _context.SaveChangesAsync();
