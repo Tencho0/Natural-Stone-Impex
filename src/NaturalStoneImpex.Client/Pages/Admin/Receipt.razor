@@ -26,17 +26,38 @@
         .no-print {
             display: none !important;
         }
+
+        .sidebar, .navbar, nav, header, footer {
+            display: none !important;
+        }
+
+        @@page {
+            size: A4 portrait;
+            margin: 15mm;
+        }
+
         body, html {
             margin: 0;
             padding: 0;
+            font-size: 12pt;
         }
+
+        * {
+            background: white !important;
+            color: black !important;
+        }
+
         .receipt-page {
-            max-width: 100%;
-            margin: 0;
-            padding: 10mm;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
             font-family: Georgia, 'Times New Roman', serif;
             color: #000;
             background: #fff;
+        }
+
+        table {
+            page-break-inside: avoid;
         }
     }
 
@@ -290,6 +311,6 @@ else
 
     private async Task PrintReceipt()
     {
-        await JS.InvokeVoidAsync("window.print");
+        await JS.InvokeVoidAsync("printPage");
     }
 }
