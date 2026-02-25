@@ -146,6 +146,326 @@ public class OrderService : IOrderService
         };
     }
 
+    public async Task<PaginatedResponse<OrderListDto>> GetAllAsync(int? status, int page, int pageSize)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 50) pageSize = 50;
+
+        var query = _context.Orders
+            .Include(o => o.CustomerInfo)
+            .Include(o => o.Items)
+            .AsQueryable();
+
+        if (status.HasValue)
+            query = query.Where(o => (int)o.Status == status.Value);
+
+        var totalCount = await query.CountAsync();
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        var orders = await query
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var items = orders.Select(MapToListDto).ToList();
+
+        return new PaginatedResponse<OrderListDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize,
+            TotalPages = totalPages
+        };
+    }
+
+    public async Task<OrderDetailDto> GetByIdAsync(int id)
+    {
+        var order = await _context.Orders
+            .Include(o => o.CustomerInfo)
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order is null)
+            throw new KeyNotFoundException("Поръчката не е намерена.");
+
+        return MapToDetailDto(order);
+    }
+
+    public async Task<object> ConfirmAsync(int id)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        var order = await _context.Orders
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order is null)
+            throw new KeyNotFoundException("Поръчката не е намерена.");
+
+        if (order.IsCancelled)
+            throw new InvalidOperationException("Отказана поръчка не може да бъде потвърдена.");
+
+        if (order.Status != OrderStatus.Pending)
+            throw new InvalidOperationException("Само чакащи поръчки могат да бъдат потвърдени.");
+
+        // Load all referenced products
+        var productIds = order.Items.Select(i => i.ProductId).Distinct().ToList();
+        var products = await _context.Products
+            .Where(p => productIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id);
+
+        // Check stock for ALL items, collect all shortages
+        var shortages = new List<InsufficientStockDetail>();
+        foreach (var item in order.Items)
+        {
+            if (products.TryGetValue(item.ProductId, out var product))
+            {
+                if (product.StockQuantity < item.Quantity)
+                {
+                    shortages.Add(new InsufficientStockDetail
+                    {
+                        ProductName = item.ProductName,
+                        Ordered = item.Quantity,
+                        Available = product.StockQuantity,
+                        Unit = item.Unit == UnitType.Kg ? "кг" : "м²"
+                    });
+                }
+            }
+        }
+
+        if (shortages.Count > 0)
+        {
+            return new OrderConfirmErrorDto
+            {
+                Error = "Недостатъчна наличност за следните продукти:",
+                Details = shortages
+            };
+        }
+
+        // Decrement stock
+        var now = DateTime.UtcNow;
+        foreach (var item in order.Items)
+        {
+            var product = products[item.ProductId];
+            product.StockQuantity -= item.Quantity;
+            product.UpdatedAt = now;
+        }
+
+        order.Status = OrderStatus.Confirmed;
+        order.ConfirmedAt = now;
+        order.UpdatedAt = now;
+
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        return new
+        {
+            message = "Поръчката е потвърдена.",
+            orderNumber = order.OrderNumber,
+            status = (int)OrderStatus.Confirmed,
+            statusDisplay = "Потвърдена"
+        };
+    }
+
+    public async Task CompleteAsync(int id)
+    {
+        var order = await _context.Orders.FindAsync(id);
+
+        if (order is null)
+            throw new KeyNotFoundException("Поръчката не е намерена.");
+
+        if (order.IsCancelled)
+            throw new InvalidOperationException("Отказана поръчка не може да бъде завършена.");
+
+        if (order.Status != OrderStatus.Confirmed)
+            throw new InvalidOperationException("Само потвърдени поръчки могат да бъдат завършени.");
+
+        var now = DateTime.UtcNow;
+        order.Status = OrderStatus.Completed;
+        order.CompletedAt = now;
+        order.UpdatedAt = now;
+
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task CancelAsync(int id)
+    {
+        var order = await _context.Orders.FindAsync(id);
+
+        if (order is null)
+            throw new KeyNotFoundException("Поръчката не е намерена.");
+
+        if (order.IsCancelled)
+            throw new InvalidOperationException("Поръчката вече е отказана.");
+
+        if (order.Status != OrderStatus.Pending)
+            throw new InvalidOperationException("Само чакащи поръчки могат да бъдат отказани.");
+
+        order.IsCancelled = true;
+        order.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<object> SetDeliveryFeeAsync(int id, decimal deliveryFee)
+    {
+        var order = await _context.Orders
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order is null)
+            throw new KeyNotFoundException("Поръчката не е намерена.");
+
+        if (order.IsCancelled)
+            throw new InvalidOperationException("Не може да се задава цена за доставка на отказана поръчка.");
+
+        if (order.DeliveryMethod != DeliveryMethod.Delivery)
+            throw new InvalidOperationException("Цена за доставка може да се задава само за поръчки с доставка.");
+
+        if (deliveryFee < 0)
+            throw new InvalidOperationException("Цената за доставка трябва да е по-голяма или равна на 0.");
+
+        order.DeliveryFee = deliveryFee;
+        order.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        var subtotalWithVat = order.Items.Sum(i => i.Quantity * i.UnitPriceWithVat);
+        var grandTotal = subtotalWithVat + deliveryFee;
+
+        return new
+        {
+            message = "Цената за доставка е зададена.",
+            deliveryFee,
+            grandTotal
+        };
+    }
+
+    public async Task<OrderStatsDto> GetStatsAsync()
+    {
+        var totalProducts = await _context.Products.CountAsync(p => p.IsActive);
+        var pendingOrders = await _context.Orders.CountAsync(o => o.Status == OrderStatus.Pending && !o.IsCancelled);
+        var confirmedOrders = await _context.Orders.CountAsync(o => o.Status == OrderStatus.Confirmed && !o.IsCancelled);
+        var completedOrders = await _context.Orders.CountAsync(o => o.Status == OrderStatus.Completed && !o.IsCancelled);
+
+        return new OrderStatsDto
+        {
+            TotalProducts = totalProducts,
+            PendingOrders = pendingOrders,
+            ConfirmedOrders = confirmedOrders,
+            CompletedOrders = completedOrders
+        };
+    }
+
+    public async Task<List<OrderListDto>> GetRecentAsync(int count)
+    {
+        if (count < 1) count = 5;
+        if (count > 20) count = 20;
+
+        var orders = await _context.Orders
+            .Include(o => o.CustomerInfo)
+            .Include(o => o.Items)
+            .OrderByDescending(o => o.CreatedAt)
+            .Take(count)
+            .ToListAsync();
+
+        return orders.Select(MapToListDto).ToList();
+    }
+
+    private static OrderListDto MapToListDto(Order order)
+    {
+        return new OrderListDto
+        {
+            Id = order.Id,
+            OrderNumber = order.OrderNumber,
+            CreatedAt = order.CreatedAt,
+            CustomerName = order.CustomerType == CustomerType.Company
+                ? order.CustomerInfo.CompanyName ?? string.Empty
+                : order.CustomerInfo.FullName ?? string.Empty,
+            CustomerType = (int)order.CustomerType,
+            CustomerTypeDisplay = order.CustomerType == CustomerType.Individual
+                ? "Физическо лице" : "Фирма",
+            DeliveryMethod = (int)order.DeliveryMethod,
+            DeliveryMethodDisplay = order.DeliveryMethod == DeliveryMethod.Pickup
+                ? "Вземане от обекта" : "Доставка",
+            Status = (int)order.Status,
+            StatusDisplay = GetStatusDisplay(order.Status),
+            IsCancelled = order.IsCancelled,
+            TotalWithVat = order.Items.Sum(i => i.Quantity * i.UnitPriceWithVat),
+            ItemCount = order.Items.Count
+        };
+    }
+
+    private static OrderDetailDto MapToDetailDto(Order order)
+    {
+        var items = order.Items.Select(i => new OrderItemDto
+        {
+            Id = i.Id,
+            ProductId = i.ProductId,
+            ProductName = i.ProductName,
+            Quantity = i.Quantity,
+            UnitPriceWithoutVat = i.UnitPriceWithoutVat,
+            VatAmount = i.VatAmount,
+            UnitPriceWithVat = i.UnitPriceWithVat,
+            Unit = (int)i.Unit,
+            UnitDisplay = i.Unit == UnitType.Kg ? "кг" : "м²",
+            RowTotalWithoutVat = i.Quantity * i.UnitPriceWithoutVat,
+            RowVatTotal = i.Quantity * i.VatAmount,
+            RowTotalWithVat = i.Quantity * i.UnitPriceWithVat
+        }).ToList();
+
+        var subtotalWithoutVat = items.Sum(i => i.RowTotalWithoutVat);
+        var totalVat = items.Sum(i => i.RowVatTotal);
+        var subtotalWithVat = items.Sum(i => i.RowTotalWithVat);
+        var grandTotal = subtotalWithVat + (order.DeliveryFee ?? 0);
+
+        return new OrderDetailDto
+        {
+            Id = order.Id,
+            OrderNumber = order.OrderNumber,
+            Status = (int)order.Status,
+            StatusDisplay = GetStatusDisplay(order.Status),
+            CustomerType = (int)order.CustomerType,
+            CustomerTypeDisplay = order.CustomerType == CustomerType.Individual
+                ? "Физическо лице" : "Фирма",
+            DeliveryMethod = (int)order.DeliveryMethod,
+            DeliveryMethodDisplay = order.DeliveryMethod == DeliveryMethod.Pickup
+                ? "Вземане от обекта" : "Доставка",
+            DeliveryFee = order.DeliveryFee,
+            IsCancelled = order.IsCancelled,
+            CreatedAt = order.CreatedAt,
+            ConfirmedAt = order.ConfirmedAt,
+            CompletedAt = order.CompletedAt,
+            CustomerInfo = new CustomerInfoDto
+            {
+                FullName = order.CustomerInfo.FullName,
+                Phone = order.CustomerInfo.Phone,
+                Address = order.CustomerInfo.Address,
+                CompanyName = order.CustomerInfo.CompanyName,
+                Eik = order.CustomerInfo.Eik,
+                Mol = order.CustomerInfo.Mol,
+                ContactPerson = order.CustomerInfo.ContactPerson,
+                ContactPhone = order.CustomerInfo.ContactPhone
+            },
+            Items = items,
+            SubtotalWithoutVat = subtotalWithoutVat,
+            TotalVat = totalVat,
+            SubtotalWithVat = subtotalWithVat,
+            GrandTotal = grandTotal
+        };
+    }
+
+    private static string GetStatusDisplay(OrderStatus status) => status switch
+    {
+        OrderStatus.Pending => "Чакаща",
+        OrderStatus.Confirmed => "Потвърдена",
+        OrderStatus.Completed => "Завършена",
+        _ => string.Empty
+    };
+
     private async Task<string> GenerateOrderNumberAsync()
     {
         var today = DateTime.UtcNow.ToString("yyyyMMdd");
