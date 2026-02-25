@@ -1,0 +1,31 @@
+@page "/order-confirmation/{OrderNumber}"
+@using NaturalStoneImpex.Client.Services
+@inject CartService CartService
+
+<PageTitle>Поръчка приета — Natural Stone Impex</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card shadow text-center">
+            <div class="card-body p-5">
+                <div class="text-success mb-3" style="font-size: 4rem;">✓</div>
+                <h2 class="text-success mb-4">Вашата поръчка е приета!</h2>
+                <div class="alert alert-light mb-4">
+                    <h4 class="mb-0">Номер на поръчка: @OrderNumber</h4>
+                </div>
+                <p class="text-muted mb-4">Ще се свържем с вас за потвърждение на поръчката.</p>
+                <a href="/catalog" class="btn btn-primary">Обратно към каталога</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string OrderNumber { get; set; } = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        CartService.ClearCart();
+    }
+}
