@@ -6,6 +6,14 @@
 
 <PageTitle>Доставки — Natural Stone Impex</PageTitle>
 
+@if (_successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @_successMessage
+        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="mb-0">Доставки</h1>
     <a href="/admin/invoices/new" class="btn btn-primary">Нова доставка</a>
@@ -72,14 +80,23 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "success")]
+    public string? SuccessParam { get; set; }
+
     private PaginatedResponse<InvoiceListDto> _invoices = new();
     private bool _isLoading = true;
     private string? _errorMessage;
+    private string? _successMessage;
     private int _currentPage = 1;
     private const int PageSize = 20;
 
     protected override async Task OnInitializedAsync()
     {
+        if (!string.IsNullOrEmpty(SuccessParam))
+        {
+            _successMessage = SuccessParam;
+        }
+
         await LoadDataAsync();
     }
 

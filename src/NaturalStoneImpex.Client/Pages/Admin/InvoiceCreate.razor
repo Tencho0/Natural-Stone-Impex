@@ -1,0 +1,435 @@
+@page "/admin/invoices/new"
+@layout AdminLayout
+@attribute [Authorize]
+@inject IInvoiceService InvoiceService
+@inject IProductService ProductService
+@inject NavigationManager Navigation
+
+<PageTitle>Нова доставка — Natural Stone Impex</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Нова доставка</h1>
+</div>
+
+@if (_successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @_successMessage
+        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @_errorMessage
+        <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+
+@if (_isLoadingProducts)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Зареждане...</span>
+        </div>
+    </div>
+}
+else if (_loadError)
+{
+    <div class="alert alert-danger">Възникна грешка при зареждане на продуктите.</div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <!-- Header Fields -->
+            <div class="row mb-4">
+                <div class="col-md-4 mb-3">
+                    <label for="supplierName" class="form-label">Доставчик <span class="text-danger">*</span></label>
+                    <input id="supplierName" type="text" class="form-control @(_validationErrors.ContainsKey("SupplierName") ? "is-invalid" : "")"
+                           @bind="_supplierName" @bind:event="oninput" disabled="@_isSaving" />
+                    @if (_validationErrors.ContainsKey("SupplierName"))
+                    {
+                        <div class="invalid-feedback">@_validationErrors["SupplierName"]</div>
+                    }
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="invoiceNumber" class="form-label">Номер на фактура <span class="text-danger">*</span></label>
+                    <input id="invoiceNumber" type="text" class="form-control @(_validationErrors.ContainsKey("InvoiceNumber") ? "is-invalid" : "")"
+                           @bind="_invoiceNumber" @bind:event="oninput" disabled="@_isSaving" />
+                    @if (_validationErrors.ContainsKey("InvoiceNumber"))
+                    {
+                        <div class="invalid-feedback">@_validationErrors["InvoiceNumber"]</div>
+                    }
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="invoiceDate" class="form-label">Дата на фактура <span class="text-danger">*</span></label>
+                    <input id="invoiceDate" type="date" class="form-control @(_validationErrors.ContainsKey("InvoiceDate") ? "is-invalid" : "")"
+                           @bind="_invoiceDate" disabled="@_isSaving" />
+                    @if (_validationErrors.ContainsKey("InvoiceDate"))
+                    {
+                        <div class="invalid-feedback">@_validationErrors["InvoiceDate"]</div>
+                    }
+                </div>
+            </div>
+
+            <!-- Items Section -->
+            <h5 class="mb-3">Артикули</h5>
+            @if (_validationErrors.ContainsKey("Items"))
+            {
+                <div class="text-danger small mb-2">@_validationErrors["Items"]</div>
+            }
+
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width: 300px;">Продукт <span class="text-danger">*</span></th>
+                            <th style="min-width: 130px;">Количество <span class="text-danger">*</span></th>
+                            <th style="min-width: 150px;">Покупна цена (€) <span class="text-danger">*</span></th>
+                            <th style="min-width: 120px;">Общо</th>
+                            <th style="width: 50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < _items.Count; i++)
+                        {
+                            var index = i;
+                            var item = _items[index];
+                            <tr>
+                                <td>
+                                    <select class="form-select @(_validationErrors.ContainsKey($"Item{index}_ProductId") ? "is-invalid" : "")"
+                                            value="@item.ProductId"
+                                            @onchange="(e) => OnProductChanged(index, e)"
+                                            disabled="@_isSaving">
+                                        <option value="">-- Изберете продукт --</option>
+                                        @foreach (var product in _products)
+                                        {
+                                            <option value="@product.Id">@product.Name (@product.CategoryName) — @product.UnitDisplay</option>
+                                        }
+                                    </select>
+                                    @if (_validationErrors.ContainsKey($"Item{index}_ProductId"))
+                                    {
+                                        <div class="invalid-feedback">@_validationErrors[$"Item{index}_ProductId"]</div>
+                                    }
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control @(_validationErrors.ContainsKey($"Item{index}_Quantity") ? "is-invalid" : "")"
+                                           value="@item.Quantity"
+                                           @onchange="(e) => OnQuantityChanged(index, e)"
+                                           min="0.01" step="0.01" disabled="@_isSaving" />
+                                    @if (_validationErrors.ContainsKey($"Item{index}_Quantity"))
+                                    {
+                                        <div class="invalid-feedback">@_validationErrors[$"Item{index}_Quantity"]</div>
+                                    }
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control @(_validationErrors.ContainsKey($"Item{index}_PurchasePrice") ? "is-invalid" : "")"
+                                           value="@item.PurchasePrice"
+                                           @onchange="(e) => OnPurchasePriceChanged(index, e)"
+                                           min="0" step="0.01" disabled="@_isSaving" />
+                                    @if (_validationErrors.ContainsKey($"Item{index}_PurchasePrice"))
+                                    {
+                                        <div class="invalid-feedback">@_validationErrors[$"Item{index}_PurchasePrice"]</div>
+                                    }
+                                </td>
+                                <td class="text-end fw-bold">
+                                    @item.RowTotal.ToString("F2") €
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                            @onclick="() => RemoveItem(index)"
+                                            disabled="@(_items.Count <= 1 || _isSaving)"
+                                            title="Премахни">
+                                        ×
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <button type="button" class="btn btn-outline-secondary mb-3" @onclick="AddItem" disabled="@_isSaving">
+                Добави артикул
+            </button>
+
+            <!-- Invoice Total -->
+            <div class="border-top pt-3 mb-3">
+                <h5 class="text-end">Обща стойност: <strong>@InvoiceTotal.ToString("F2") €</strong></h5>
+            </div>
+
+            <!-- Buttons -->
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-success" @onclick="HandleSave" disabled="@_isSaving">
+                    @if (_isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    }
+                    Запази
+                </button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="NavigateBack" disabled="@_isSaving">
+                    Отказ
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Confirmation Modal -->
+@if (_showConfirmModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Потвърждение</h5>
+                    <button type="button" class="btn-close" @onclick="CancelConfirm" disabled="@_isSaving"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Сигурни ли сте? След запазване наличностите ще бъдат автоматично обновени. Доставката не може да бъде редактирана.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelConfirm" disabled="@_isSaving">Отказ</button>
+                    <button type="button" class="btn btn-success" @onclick="ConfirmSave" disabled="@_isSaving">
+                        @if (_isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        }
+                        Потвърди
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ProductListDto> _products = new();
+    private List<InvoiceItemFormModel> _items = new();
+    private bool _isLoadingProducts = true;
+    private bool _loadError;
+    private bool _isSaving;
+    private bool _showConfirmModal;
+    private string? _errorMessage;
+    private string? _successMessage;
+    private Dictionary<string, string> _validationErrors = new();
+
+    private string _supplierName = string.Empty;
+    private string _invoiceNumber = string.Empty;
+    private DateTime _invoiceDate = DateTime.Today;
+
+    private decimal InvoiceTotal => _items.Sum(i => i.RowTotal);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _items.Add(new InvoiceItemFormModel());
+
+        try
+        {
+            var result = await ProductService.GetAllAsync(page: 1, pageSize: 1000);
+            _products = result.Items.Where(p => p.IsActive).ToList();
+        }
+        catch
+        {
+            _loadError = true;
+        }
+        finally
+        {
+            _isLoadingProducts = false;
+        }
+    }
+
+    private void OnProductChanged(int index, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var productId))
+        {
+            _items[index].ProductId = productId;
+        }
+        else
+        {
+            _items[index].ProductId = null;
+        }
+        ClearValidationError($"Item{index}_ProductId");
+    }
+
+    private void OnQuantityChanged(int index, ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var quantity))
+        {
+            _items[index].Quantity = quantity;
+        }
+        else
+        {
+            _items[index].Quantity = null;
+        }
+        ClearValidationError($"Item{index}_Quantity");
+    }
+
+    private void OnPurchasePriceChanged(int index, ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var price))
+        {
+            _items[index].PurchasePrice = price;
+        }
+        else
+        {
+            _items[index].PurchasePrice = null;
+        }
+        ClearValidationError($"Item{index}_PurchasePrice");
+    }
+
+    private void AddItem()
+    {
+        _items.Add(new InvoiceItemFormModel());
+    }
+
+    private void RemoveItem(int index)
+    {
+        if (_items.Count > 1)
+        {
+            _items.RemoveAt(index);
+        }
+    }
+
+    private void ClearValidationError(string key)
+    {
+        _validationErrors.Remove(key);
+    }
+
+    private bool Validate()
+    {
+        _validationErrors.Clear();
+
+        if (string.IsNullOrWhiteSpace(_supplierName) || _supplierName.Trim().Length < 2)
+        {
+            _validationErrors["SupplierName"] = "Доставчикът е задължителен (минимум 2 символа).";
+        }
+        else if (_supplierName.Trim().Length > 200)
+        {
+            _validationErrors["SupplierName"] = "Доставчикът не може да надвишава 200 символа.";
+        }
+
+        if (string.IsNullOrWhiteSpace(_invoiceNumber))
+        {
+            _validationErrors["InvoiceNumber"] = "Номерът на фактурата е задължителен.";
+        }
+        else if (_invoiceNumber.Trim().Length > 50)
+        {
+            _validationErrors["InvoiceNumber"] = "Номерът на фактурата не може да надвишава 50 символа.";
+        }
+
+        if (_invoiceDate == default)
+        {
+            _validationErrors["InvoiceDate"] = "Датата на фактурата е задължителна.";
+        }
+        else if (_invoiceDate > DateTime.Today)
+        {
+            _validationErrors["InvoiceDate"] = "Датата на фактурата не може да бъде в бъдещето.";
+        }
+
+        var hasValidItem = false;
+        for (var i = 0; i < _items.Count; i++)
+        {
+            var item = _items[i];
+
+            if (!item.ProductId.HasValue || item.ProductId.Value <= 0)
+            {
+                _validationErrors[$"Item{i}_ProductId"] = "Изберете продукт.";
+            }
+            else
+            {
+                hasValidItem = true;
+            }
+
+            if (!item.Quantity.HasValue || item.Quantity.Value <= 0)
+            {
+                _validationErrors[$"Item{i}_Quantity"] = "Количеството трябва да е по-голямо от 0.";
+            }
+
+            if (!item.PurchasePrice.HasValue || item.PurchasePrice.Value < 0)
+            {
+                _validationErrors[$"Item{i}_PurchasePrice"] = "Покупната цена трябва да е по-голяма или равна на 0.";
+            }
+        }
+
+        if (!hasValidItem && !_validationErrors.Keys.Any(k => k.StartsWith("Item")))
+        {
+            _validationErrors["Items"] = "Добавете поне един артикул с избран продукт.";
+        }
+
+        return _validationErrors.Count == 0;
+    }
+
+    private void HandleSave()
+    {
+        _errorMessage = null;
+
+        if (!Validate())
+            return;
+
+        _showConfirmModal = true;
+    }
+
+    private void CancelConfirm()
+    {
+        _showConfirmModal = false;
+    }
+
+    private async Task ConfirmSave()
+    {
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var request = new CreateInvoiceRequest
+            {
+                SupplierName = _supplierName.Trim(),
+                InvoiceNumber = _invoiceNumber.Trim(),
+                InvoiceDate = _invoiceDate,
+                Items = _items.Select(item => new CreateInvoiceItemRequest
+                {
+                    ProductId = item.ProductId!.Value,
+                    Quantity = item.Quantity!.Value,
+                    PurchasePrice = item.PurchasePrice!.Value
+                }).ToList()
+            };
+
+            var (response, error) = await InvoiceService.CreateAsync(request);
+
+            if (error is not null)
+            {
+                _errorMessage = error;
+                _showConfirmModal = false;
+                return;
+            }
+
+            Navigation.NavigateTo("/admin/invoices?success=" + Uri.EscapeDataString("Доставката е записана. Наличностите са обновени."));
+        }
+        catch
+        {
+            _errorMessage = "Възникна грешка при свързване със сървъра.";
+            _showConfirmModal = false;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/admin/invoices");
+    }
+
+    private class InvoiceItemFormModel
+    {
+        public int? ProductId { get; set; }
+        public decimal? Quantity { get; set; }
+        public decimal? PurchasePrice { get; set; }
+
+        public decimal RowTotal => (Quantity ?? 0) * (PurchasePrice ?? 0);
+    }
+}
