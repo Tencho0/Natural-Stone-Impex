@@ -1,0 +1,113 @@
+@page "/admin/invoices/{Id:int}"
+@layout AdminLayout
+@attribute [Authorize]
+@inject IInvoiceService InvoiceService
+
+<PageTitle>@(_invoice is not null ? $"Доставка №{_invoice.InvoiceNumber}" : "Доставка") — Natural Stone Impex</PageTitle>
+
+<a href="/admin/invoices" class="btn btn-outline-secondary btn-sm mb-3">Обратно към доставките</a>
+
+@if (_isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Зареждане...</span>
+        </div>
+    </div>
+}
+else if (_invoice is null)
+{
+    <div class="alert alert-warning">
+        Доставката не е намерена.
+        <a href="/admin/invoices">Обратно към доставките</a>
+    </div>
+}
+else
+{
+    <h2 class="mb-4">Доставка №@_invoice.InvoiceNumber</h2>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Доставчик</dt>
+                <dd class="col-sm-9">@_invoice.SupplierName</dd>
+
+                <dt class="col-sm-3">Номер на фактура</dt>
+                <dd class="col-sm-9">@_invoice.InvoiceNumber</dd>
+
+                <dt class="col-sm-3">Дата на фактура</dt>
+                <dd class="col-sm-9">@_invoice.InvoiceDate.ToString("dd.MM.yyyy")</dd>
+
+                <dt class="col-sm-3">Дата на въвеждане</dt>
+                <dd class="col-sm-9">@_invoice.EntryDate.ToString("dd.MM.yyyy")</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Артикули</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>№</th>
+                            <th>Продукт</th>
+                            <th>Мерна ед.</th>
+                            <th class="text-end">Количество</th>
+                            <th class="text-end">Покупна цена</th>
+                            <th class="text-end">Общо</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < _invoice.Items.Count; i++)
+                        {
+                            var item = _invoice.Items[i];
+                            <tr>
+                                <td>@(i + 1)</td>
+                                <td>@item.ProductName</td>
+                                <td>@item.UnitDisplay</td>
+                                <td class="text-end">@item.Quantity.ToString("F2")</td>
+                                <td class="text-end">@item.PurchasePrice.ToString("F2") &euro;</td>
+                                <td class="text-end">@item.RowTotal.ToString("F2") &euro;</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end mb-4">
+        <h5><strong>Обща стойност: @_invoice.InvoiceTotal.ToString("F2") &euro;</strong></h5>
+    </div>
+
+    <div class="alert alert-info">
+        Доставките не могат да бъдат редактирани. При грешка, коригирайте наличностите ръчно от страницата за продукти.
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private InvoiceDetailDto? _invoice;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _invoice = await InvoiceService.GetByIdAsync(Id);
+        }
+        catch
+        {
+            _invoice = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

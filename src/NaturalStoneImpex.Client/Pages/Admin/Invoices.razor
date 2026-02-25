@@ -1,8 +1,115 @@
 @page "/admin/invoices"
 @layout AdminLayout
 @attribute [Authorize]
+@inject IInvoiceService InvoiceService
+@inject NavigationManager Navigation
 
 <PageTitle>Доставки — Natural Stone Impex</PageTitle>
 
-<h1>Доставки</h1>
-<p>Тук ще бъде управлението на доставки и фактури.</p>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Доставки</h1>
+    <a href="/admin/invoices/new" class="btn btn-primary">Нова доставка</a>
+</div>
+
+@if (_isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Зареждане...</span>
+        </div>
+    </div>
+}
+else if (_errorMessage is not null)
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+else if (_invoices.Items.Count == 0)
+{
+    <div class="alert alert-info">Няма записани доставки.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>№</th>
+                    <th>Доставчик</th>
+                    <th>Номер на фактура</th>
+                    <th>Дата на фактура</th>
+                    <th>Дата на въвеждане</th>
+                    <th>Брой артикули</th>
+                    <th class="text-end">Обща стойност</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{ var rowNum = (_currentPage - 1) * PageSize; }
+                @foreach (var invoice in _invoices.Items)
+                {
+                    rowNum++;
+                    <tr>
+                        <td>@rowNum</td>
+                        <td>@invoice.SupplierName</td>
+                        <td>@invoice.InvoiceNumber</td>
+                        <td>@invoice.InvoiceDate.ToString("dd.MM.yyyy")</td>
+                        <td>@invoice.EntryDate.ToString("dd.MM.yyyy")</td>
+                        <td>@invoice.TotalItems</td>
+                        <td class="text-end">@invoice.InvoiceTotal.ToString("F2") &euro;</td>
+                        <td>
+                            <button class="btn btn-outline-primary btn-sm"
+                                    @onclick="() => NavigateToInvoice(invoice.Id)">
+                                Виж
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <Pagination CurrentPage="_invoices.Page" TotalPages="_invoices.TotalPages" OnPageChanged="OnPageChanged" />
+}
+
+@code {
+    private PaginatedResponse<InvoiceListDto> _invoices = new();
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private int _currentPage = 1;
+    private const int PageSize = 20;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _invoices = await InvoiceService.GetAllAsync(_currentPage, PageSize);
+        }
+        catch
+        {
+            _errorMessage = "Възникна грешка при зареждане на доставките.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _currentPage = page;
+        await LoadDataAsync();
+    }
+
+    private void NavigateToInvoice(int id)
+    {
+        Navigation.NavigateTo($"/admin/invoices/{id}");
+    }
+}
