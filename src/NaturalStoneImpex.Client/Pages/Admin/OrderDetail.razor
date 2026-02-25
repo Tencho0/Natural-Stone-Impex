@@ -1,0 +1,563 @@
+@page "/admin/orders/{Id:int}"
+@layout AdminLayout
+@attribute [Authorize]
+@inject IOrderService OrderService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>@(_order is not null ? $"Поръчка {_order.OrderNumber}" : "Поръчка") — Natural Stone Impex</PageTitle>
+
+<a href="/admin/orders" class="btn btn-outline-secondary btn-sm mb-3">
+    <i class="bi bi-arrow-left me-1"></i> Обратно към поръчките
+</a>
+
+@if (_isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Зареждане...</span>
+        </div>
+    </div>
+}
+else if (_order is null)
+{
+    <div class="alert alert-warning">
+        Поръчката не е намерена.
+        <a href="/admin/orders">Обратно към поръчките</a>
+    </div>
+}
+else
+{
+    @* Alert messages *@
+    @if (_successMessage is not null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @_successMessage
+            <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+        </div>
+    }
+    @if (_warningMessage is not null)
+    {
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            @_warningMessage
+            <button type="button" class="btn-close" @onclick="() => _warningMessage = null"></button>
+        </div>
+    }
+    @if (_errorMessage is not null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @_errorMessage
+            @if (_stockDetails is not null)
+            {
+                <table class="table table-sm table-bordered mt-2 mb-0 bg-white">
+                    <thead>
+                        <tr>
+                            <th>Продукт</th>
+                            <th>Поръчано</th>
+                            <th>Налично</th>
+                            <th>Мерна ед.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in _stockDetails)
+                        {
+                            <tr>
+                                <td>@d.ProductName</td>
+                                <td>@d.Ordered.ToString("F2")</td>
+                                <td>@d.Available.ToString("F2")</td>
+                                <td>@d.Unit</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            <button type="button" class="btn-close" @onclick="DismissError"></button>
+        </div>
+    }
+
+    @* Section 1 — Order Header *@
+    @if (_order.IsCancelled)
+    {
+        <div class="alert alert-danger fw-bold">ОТКАЗАНА</div>
+    }
+
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+        <h4 class="mb-0">@_order.OrderNumber</h4>
+        @if (_order.IsCancelled)
+        {
+            <span class="badge bg-danger text-white fs-6">Отказана</span>
+        }
+        else
+        {
+            <span class="badge @GetStatusBadgeClass(_order.Status) fs-6">@_order.StatusDisplay</span>
+        }
+        <span class="text-muted">@_order.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+    </div>
+
+    @* Section 2 — Customer Info *@
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Данни за клиента</div>
+        <div class="card-body">
+            <span class="badge bg-secondary mb-2">@_order.CustomerTypeDisplay</span>
+
+            @if (_order.CustomerType == 0)
+            {
+                @* Individual *@
+                <p class="mb-1"><strong>Име:</strong> @_order.CustomerInfo.FullName</p>
+                <p class="mb-1"><strong>Телефон:</strong> @_order.CustomerInfo.Phone</p>
+                @if (_order.DeliveryMethod == 1 && !string.IsNullOrWhiteSpace(_order.CustomerInfo.Address))
+                {
+                    <p class="mb-1"><strong>Адрес:</strong> @_order.CustomerInfo.Address</p>
+                }
+            }
+            else
+            {
+                @* Company *@
+                <p class="mb-1"><strong>Фирма:</strong> @_order.CustomerInfo.CompanyName</p>
+                <p class="mb-1"><strong>ЕИК:</strong> @_order.CustomerInfo.Eik</p>
+                <p class="mb-1"><strong>МОЛ:</strong> @_order.CustomerInfo.Mol</p>
+                <p class="mb-1"><strong>Лице за контакт:</strong> @_order.CustomerInfo.ContactPerson</p>
+                <p class="mb-1"><strong>Телефон:</strong> @_order.CustomerInfo.ContactPhone</p>
+                @if (_order.DeliveryMethod == 1 && !string.IsNullOrWhiteSpace(_order.CustomerInfo.Address))
+                {
+                    <p class="mb-1"><strong>Адрес:</strong> @_order.CustomerInfo.Address</p>
+                }
+            }
+
+            <hr />
+            <p class="mb-0">
+                <strong>Метод:</strong>
+                @(_order.DeliveryMethod == 0 ? "Вземане от обекта" : "Доставка")
+            </p>
+        </div>
+    </div>
+
+    @* Section 3 — Order Items *@
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Артикули</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>№</th>
+                            <th>Продукт</th>
+                            <th>Мерна ед.</th>
+                            <th class="text-end">Количество</th>
+                            <th class="text-end">Ед. цена без ДДС</th>
+                            <th class="text-end">ДДС</th>
+                            <th class="text-end">Ед. цена с ДДС</th>
+                            <th class="text-end">Общо с ДДС</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < _order.Items.Count; i++)
+                        {
+                            var item = _order.Items[i];
+                            <tr>
+                                <td>@(i + 1)</td>
+                                <td>@item.ProductName</td>
+                                <td>@item.UnitDisplay</td>
+                                <td class="text-end">@item.Quantity.ToString("F2")</td>
+                                <td class="text-end">@item.UnitPriceWithoutVat.ToString("F2") &euro;</td>
+                                <td class="text-end">@item.VatAmount.ToString("F2") &euro;</td>
+                                <td class="text-end">@item.UnitPriceWithVat.ToString("F2") &euro;</td>
+                                <td class="text-end">@item.RowTotalWithVat.ToString("F2") &euro;</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    @* Section 4 — Totals *@
+    <div class="d-flex justify-content-end mb-4">
+        <div class="card" style="min-width: 320px;">
+            <div class="card-header fw-semibold">Обобщение</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Сума без ДДС:</span>
+                    <span>@_order.SubtotalWithoutVat.ToString("F2") &euro;</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Общо ДДС:</span>
+                    <span>@_order.TotalVat.ToString("F2") &euro;</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Сума с ДДС:</span>
+                    <span>@_order.SubtotalWithVat.ToString("F2") &euro;</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Цена за доставка:</span>
+                    <span>
+                        @if (_order.DeliveryMethod == 0)
+                        {
+                            @:Не се прилага
+                        }
+                        else if (_order.DeliveryFee.HasValue)
+                        {
+                            @:@_order.DeliveryFee.Value.ToString("F2") €
+                        }
+                        else
+                        {
+                            @:Не е определена
+                        }
+                    </span>
+                </div>
+                <hr />
+                <div class="d-flex justify-content-between">
+                    <strong class="fs-5 text-primary">Обща сума:</strong>
+                    <strong class="fs-5 text-primary">@_order.GrandTotal.ToString("F2") &euro;</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Completed/Confirmed dates *@
+    @if (_order.Status == 2 && !_order.IsCancelled)
+    {
+        <div class="mb-3 text-muted">
+            @if (_order.ConfirmedAt.HasValue)
+            {
+                <p class="mb-1">Потвърдена на: @_order.ConfirmedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+            }
+            @if (_order.CompletedAt.HasValue)
+            {
+                <p class="mb-0">Завършена на: @_order.CompletedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+            }
+        </div>
+    }
+
+    @* Section 5 — Actions *@
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Действия</div>
+        <div class="card-body">
+            @if (_order.IsCancelled)
+            {
+                <div class="alert alert-danger mb-0">Тази поръчка е отказана.</div>
+            }
+            else if (_order.Status == 0)
+            {
+                @* Pending *@
+                @if (_order.DeliveryMethod == 1)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Цена за доставка (&euro;)</label>
+                        <div class="input-group" style="max-width: 300px;">
+                            <input type="number" class="form-control" min="0" step="0.01"
+                                   @bind="_deliveryFeeInput" @bind:event="oninput" />
+                            <button class="btn btn-outline-primary btn-sm" disabled="@_isActionLoading"
+                                    @onclick="SetDeliveryFee">
+                                @if (_isActionLoading && _activeAction == "deliveryFee")
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Задай
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-success btn-lg" disabled="@_isActionLoading"
+                            @onclick="() => ShowConfirmModal(ConfirmAction.Confirm)">
+                        @if (_isActionLoading && _activeAction == "confirm")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Потвърди поръчката
+                    </button>
+                    <button class="btn btn-outline-danger" disabled="@_isActionLoading"
+                            @onclick="() => ShowConfirmModal(ConfirmAction.Cancel)">
+                        @if (_isActionLoading && _activeAction == "cancel")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Откажи поръчката
+                    </button>
+                </div>
+            }
+            else if (_order.Status == 1)
+            {
+                @* Confirmed *@
+                @if (_order.DeliveryMethod == 1 && !_order.DeliveryFee.HasValue)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Цена за доставка (&euro;)</label>
+                        <div class="input-group" style="max-width: 300px;">
+                            <input type="number" class="form-control" min="0" step="0.01"
+                                   @bind="_deliveryFeeInput" @bind:event="oninput" />
+                            <button class="btn btn-outline-primary btn-sm" disabled="@_isActionLoading"
+                                    @onclick="SetDeliveryFee">
+                                @if (_isActionLoading && _activeAction == "deliveryFee")
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Задай
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-success" disabled="@_isActionLoading"
+                            @onclick="() => ShowConfirmModal(ConfirmAction.Complete)">
+                        @if (_isActionLoading && _activeAction == "complete")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Маркирай като завършена
+                    </button>
+                    <a href="/admin/orders/@_order.Id/receipt" target="_blank" class="btn btn-outline-primary">
+                        Принтирай разписка
+                    </a>
+                </div>
+            }
+            else if (_order.Status == 2)
+            {
+                @* Completed *@
+                <a href="/admin/orders/@_order.Id/receipt" target="_blank" class="btn btn-outline-primary">
+                    Принтирай разписка
+                </a>
+            }
+        </div>
+    </div>
+}
+
+@* Confirmation Modal *@
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Потвърждение</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@_modalMessage</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Отказ</button>
+                    <button type="button" class="btn @_modalButtonClass" @onclick="ExecuteModalAction" disabled="@_isActionLoading">
+                        @if (_isActionLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Да
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private OrderDetailDto? _order;
+    private bool _isLoading = true;
+    private bool _isActionLoading;
+    private string? _activeAction;
+    private string? _successMessage;
+    private string? _warningMessage;
+    private string? _errorMessage;
+    private List<StockShortageDetail>? _stockDetails;
+    private decimal _deliveryFeeInput;
+
+    // Modal
+    private bool _showModal;
+    private string _modalMessage = string.Empty;
+    private string _modalButtonClass = "btn-primary";
+    private ConfirmAction _pendingAction;
+
+    private System.Threading.Timer? _autoDismissTimer;
+
+    private enum ConfirmAction { Confirm, Cancel, Complete }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrderAsync();
+    }
+
+    private async Task LoadOrderAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _order = await OrderService.GetByIdAsync(Id);
+            if (_order?.DeliveryFee.HasValue == true)
+                _deliveryFeeInput = _order.DeliveryFee.Value;
+        }
+        catch
+        {
+            _order = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ShowConfirmModal(ConfirmAction action)
+    {
+        _pendingAction = action;
+        (_modalMessage, _modalButtonClass) = action switch
+        {
+            ConfirmAction.Confirm => ("Сигурни ли сте, че искате да потвърдите тази поръчка?\nНаличностите ще бъдат намалени.", "btn-success"),
+            ConfirmAction.Cancel => ("Сигурни ли сте, че искате да откажете тази поръчка?", "btn-danger"),
+            ConfirmAction.Complete => ("Маркирай поръчката като завършена?", "btn-success"),
+            _ => ("", "btn-primary")
+        };
+        _showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        _showModal = false;
+    }
+
+    private async Task ExecuteModalAction()
+    {
+        _showModal = false;
+        _isActionLoading = true;
+        ClearMessages();
+
+        switch (_pendingAction)
+        {
+            case ConfirmAction.Confirm:
+                await ConfirmOrder();
+                break;
+            case ConfirmAction.Cancel:
+                await CancelOrder();
+                break;
+            case ConfirmAction.Complete:
+                await CompleteOrder();
+                break;
+        }
+
+        _isActionLoading = false;
+    }
+
+    private async Task ConfirmOrder()
+    {
+        _activeAction = "confirm";
+        var (error, details) = await OrderService.ConfirmAsync(Id);
+
+        if (error is not null)
+        {
+            _errorMessage = error;
+            _stockDetails = details;
+        }
+        else
+        {
+            await LoadOrderAsync();
+            ShowSuccess("Поръчката е потвърдена.");
+        }
+        _activeAction = null;
+    }
+
+    private async Task CancelOrder()
+    {
+        _activeAction = "cancel";
+        var error = await OrderService.CancelAsync(Id);
+
+        if (error is not null)
+        {
+            _errorMessage = error;
+        }
+        else
+        {
+            await LoadOrderAsync();
+            ShowWarning("Поръчката е отказана.");
+        }
+        _activeAction = null;
+    }
+
+    private async Task CompleteOrder()
+    {
+        _activeAction = "complete";
+        var error = await OrderService.CompleteAsync(Id);
+
+        if (error is not null)
+        {
+            _errorMessage = error;
+        }
+        else
+        {
+            await LoadOrderAsync();
+            ShowSuccess("Поръчката е завършена.");
+        }
+        _activeAction = null;
+    }
+
+    private async Task SetDeliveryFee()
+    {
+        _isActionLoading = true;
+        _activeAction = "deliveryFee";
+        ClearMessages();
+
+        var error = await OrderService.SetDeliveryFeeAsync(Id, _deliveryFeeInput);
+        if (error is not null)
+        {
+            _errorMessage = error;
+        }
+        else
+        {
+            await LoadOrderAsync();
+            ShowSuccess("Цената за доставка е зададена.");
+        }
+
+        _activeAction = null;
+        _isActionLoading = false;
+    }
+
+    private void ClearMessages()
+    {
+        _successMessage = null;
+        _warningMessage = null;
+        _errorMessage = null;
+        _stockDetails = null;
+        _autoDismissTimer?.Dispose();
+        _autoDismissTimer = null;
+    }
+
+    private void ShowSuccess(string message)
+    {
+        _successMessage = message;
+        StartAutoDismiss(() => { _successMessage = null; InvokeAsync(StateHasChanged); });
+    }
+
+    private void ShowWarning(string message)
+    {
+        _warningMessage = message;
+        StartAutoDismiss(() => { _warningMessage = null; InvokeAsync(StateHasChanged); });
+    }
+
+    private void StartAutoDismiss(Action callback)
+    {
+        _autoDismissTimer?.Dispose();
+        _autoDismissTimer = new System.Threading.Timer(_ => callback(), null, 5000, Timeout.Infinite);
+    }
+
+    private void DismissError()
+    {
+        _errorMessage = null;
+        _stockDetails = null;
+    }
+
+    private static string GetStatusBadgeClass(int status) => status switch
+    {
+        0 => "bg-warning text-dark",
+        1 => "bg-info text-white",
+        2 => "bg-success text-white",
+        _ => "bg-secondary"
+    };
+
+    public void Dispose()
+    {
+        _autoDismissTimer?.Dispose();
+    }
+}

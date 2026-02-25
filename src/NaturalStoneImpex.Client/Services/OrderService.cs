@@ -42,12 +42,36 @@ public class OrderService : IOrderService
         return result!;
     }
 
-    public async Task<string?> ConfirmAsync(int id)
+    public async Task<(string? Error, List<StockShortageDetail>? Details)> ConfirmAsync(int id)
     {
         var response = await _httpClient.PutAsync($"api/orders/{id}/confirm", null);
         if (!response.IsSuccessStatusCode)
-            return await ExtractErrorAsync(response);
-        return null;
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            try
+            {
+                var errorDoc = JsonDocument.Parse(content);
+                var error = "Възникна неочаквана грешка.";
+                List<StockShortageDetail>? details = null;
+
+                if (errorDoc.RootElement.TryGetProperty("error", out var errorProp))
+                    error = errorProp.GetString() ?? error;
+
+                if (errorDoc.RootElement.TryGetProperty("details", out var detailsProp))
+                {
+                    details = JsonSerializer.Deserialize<List<StockShortageDetail>>(
+                        detailsProp.GetRawText(),
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                }
+
+                return (error, details);
+            }
+            catch (JsonException)
+            {
+                return ("Възникна неочаквана грешка.", null);
+            }
+        }
+        return (null, null);
     }
 
     public async Task<string?> CompleteAsync(int id)
