@@ -1,0 +1,295 @@
+@page "/admin/orders/{Id:int}/receipt"
+@attribute [Authorize]
+@inject IOrderService OrderService
+@inject IJSRuntime JS
+
+<PageTitle>Разписка — Natural Stone Impex</PageTitle>
+
+<style>
+    @@media screen {
+        .receipt-page {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Georgia, 'Times New Roman', serif;
+            color: #000;
+            background: #fff;
+        }
+        .no-print {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+    }
+
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+        }
+        .receipt-page {
+            max-width: 100%;
+            margin: 0;
+            padding: 10mm;
+            font-family: Georgia, 'Times New Roman', serif;
+            color: #000;
+            background: #fff;
+        }
+    }
+
+    .receipt-page h2 {
+        font-size: 1.6em;
+        font-weight: bold;
+        text-align: center;
+        margin: 0;
+        text-transform: uppercase;
+    }
+
+    .receipt-page .shop-address,
+    .receipt-page .shop-phone {
+        text-align: center;
+        margin: 2px 0;
+        font-size: 0.95em;
+    }
+
+    .receipt-page .doc-title {
+        text-align: center;
+        font-weight: bold;
+        font-size: 1.2em;
+        text-transform: uppercase;
+        margin: 0;
+    }
+
+    .receipt-page .doc-number,
+    .receipt-page .doc-date {
+        text-align: center;
+        margin: 2px 0;
+    }
+
+    .receipt-page .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9em;
+    }
+
+    .receipt-page .items-table th,
+    .receipt-page .items-table td {
+        border: 1px solid #000;
+        padding: 5px 8px;
+    }
+
+    .receipt-page .items-table th {
+        font-weight: bold;
+        text-align: center;
+        background: none;
+    }
+
+    .receipt-page .items-table .num-col {
+        text-align: right;
+    }
+
+    .receipt-page .totals-section {
+        text-align: right;
+        margin-top: 15px;
+        font-size: 0.95em;
+    }
+
+    .receipt-page .totals-section .grand-total {
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+
+    .receipt-page .signatures {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 60px;
+        font-size: 0.95em;
+    }
+
+    .receipt-page .receipt-footer {
+        text-align: center;
+        font-style: italic;
+        font-size: 0.85em;
+        margin-top: 30px;
+    }
+</style>
+
+@if (_isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Зареждане...</span>
+        </div>
+    </div>
+}
+else if (_order is null)
+{
+    <div class="receipt-page">
+        <div class="no-print">
+            <a href="/admin/orders" class="btn btn-outline-secondary btn-sm">Обратно към поръчките</a>
+        </div>
+        <div class="alert alert-warning">Поръчката не е намерена.</div>
+    </div>
+}
+else if (_order.Status == 0 && !_order.IsCancelled)
+{
+    <div class="receipt-page">
+        <div class="no-print">
+            <a href="/admin/orders/@Id" class="btn btn-outline-secondary btn-sm">Обратно към поръчката</a>
+        </div>
+        <div class="alert alert-warning">Разписка може да се генерира само за потвърдени или завършени поръчки.</div>
+    </div>
+}
+else
+{
+    <div class="receipt-page">
+        @* Screen-only buttons *@
+        <div class="no-print">
+            <button class="btn btn-primary btn-sm" @onclick="PrintReceipt">
+                <i class="bi bi-printer me-1"></i> Принтирай
+            </button>
+            <a href="/admin/orders/@Id" class="btn btn-outline-secondary btn-sm">
+                Обратно към поръчката
+            </a>
+        </div>
+
+        @* Header *@
+        <h2>NATURAL STONE IMPEX</h2>
+        <p class="shop-address">[Placeholder address]</p>
+        <p class="shop-phone">[Placeholder phone]</p>
+        <hr />
+
+        @* Document Title *@
+        <h4 class="doc-title">СТОКОВА РАЗПИСКА</h4>
+        <p class="doc-number">№ @_order.OrderNumber</p>
+        <p class="doc-date">Дата: @GetReceiptDate()</p>
+
+        <br />
+
+        @* Customer Info *@
+        @if (_order.CustomerType == 0)
+        {
+            <p style="margin-bottom: 2px;"><strong>Клиент:</strong> @_order.CustomerInfo.FullName</p>
+            <p style="margin-bottom: 2px;"><strong>Телефон:</strong> @_order.CustomerInfo.Phone</p>
+            @if (_order.DeliveryMethod == 1 && !string.IsNullOrWhiteSpace(_order.CustomerInfo.Address))
+            {
+                <p style="margin-bottom: 2px;"><strong>Адрес:</strong> @_order.CustomerInfo.Address</p>
+            }
+        }
+        else
+        {
+            <p style="margin-bottom: 2px;"><strong>Фирма:</strong> @_order.CustomerInfo.CompanyName</p>
+            <p style="margin-bottom: 2px;"><strong>ЕИК:</strong> @_order.CustomerInfo.Eik</p>
+            <p style="margin-bottom: 2px;"><strong>МОЛ:</strong> @_order.CustomerInfo.Mol</p>
+            <p style="margin-bottom: 2px;"><strong>Лице за контакт:</strong> @_order.CustomerInfo.ContactPerson</p>
+            <p style="margin-bottom: 2px;"><strong>Телефон:</strong> @_order.CustomerInfo.ContactPhone</p>
+            @if (_order.DeliveryMethod == 1 && !string.IsNullOrWhiteSpace(_order.CustomerInfo.Address))
+            {
+                <p style="margin-bottom: 2px;"><strong>Адрес:</strong> @_order.CustomerInfo.Address</p>
+            }
+        }
+        <p style="margin-bottom: 2px;">
+            <strong>Метод:</strong>
+            @(_order.DeliveryMethod == 0 ? "Вземане от обекта" : "Доставка")
+        </p>
+
+        <br />
+
+        @* Items Table *@
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Продукт</th>
+                    <th>Мерна ед.</th>
+                    <th>Количество</th>
+                    <th>Ед. цена без ДДС</th>
+                    <th>ДДС</th>
+                    <th>Ед. цена с ДДС</th>
+                    <th>Общо с ДДС</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < _order.Items.Count; i++)
+                {
+                    var item = _order.Items[i];
+                    <tr>
+                        <td class="num-col">@(i + 1)</td>
+                        <td>@item.ProductName</td>
+                        <td>@item.UnitDisplay</td>
+                        <td class="num-col">@item.Quantity.ToString("F2")</td>
+                        <td class="num-col">@item.UnitPriceWithoutVat.ToString("F2") &euro;</td>
+                        <td class="num-col">@item.VatAmount.ToString("F2") &euro;</td>
+                        <td class="num-col">@item.UnitPriceWithVat.ToString("F2") &euro;</td>
+                        <td class="num-col">@item.RowTotalWithVat.ToString("F2") &euro;</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @* Totals *@
+        <div class="totals-section">
+            <p style="margin-bottom: 4px;">Сума без ДДС: @_order.SubtotalWithoutVat.ToString("F2") &euro;</p>
+            <p style="margin-bottom: 4px;">Общо ДДС: @_order.TotalVat.ToString("F2") &euro;</p>
+            @if (_order.DeliveryFee.HasValue && _order.DeliveryFee.Value > 0)
+            {
+                <p style="margin-bottom: 4px;">Цена за доставка: @_order.DeliveryFee.Value.ToString("F2") &euro;</p>
+            }
+            <hr style="margin: 8px 0; border-color: #000;" />
+            <p class="grand-total">Обща сума: @_order.GrandTotal.ToString("F2") &euro;</p>
+        </div>
+
+        <br /><br />
+
+        @* Signature Lines *@
+        <div class="signatures">
+            <span>Предал: ___________________</span>
+            <span>Приел: ___________________</span>
+        </div>
+
+        @* Footer *@
+        <p class="receipt-footer">
+            Стокова разписка — не е официален данъчен документ.
+        </p>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private OrderDetailDto? _order;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _order = await OrderService.GetByIdAsync(Id);
+        }
+        catch
+        {
+            _order = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string GetReceiptDate()
+    {
+        if (_order is null) return string.Empty;
+
+        var date = _order.ConfirmedAt ?? _order.CreatedAt;
+        return date.ToLocalTime().ToString("dd.MM.yyyy");
+    }
+
+    private async Task PrintReceipt()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+}
