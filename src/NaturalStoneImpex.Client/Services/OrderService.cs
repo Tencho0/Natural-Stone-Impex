@@ -26,6 +26,66 @@ public class OrderService : IOrderService
         return (result, null);
     }
 
+    public async Task<PaginatedResponse<OrderListDto>> GetAllAsync(int? status, int page, int pageSize)
+    {
+        var url = $"api/orders?page={page}&pageSize={pageSize}";
+        if (status.HasValue)
+            url += $"&status={status.Value}";
+
+        var result = await _httpClient.GetFromJsonAsync<PaginatedResponse<OrderListDto>>(url);
+        return result ?? new PaginatedResponse<OrderListDto>();
+    }
+
+    public async Task<OrderDetailDto> GetByIdAsync(int id)
+    {
+        var result = await _httpClient.GetFromJsonAsync<OrderDetailDto>($"api/orders/{id}");
+        return result!;
+    }
+
+    public async Task<string?> ConfirmAsync(int id)
+    {
+        var response = await _httpClient.PutAsync($"api/orders/{id}/confirm", null);
+        if (!response.IsSuccessStatusCode)
+            return await ExtractErrorAsync(response);
+        return null;
+    }
+
+    public async Task<string?> CompleteAsync(int id)
+    {
+        var response = await _httpClient.PutAsync($"api/orders/{id}/complete", null);
+        if (!response.IsSuccessStatusCode)
+            return await ExtractErrorAsync(response);
+        return null;
+    }
+
+    public async Task<string?> CancelAsync(int id)
+    {
+        var response = await _httpClient.PutAsync($"api/orders/{id}/cancel", null);
+        if (!response.IsSuccessStatusCode)
+            return await ExtractErrorAsync(response);
+        return null;
+    }
+
+    public async Task<string?> SetDeliveryFeeAsync(int id, decimal deliveryFee)
+    {
+        var response = await _httpClient.PutAsJsonAsync($"api/orders/{id}/delivery-fee", new { deliveryFee });
+        if (!response.IsSuccessStatusCode)
+            return await ExtractErrorAsync(response);
+        return null;
+    }
+
+    public async Task<OrderStatsDto> GetStatsAsync()
+    {
+        var result = await _httpClient.GetFromJsonAsync<OrderStatsDto>("api/orders/stats");
+        return result ?? new OrderStatsDto();
+    }
+
+    public async Task<List<OrderListDto>> GetRecentAsync(int count)
+    {
+        var result = await _httpClient.GetFromJsonAsync<List<OrderListDto>>($"api/orders/recent?count={count}");
+        return result ?? new List<OrderListDto>();
+    }
+
     private static async Task<string> ExtractErrorAsync(HttpResponseMessage response)
     {
         var content = await response.Content.ReadAsStringAsync();
