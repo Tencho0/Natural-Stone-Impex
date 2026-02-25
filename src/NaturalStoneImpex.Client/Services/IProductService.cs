@@ -10,4 +10,5 @@ public interface IProductService
     Task<string?> UpdateAsync(int id, UpdateProductRequest request);
     Task<string?> DeleteAsync(int id);
     Task<string?> UploadImageAsync(int id, Stream fileStream, string fileName);
+    Task<List<ProductListDto>> GetLowStockAsync(decimal threshold = 10);
 }

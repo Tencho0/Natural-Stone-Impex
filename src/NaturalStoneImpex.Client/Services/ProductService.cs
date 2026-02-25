@@ -97,6 +97,12 @@ public class ProductService : IProductService
         return null;
     }
 
+    public async Task<List<ProductListDto>> GetLowStockAsync(decimal threshold = 10)
+    {
+        var result = await _httpClient.GetFromJsonAsync<List<ProductListDto>>($"api/products/low-stock?threshold={threshold}");
+        return result ?? new List<ProductListDto>();
+    }
+
     private static async Task<string> ExtractErrorAsync(HttpResponseMessage response)
     {
         var content = await response.Content.ReadAsStringAsync();
