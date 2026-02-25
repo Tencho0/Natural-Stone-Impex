@@ -1,60 +1,114 @@
 @page "/"
-@inject HttpClient Http
+@inject ICategoryService CategoryService
 
 <PageTitle>Начална страница — Natural Stone Impex</PageTitle>
 
-<h1>Начална страница</h1>
-<p>Добре дошли в Natural Stone Impex — вашият доставчик на строителни материали.</p>
-
-<div class="card mt-4">
-    <div class="card-header">
-        <h5 class="mb-0">Проверка на връзката с API</h5>
+@* Hero Section *@
+<div class="bg-dark text-white text-center py-5 mb-5 rounded-3">
+    <div class="container py-4">
+        <h1 class="display-4 fw-bold">Natural Stone Impex</h1>
+        <h4 class="fw-light mt-3">Качествени строителни материали</h4>
+        <p class="text-white-50 fs-5 mt-2">Натурален камък, цимент, плочки и още</p>
+        <a href="/catalog" class="btn btn-warning btn-lg mt-3 px-4">Разгледайте каталога</a>
     </div>
-    <div class="card-body">
-        @if (_loading)
-        {
-            <div class="d-flex align-items-center">
-                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                <span>Проверка...</span>
+</div>
+
+@* Features Section *@
+<div class="container mb-5">
+    <h3 class="text-center mb-4">Защо да изберете нас</h3>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 text-center border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="fs-1 mb-3">🏗️</div>
+                    <h5 class="card-title">Качествени материали</h5>
+                    <p class="card-text text-muted">Предлагаме само проверени и висококачествени строителни материали.</p>
+                </div>
             </div>
-        }
-        else if (_error is not null)
-        {
-            <div class="alert alert-danger mb-0">
-                <strong>Грешка:</strong> @_error
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 text-center border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="fs-1 mb-3">💰</div>
+                    <h5 class="card-title">Конкурентни цени</h5>
+                    <p class="card-text text-muted">Най-добрите цени на пазара с възможност за доставка.</p>
+                </div>
             </div>
-        }
-        else if (_healthResult is not null)
-        {
-            <div class="alert alert-success mb-0">
-                <strong>Статус:</strong> @_healthResult.Status
-                <br />
-                <strong>Време:</strong> @_healthResult.Timestamp.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 text-center border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="fs-1 mb-3">🚚</div>
+                    <h5 class="card-title">Бърза доставка</h5>
+                    <p class="card-text text-muted">Доставяме до вашия обект в най-кратък срок.</p>
+                </div>
             </div>
-        }
+        </div>
+    </div>
+</div>
+
+@* Categories Section *@
+@if (_categories is not null && _categories.Count > 0)
+{
+    <div class="container mb-5">
+        <h3 class="text-center mb-4">Нашите категории</h3>
+        <div class="row g-4">
+            @foreach (var category in _categories)
+            {
+                <div class="col-md-4 col-sm-6">
+                    <a href="@($"/catalog?categoryId={category.Id}")" class="text-decoration-none">
+                        <div class="card h-100 text-center border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <h5 class="card-title text-dark">@category.Name</h5>
+                                <p class="card-text text-muted">@category.ProductCount продукта</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@* Contact Summary Section *@
+<div class="bg-light py-5 mb-0 rounded-3">
+    <div class="container">
+        <h3 class="text-center mb-4">Свържете се с нас</h3>
+        <div class="row text-center g-4">
+            <div class="col-md-4">
+                <div class="fs-1">📞</div>
+                <h5>Телефон</h5>
+                <p class="text-muted">+359 XX XXX XXXX</p>
+            </div>
+            <div class="col-md-4">
+                <div class="fs-1">📍</div>
+                <h5>Адрес</h5>
+                <p class="text-muted">гр. София, ул. Примерна 1</p>
+            </div>
+            <div class="col-md-4">
+                <div class="fs-1">🕐</div>
+                <h5>Работно време</h5>
+                <p class="text-muted">Пон–Пет: 08:00–17:00<br />Съб: 09:00–13:00</p>
+            </div>
+        </div>
+        <div class="text-center mt-4">
+            <a href="/contacts" class="btn btn-outline-primary">Към контакти</a>
+        </div>
     </div>
 </div>
 
 @code {
-    private HealthCheckResult? _healthResult;
-    private string? _error;
-    private bool _loading = true;
+    private List<CategoryDto>? _categories;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _healthResult = await Http.GetFromJsonAsync<HealthCheckResult>("api/health");
+            _categories = await CategoryService.GetAllAsync();
         }
-        catch (Exception ex)
+        catch
         {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _loading = false;
+            _categories = null;
         }
     }
-
-    private record HealthCheckResult(string Status, DateTime Timestamp);
 }
