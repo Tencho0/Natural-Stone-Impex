@@ -6,49 +6,57 @@
 
 <PageTitle>Доставки — Natural Stone Impex</PageTitle>
 
+<!-- Page header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="page-heading mb-0">Доставки</h1>
+    <a href="/admin/invoices/new" class="btn btn-nsi-accent">
+        <i class="bi bi-plus-lg me-1"></i>Нова доставка
+    </a>
+</div>
+
 @if (_successMessage is not null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
-        @_successMessage
+        <i class="bi bi-check-circle me-2"></i>@_successMessage
         <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
     </div>
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="mb-0">Доставки</h1>
-    <a href="/admin/invoices/new" class="btn btn-primary">Нова доставка</a>
-</div>
-
 @if (_isLoading)
 {
     <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border text-primary" role="status">
+        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
             <span class="visually-hidden">Зареждане...</span>
         </div>
     </div>
 }
 else if (_errorMessage is not null)
 {
-    <div class="alert alert-danger">@_errorMessage</div>
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
+    </div>
 }
 else if (_invoices.Items.Count == 0)
 {
-    <div class="alert alert-info">Няма записани доставки.</div>
+    <div class="admin-empty-state">
+        <i class="bi bi-inbox admin-empty-icon"></i>
+        <p class="admin-empty-text mb-0">Няма записани доставки.</p>
+    </div>
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-striped table-hover align-middle">
-            <thead class="table-dark">
+    <div class="table-container" style="overflow-x: auto;">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
                 <tr>
-                    <th>№</th>
+                    <th style="width: 50px;">№</th>
                     <th>Доставчик</th>
                     <th>Номер на фактура</th>
                     <th>Дата на фактура</th>
                     <th>Дата на въвеждане</th>
-                    <th>Брой артикули</th>
+                    <th class="text-center">Брой артикули</th>
                     <th class="text-end">Обща стойност</th>
-                    <th>Действия</th>
+                    <th class="text-center" style="width: 80px;">Виж</th>
                 </tr>
             </thead>
             <tbody>
@@ -56,18 +64,26 @@ else
                 @foreach (var invoice in _invoices.Items)
                 {
                     rowNum++;
-                    <tr>
-                        <td>@rowNum</td>
-                        <td>@invoice.SupplierName</td>
-                        <td>@invoice.InvoiceNumber</td>
-                        <td>@invoice.InvoiceDate.ToString("dd.MM.yyyy")</td>
-                        <td>@invoice.EntryDate.ToString("dd.MM.yyyy")</td>
-                        <td>@invoice.TotalItems</td>
-                        <td class="text-end">@invoice.InvoiceTotal.ToString("F2") &euro;</td>
+                    <tr class="table-row-clickable" @onclick="() => NavigateToInvoice(invoice.Id)">
+                        <td style="color: var(--nsi-gray);">@rowNum</td>
                         <td>
-                            <button class="btn btn-outline-primary btn-sm"
-                                    @onclick="() => NavigateToInvoice(invoice.Id)">
-                                Виж
+                            <span class="fw-semibold" style="color: var(--nsi-dark);">@invoice.SupplierName</span>
+                        </td>
+                        <td>
+                            <span class="order-number-mono">@invoice.InvoiceNumber</span>
+                        </td>
+                        <td style="color: var(--nsi-gray-dark);">@invoice.InvoiceDate.ToString("dd.MM.yyyy")</td>
+                        <td style="color: var(--nsi-gray-dark);">@invoice.EntryDate.ToString("dd.MM.yyyy")</td>
+                        <td class="text-center">@invoice.TotalItems</td>
+                        <td class="text-end">
+                            <span class="fw-semibold" style="color: var(--nsi-accent-dark);">@invoice.InvoiceTotal.ToString("F2") &euro;</span>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-nsi-table-action"
+                                    @onclick="() => NavigateToInvoice(invoice.Id)"
+                                    @onclick:stopPropagation="true"
+                                    title="Преглед">
+                                <i class="bi bi-eye"></i>
                             </button>
                         </td>
                     </tr>
@@ -76,7 +92,9 @@ else
         </table>
     </div>
 
-    <Pagination CurrentPage="_invoices.Page" TotalPages="_invoices.TotalPages" OnPageChanged="OnPageChanged" />
+    <div class="mt-4">
+        <Pagination CurrentPage="_invoices.Page" TotalPages="_invoices.TotalPages" OnPageChanged="OnPageChanged" />
+    </div>
 }
 
 @code {

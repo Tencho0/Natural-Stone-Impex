@@ -5,53 +5,73 @@
 
 <PageTitle>@(_invoice is not null ? $"Доставка №{_invoice.InvoiceNumber}" : "Доставка") — Natural Stone Impex</PageTitle>
 
-<a href="/admin/invoices" class="btn btn-outline-secondary btn-sm mb-3">Обратно към доставките</a>
+<!-- Back link -->
+<a href="/admin/invoices" class="od-back-link mb-3">
+    <i class="bi bi-arrow-left"></i> Обратно към доставките
+</a>
 
 @if (_isLoading)
 {
     <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border text-primary" role="status">
+        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
             <span class="visually-hidden">Зареждане...</span>
         </div>
     </div>
 }
 else if (_invoice is null)
 {
-    <div class="alert alert-warning">
-        Доставката не е намерена.
-        <a href="/admin/invoices">Обратно към доставките</a>
+    <div class="admin-empty-state">
+        <i class="bi bi-question-circle admin-empty-icon"></i>
+        <p class="admin-empty-text">Доставката не е намерена.</p>
+        <a href="/admin/invoices" class="btn btn-nsi-outline mt-2">Обратно към доставките</a>
     </div>
 }
 else
 {
-    <h2 class="mb-4">Доставка №@_invoice.InvoiceNumber</h2>
+    @* Invoice Header *@
+    <div class="od-header">
+        <h2 class="od-order-number">Доставка №@_invoice.InvoiceNumber</h2>
+        <span class="od-order-date">
+            <i class="bi bi-calendar3 me-1"></i>@_invoice.EntryDate.ToString("dd.MM.yyyy")
+        </span>
+    </div>
 
-    <div class="card mb-4">
-        <div class="card-body">
-            <dl class="row mb-0">
-                <dt class="col-sm-3">Доставчик</dt>
-                <dd class="col-sm-9">@_invoice.SupplierName</dd>
-
-                <dt class="col-sm-3">Номер на фактура</dt>
-                <dd class="col-sm-9">@_invoice.InvoiceNumber</dd>
-
-                <dt class="col-sm-3">Дата на фактура</dt>
-                <dd class="col-sm-9">@_invoice.InvoiceDate.ToString("dd.MM.yyyy")</dd>
-
-                <dt class="col-sm-3">Дата на въвеждане</dt>
-                <dd class="col-sm-9">@_invoice.EntryDate.ToString("dd.MM.yyyy")</dd>
-            </dl>
+    @* Card 1 — Invoice Info *@
+    <div class="od-card mb-4">
+        <div class="od-card-header">
+            <i class="bi bi-receipt"></i> Данни за доставката
+        </div>
+        <div class="od-card-body">
+            <div class="od-info-row">
+                <span class="od-info-label">Доставчик</span>
+                <span class="od-info-value">@_invoice.SupplierName</span>
+            </div>
+            <div class="od-info-row">
+                <span class="od-info-label">Номер на фактура</span>
+                <span class="od-info-value order-number-mono">@_invoice.InvoiceNumber</span>
+            </div>
+            <div class="od-info-row">
+                <span class="od-info-label">Дата на фактура</span>
+                <span class="od-info-value">@_invoice.InvoiceDate.ToString("dd.MM.yyyy")</span>
+            </div>
+            <div class="od-info-row">
+                <span class="od-info-label">Дата на въвеждане</span>
+                <span class="od-info-value">@_invoice.EntryDate.ToString("dd.MM.yyyy")</span>
+            </div>
         </div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header fw-semibold">Артикули</div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-striped mb-0">
-                    <thead class="table-dark">
+    @* Card 2 — Items Table *@
+    <div class="od-card mb-4">
+        <div class="od-card-header">
+            <i class="bi bi-box-seam"></i> Артикули
+        </div>
+        <div class="table-container" style="border-radius: 0; box-shadow: none;">
+            <div style="overflow-x: auto;">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
                         <tr>
-                            <th>№</th>
+                            <th style="width: 50px;">№</th>
                             <th>Продукт</th>
                             <th>Мерна ед.</th>
                             <th class="text-end">Количество</th>
@@ -64,12 +84,16 @@ else
                         {
                             var item = _invoice.Items[i];
                             <tr>
-                                <td>@(i + 1)</td>
-                                <td>@item.ProductName</td>
-                                <td>@item.UnitDisplay</td>
+                                <td style="color: var(--nsi-gray);">@(i + 1)</td>
+                                <td>
+                                    <span class="fw-semibold" style="color: var(--nsi-dark);">@item.ProductName</span>
+                                </td>
+                                <td style="color: var(--nsi-gray-dark);">@item.UnitDisplay</td>
                                 <td class="text-end">@item.Quantity.ToString("F2")</td>
-                                <td class="text-end">@item.PurchasePrice.ToString("F2") &euro;</td>
-                                <td class="text-end">@item.RowTotal.ToString("F2") &euro;</td>
+                                <td class="text-end" style="color: var(--nsi-gray-dark);">@item.PurchasePrice.ToString("F2") &euro;</td>
+                                <td class="text-end">
+                                    <span class="fw-semibold" style="color: var(--nsi-accent-dark);">@item.RowTotal.ToString("F2") &euro;</span>
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -78,12 +102,24 @@ else
         </div>
     </div>
 
+    @* Card 3 — Totals *@
     <div class="d-flex justify-content-end mb-4">
-        <h5><strong>Обща стойност: @_invoice.InvoiceTotal.ToString("F2") &euro;</strong></h5>
+        <div class="od-card od-totals-card" style="min-width: 280px; max-width: 380px; width: 100%;">
+            <div class="od-card-header">
+                <i class="bi bi-calculator"></i> Обобщение
+            </div>
+            <div class="od-card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="od-grand-total">Обща стойност:</span>
+                    <span class="od-grand-total">@_invoice.InvoiceTotal.ToString("F2") &euro;</span>
+                </div>
+            </div>
+        </div>
     </div>
 
+    @* Info note *@
     <div class="alert alert-info">
-        Доставките не могат да бъдат редактирани. При грешка, коригирайте наличностите ръчно от страницата за продукти.
+        <i class="bi bi-info-circle me-2"></i>Доставките не могат да бъдат редактирани. При грешка, коригирайте наличностите ръчно от страницата за продукти.
     </div>
 }
 

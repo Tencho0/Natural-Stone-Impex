@@ -7,14 +7,17 @@
 
 <PageTitle>Нова доставка — Natural Stone Impex</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="mb-0">Нова доставка</h1>
-</div>
+<!-- Back link -->
+<a href="/admin/invoices" class="od-back-link mb-3">
+    <i class="bi bi-arrow-left"></i> Обратно към доставките
+</a>
+
+<h1 class="page-heading mb-4">Нова доставка</h1>
 
 @if (_successMessage is not null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
-        @_successMessage
+        <i class="bi bi-check-circle me-2"></i>@_successMessage
         <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
     </div>
 }
@@ -22,7 +25,7 @@
 @if (_errorMessage is not null)
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        @_errorMessage
+        <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
         <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
     </div>
 }
@@ -30,23 +33,29 @@
 @if (_isLoadingProducts)
 {
     <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border text-primary" role="status">
+        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
             <span class="visually-hidden">Зареждане...</span>
         </div>
     </div>
 }
 else if (_loadError)
 {
-    <div class="alert alert-danger">Възникна грешка при зареждане на продуктите.</div>
+    <div class="text-center py-5" style="color: var(--nsi-gray);">
+        <i class="bi bi-exclamation-circle" style="font-size: 2.5rem; opacity: 0.5;"></i>
+        <p class="mt-2 mb-0">Възникна грешка при зареждане на продуктите.</p>
+    </div>
 }
 else
 {
-    <div class="card">
-        <div class="card-body">
-            <!-- Header Fields -->
-            <div class="row mb-4">
-                <div class="col-md-4 mb-3">
-                    <label for="supplierName" class="form-label">Доставчик <span class="text-danger">*</span></label>
+    <!-- Section 1: Invoice Info -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-receipt me-2" style="color: var(--nsi-accent);"></i>Данни за доставката
+        </div>
+        <div class="card-body" style="padding: 1.5rem;">
+            <div class="row">
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <label for="supplierName" class="form-label">Доставчик <span style="color: var(--nsi-danger);">*</span></label>
                     <input id="supplierName" type="text" class="form-control @(_validationErrors.ContainsKey("SupplierName") ? "is-invalid" : "")"
                            @bind="_supplierName" @bind:event="oninput" disabled="@_isSaving" />
                     @if (_validationErrors.ContainsKey("SupplierName"))
@@ -54,8 +63,8 @@ else
                         <div class="invalid-feedback">@_validationErrors["SupplierName"]</div>
                     }
                 </div>
-                <div class="col-md-4 mb-3">
-                    <label for="invoiceNumber" class="form-label">Номер на фактура <span class="text-danger">*</span></label>
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <label for="invoiceNumber" class="form-label">Номер на фактура <span style="color: var(--nsi-danger);">*</span></label>
                     <input id="invoiceNumber" type="text" class="form-control @(_validationErrors.ContainsKey("InvoiceNumber") ? "is-invalid" : "")"
                            @bind="_invoiceNumber" @bind:event="oninput" disabled="@_isSaving" />
                     @if (_validationErrors.ContainsKey("InvoiceNumber"))
@@ -63,8 +72,8 @@ else
                         <div class="invalid-feedback">@_validationErrors["InvoiceNumber"]</div>
                     }
                 </div>
-                <div class="col-md-4 mb-3">
-                    <label for="invoiceDate" class="form-label">Дата на фактура <span class="text-danger">*</span></label>
+                <div class="col-md-4">
+                    <label for="invoiceDate" class="form-label">Дата на фактура <span style="color: var(--nsi-danger);">*</span></label>
                     <input id="invoiceDate" type="date" class="form-control @(_validationErrors.ContainsKey("InvoiceDate") ? "is-invalid" : "")"
                            @bind="_invoiceDate" disabled="@_isSaving" />
                     @if (_validationErrors.ContainsKey("InvoiceDate"))
@@ -73,22 +82,28 @@ else
                     }
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Items Section -->
-            <h5 class="mb-3">Артикули</h5>
+    <!-- Section 2: Items -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-box-seam me-2" style="color: var(--nsi-accent);"></i>Артикули
+        </div>
+        <div class="card-body" style="padding: 1.5rem;">
             @if (_validationErrors.ContainsKey("Items"))
             {
                 <div class="text-danger small mb-2">@_validationErrors["Items"]</div>
             }
 
-            <div class="table-responsive">
-                <table class="table table-bordered align-middle">
-                    <thead class="table-light">
+            <div class="table-container" style="overflow-x: auto; box-shadow: none; border: 1px solid var(--nsi-gray-light);">
+                <table class="table align-middle mb-0">
+                    <thead>
                         <tr>
-                            <th style="min-width: 300px;">Продукт <span class="text-danger">*</span></th>
-                            <th style="min-width: 130px;">Количество <span class="text-danger">*</span></th>
-                            <th style="min-width: 150px;">Покупна цена (€) <span class="text-danger">*</span></th>
-                            <th style="min-width: 120px;">Общо</th>
+                            <th style="min-width: 300px;">Продукт <span style="color: var(--nsi-danger);">*</span></th>
+                            <th style="min-width: 130px;">Количество <span style="color: var(--nsi-danger);">*</span></th>
+                            <th style="min-width: 150px;">Покупна цена (&euro;) <span style="color: var(--nsi-danger);">*</span></th>
+                            <th style="min-width: 120px;" class="text-end">Общо</th>
                             <th style="width: 50px;"></th>
                         </tr>
                     </thead>
@@ -134,15 +149,15 @@ else
                                         <div class="invalid-feedback">@_validationErrors[$"Item{index}_PurchasePrice"]</div>
                                     }
                                 </td>
-                                <td class="text-end fw-bold">
-                                    @item.RowTotal.ToString("F2") €
+                                <td class="text-end">
+                                    <span class="fw-semibold" style="color: var(--nsi-accent-dark);">@item.RowTotal.ToString("F2") &euro;</span>
                                 </td>
                                 <td class="text-center">
-                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                    <button type="button" class="btn btn-sm btn-nsi-table-action btn-nsi-table-action-danger"
                                             @onclick="() => RemoveItem(index)"
                                             disabled="@(_items.Count <= 1 || _isSaving)"
                                             title="Премахни">
-                                        ×
+                                        <i class="bi bi-x-lg"></i>
                                     </button>
                                 </td>
                             </tr>
@@ -151,55 +166,65 @@ else
                 </table>
             </div>
 
-            <button type="button" class="btn btn-outline-secondary mb-3" @onclick="AddItem" disabled="@_isSaving">
-                Добави артикул
+            <button type="button" class="btn btn-nsi-outline mt-3" @onclick="AddItem" disabled="@_isSaving">
+                <i class="bi bi-plus-lg me-1"></i>Добави артикул
             </button>
+        </div>
+    </div>
 
-            <!-- Invoice Total -->
-            <div class="border-top pt-3 mb-3">
-                <h5 class="text-end">Обща стойност: <strong>@InvoiceTotal.ToString("F2") €</strong></h5>
+    <!-- Invoice Total -->
+    <div class="d-flex justify-content-end mb-4">
+        <div class="od-card od-totals-card" style="min-width: 280px; max-width: 380px; width: 100%;">
+            <div class="od-card-header">
+                <i class="bi bi-calculator"></i> Обобщение
             </div>
-
-            <!-- Buttons -->
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-success" @onclick="HandleSave" disabled="@_isSaving">
-                    @if (_isSaving)
-                    {
-                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                    }
-                    Запази
-                </button>
-                <button type="button" class="btn btn-outline-secondary" @onclick="NavigateBack" disabled="@_isSaving">
-                    Отказ
-                </button>
+            <div class="od-card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="od-grand-total">Обща стойност:</span>
+                    <span class="od-grand-total">@InvoiceTotal.ToString("F2") &euro;</span>
+                </div>
             </div>
         </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="d-flex flex-column-reverse flex-sm-row gap-2 pb-3">
+        <button type="button" class="btn btn-nsi-outline" @onclick="NavigateBack" disabled="@_isSaving">
+            Отказ
+        </button>
+        <button type="button" class="btn btn-nsi-accent" @onclick="HandleSave" disabled="@_isSaving">
+            @if (_isSaving)
+            {
+                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            }
+            <i class="bi bi-check-lg me-1"></i>Запази
+        </button>
     </div>
 }
 
 <!-- Confirmation Modal -->
 @if (_showConfirmModal)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Потвърждение</h5>
-                    <button type="button" class="btn-close" @onclick="CancelConfirm" disabled="@_isSaving"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Сигурни ли сте? След запазване наличностите ще бъдат автоматично обновени. Доставката не може да бъде редактирана.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CancelConfirm" disabled="@_isSaving">Отказ</button>
-                    <button type="button" class="btn btn-success" @onclick="ConfirmSave" disabled="@_isSaving">
-                        @if (_isSaving)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                        }
-                        Потвърди
-                    </button>
-                </div>
+    <div class="od-modal-overlay" tabindex="-1">
+        <div class="od-modal-card">
+            <div class="od-modal-header">
+                <h5 class="mb-0" style="font-family: var(--nsi-font-display); font-weight: 700;">
+                    <i class="bi bi-question-circle me-2" style="color: var(--nsi-accent-dark);"></i>Потвърждение
+                </h5>
+                <button type="button" class="btn-close" @onclick="CancelConfirm" disabled="@_isSaving"></button>
+            </div>
+            <div class="od-modal-body">
+                <p class="mb-0">Сигурни ли сте? След запазване наличностите ще бъдат автоматично обновени. Доставката не може да бъде редактирана.</p>
+            </div>
+            <div class="od-modal-footer">
+                <button type="button" class="btn btn-nsi-outline" @onclick="CancelConfirm" disabled="@_isSaving">Отказ</button>
+                <button type="button" class="btn btn-nsi-success" @onclick="ConfirmSave" disabled="@_isSaving">
+                    @if (_isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    }
+                    Потвърди
+                </button>
             </div>
         </div>
     </div>
