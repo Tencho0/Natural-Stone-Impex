@@ -185,6 +185,23 @@ a:hover {
 }
 
 /* --------------------------------------------------------------------------
+   d-1) Page Headings
+   -------------------------------------------------------------------------- */
+.page-heading {
+  font-family: var(--nsi-font-display);
+  font-weight: 800;
+  font-size: 1.75rem;
+  color: var(--nsi-dark);
+  letter-spacing: -0.01em;
+}
+
+@media (min-width: 768px) {
+  .page-heading {
+    font-size: 2rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
    d) Card Overrides
    -------------------------------------------------------------------------- */
 .card {
@@ -299,6 +316,34 @@ a:hover {
 
 .table tbody tr:hover {
   background-color: rgba(139, 115, 85, 0.04);
+}
+
+/* Table action buttons */
+.btn-nsi-table-action {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--nsi-radius-sm);
+  border: 1px solid var(--nsi-gray-light);
+  background: var(--nsi-white);
+  color: var(--nsi-gray-dark);
+  transition: var(--nsi-transition-fast);
+  padding: 0;
+  font-size: 0.8125rem;
+}
+
+.btn-nsi-table-action:hover {
+  border-color: var(--nsi-primary);
+  color: var(--nsi-primary);
+  background: rgba(139, 115, 85, 0.06);
+}
+
+.btn-nsi-table-action-danger:hover {
+  border-color: var(--nsi-danger);
+  color: var(--nsi-danger);
+  background: rgba(192, 57, 43, 0.06);
 }
 
 /* --------------------------------------------------------------------------

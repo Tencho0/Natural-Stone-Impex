@@ -9,17 +9,18 @@
 
 <PageTitle>Продукти — Natural Stone Impex</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="mb-0">Продукти</h1>
-    <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/admin/products/new")'>
-        <i class="bi bi-plus-lg me-1"></i> Добави продукт
+<!-- Page header -->
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
+    <h1 class="page-heading mb-0">Продукти</h1>
+    <button class="btn btn-nsi-accent" @onclick='() => Navigation.NavigateTo("/admin/products/new")'>
+        <i class="bi bi-plus-lg me-1"></i> Нов продукт
     </button>
 </div>
 
 @if (_successMessage is not null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
-        @_successMessage
+        <i class="bi bi-check-circle me-2"></i>@_successMessage
         <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
     </div>
 }
@@ -27,15 +28,22 @@
 @if (_errorMessage is not null)
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        @_errorMessage
+        <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
         <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
     </div>
 }
 
-<!-- Filters -->
-<div class="row g-3 mb-3">
-    <div class="col-md-4">
-        <select class="form-select" value="@_selectedCategoryId" @onchange="OnCategoryChanged">
+<!-- Search & Filter bar -->
+<div class="d-flex flex-column flex-md-row gap-3 mb-4">
+    <div class="position-relative flex-grow-1" style="max-width: 400px;">
+        <i class="bi bi-search position-absolute" style="left: 1rem; top: 50%; transform: translateY(-50%); color: var(--nsi-gray); pointer-events: none;"></i>
+        <input type="text" class="form-control" placeholder="Търсене по име..."
+               value="@_searchText" @oninput="OnSearchInput"
+               style="padding-left: 2.75rem; border-radius: var(--nsi-radius-pill);" />
+    </div>
+    <div style="min-width: 220px;">
+        <select class="form-select" value="@_selectedCategoryId" @onchange="OnCategoryChanged"
+                style="border-radius: var(--nsi-radius-pill);">
             <option value="">Всички категории</option>
             @foreach (var category in _categories)
             {
@@ -43,83 +51,86 @@
             }
         </select>
     </div>
-    <div class="col-md-4">
-        <input type="text" class="form-control" placeholder="Търсене по име..."
-               value="@_searchText" @oninput="OnSearchInput" />
-    </div>
 </div>
 
 @if (_isLoading)
 {
     <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border text-primary" role="status">
+        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
             <span class="visually-hidden">Зареждане...</span>
         </div>
     </div>
 }
 else if (_products.Items.Count == 0)
 {
-    <div class="alert alert-info">Няма намерени продукти.</div>
+    <div class="text-center py-5" style="color: var(--nsi-gray);">
+        <i class="bi bi-inbox" style="font-size: 2.5rem; opacity: 0.5;"></i>
+        <p class="mt-2 mb-0">Няма намерени продукти.</p>
+    </div>
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-striped table-hover align-middle">
-            <thead class="table-dark">
+    <div class="table-container" style="overflow-x: auto;">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
                 <tr>
-                    <th style="width: 70px;">Снимка</th>
+                    <th style="width: 60px;">Снимка</th>
                     <th>Име</th>
                     <th>Категория</th>
                     <th>Цена с ДДС</th>
                     <th>Мерна ед.</th>
                     <th>Наличност</th>
-                    <th style="width: 120px;">Действия</th>
+                    <th class="text-center" style="width: 120px;">Действия</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var product in _products.Items)
                 {
-                    <tr class="@(!product.IsActive ? "table-secondary" : "")">
+                    <tr style="@(!product.IsActive ? "opacity: 0.6;" : "")">
                         <td>
                             @if (!string.IsNullOrEmpty(product.ImagePath))
                             {
                                 <img src="https://localhost:5001/@product.ImagePath" alt="@product.Name"
-                                     class="rounded" style="width: 50px; height: 50px; object-fit: cover;" />
+                                     style="width: 40px; height: 40px; object-fit: cover; border-radius: 8px;" />
                             }
                             else
                             {
-                                <div class="bg-light border rounded d-flex align-items-center justify-content-center"
-                                     style="width: 50px; height: 50px;">
-                                    <i class="bi bi-image text-muted"></i>
+                                <div class="d-flex align-items-center justify-content-center"
+                                     style="width: 40px; height: 40px; border-radius: 8px; background: var(--nsi-gray-light);">
+                                    <i class="bi bi-image" style="color: var(--nsi-gray); font-size: 0.875rem;"></i>
                                 </div>
                             }
                         </td>
                         <td>
-                            @product.Name
+                            <span class="fw-semibold" style="color: var(--nsi-dark);">@product.Name</span>
                             @if (!product.IsActive)
                             {
-                                <span class="badge bg-secondary ms-1">Деактивиран</span>
+                                <span class="badge badge-nsi-danger ms-2" style="font-size: 0.7rem;">Неактивен</span>
                             }
                         </td>
-                        <td>@product.CategoryName</td>
-                        <td>@product.PriceWithVat.ToString("F2") &euro;</td>
-                        <td>@product.UnitDisplay</td>
+                        <td style="color: var(--nsi-gray-dark);">@product.CategoryName</td>
+                        <td>
+                            <span class="fw-semibold" style="color: var(--nsi-accent-dark);">@product.PriceWithVat.ToString("F2") &euro;</span>
+                        </td>
+                        <td style="color: var(--nsi-gray-dark);">@product.UnitDisplay</td>
                         <td>
                             <span class="@GetStockCssClass(product.StockQuantity)">
                                 @product.StockQuantity.ToString("F2")
                             </span>
                         </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary me-1"
-                                    @onclick="() => NavigateToEdit(product.Id)"
-                                    title="Редактиране">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger"
-                                    @onclick="() => OpenDeleteModal(product)"
-                                    title="Деактивиране">
-                                <i class="bi bi-trash"></i>
-                            </button>
+                        <td class="text-center">
+                            <div class="d-inline-flex gap-1">
+                                <button class="btn btn-sm btn-nsi-table-action"
+                                        @onclick="() => NavigateToEdit(product.Id)"
+                                        title="Редактиране">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-nsi-table-action btn-nsi-table-action-danger"
+                                        @onclick="() => OpenDeleteModal(product)"
+                                        title="Деактивиране">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 }
@@ -127,32 +138,37 @@ else
         </table>
     </div>
 
-    <Pagination CurrentPage="_products.Page" TotalPages="_products.TotalPages" OnPageChanged="OnPageChanged" />
+    <div class="mt-4">
+        <Pagination CurrentPage="_products.Page" TotalPages="_products.TotalPages" OnPageChanged="OnPageChanged" />
+    </div>
 }
 
 <!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel">Потвърждение за деактивиране</h5>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border: none; border-radius: var(--nsi-radius-md); overflow: hidden;">
+            <div class="modal-header" style="background: var(--nsi-light); border-bottom: 1px solid var(--nsi-gray-light);">
+                <h5 class="modal-title" id="deleteModalLabel" style="font-family: var(--nsi-font-display); font-weight: 700; color: var(--nsi-dark);">
+                    <i class="bi bi-exclamation-triangle me-2" style="color: var(--nsi-danger);"></i>Потвърждение за деактивиране
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Затвори"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="padding: 1.5rem;">
                 @if (_deleteError is not null)
                 {
                     <div class="alert alert-danger">@_deleteError</div>
                 }
-                <p>Сигурни ли сте, че искате да деактивирате продукт „@_deletingProduct?.Name"?</p>
+                <p class="mb-0">Сигурни ли сте, че искате да деактивирате продукт „<strong>@_deletingProduct?.Name</strong>"?</p>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@_isDeleting">Отказ</button>
-                <button type="button" class="btn btn-danger" @onclick="HandleDelete" disabled="@_isDeleting">
+            <div class="modal-footer" style="border-top: 1px solid var(--nsi-gray-light); padding: 1rem 1.5rem;">
+                <button type="button" class="btn btn-nsi-outline" data-bs-dismiss="modal" disabled="@_isDeleting">Отказ</button>
+                <button type="button" class="btn" @onclick="HandleDelete" disabled="@_isDeleting"
+                        style="background-color: var(--nsi-danger); color: white; border-radius: var(--nsi-radius-sm); font-weight: 600;">
                     @if (_isDeleting)
                     {
                         <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                     }
-                    Деактивирай
+                    <i class="bi bi-trash me-1"></i>Деактивирай
                 </button>
             </div>
         </div>
