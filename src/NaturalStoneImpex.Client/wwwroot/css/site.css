@@ -1,0 +1,642 @@
+/* ==========================================================================
+   Natural Stone Impex — Master Theme
+   Mobile-first CSS foundation. Base styles target mobile (320px+).
+   Enhancements via min-width media queries only.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   a) CSS Custom Properties
+   -------------------------------------------------------------------------- */
+:root {
+  /* Brand Colors */
+  --nsi-primary: #8B7355;
+  --nsi-primary-dark: #6B5740;
+  --nsi-primary-light: #A8956F;
+  --nsi-accent: #D4A853;
+  --nsi-accent-dark: #B8903F;
+  --nsi-accent-light: #E4C47A;
+
+  /* Neutrals */
+  --nsi-dark: #2C2C2C;
+  --nsi-darker: #1A1A1A;
+  --nsi-light: #F8F6F3;
+  --nsi-white: #FFFFFF;
+  --nsi-gray: #6C757D;
+  --nsi-gray-light: #E9E5E0;
+  --nsi-gray-dark: #4A4A4A;
+
+  /* Semantic */
+  --nsi-success: #4A8C5C;
+  --nsi-danger: #C0392B;
+  --nsi-warning: #E67E22;
+  --nsi-info: #5B8FA8;
+
+  /* Typography */
+  --nsi-font-display: 'Fraunces', Georgia, serif;
+  --nsi-font-body: 'Outfit', 'Segoe UI', sans-serif;
+
+  /* Border Radius */
+  --nsi-radius-sm: 8px;
+  --nsi-radius-md: 12px;
+  --nsi-radius-lg: 16px;
+  --nsi-radius-pill: 50px;
+
+  /* Shadows */
+  --nsi-shadow-sm: 0 1px 3px rgba(44, 44, 44, 0.08);
+  --nsi-shadow-md: 0 4px 12px rgba(44, 44, 44, 0.12);
+  --nsi-shadow-lg: 0 8px 30px rgba(44, 44, 44, 0.16);
+  --nsi-shadow-hover: 0 8px 25px rgba(139, 115, 85, 0.2);
+
+  /* Transitions */
+  --nsi-transition: all 0.3s ease;
+  --nsi-transition-fast: all 0.15s ease;
+  --nsi-transition-slow: all 0.5s ease;
+}
+
+/* --------------------------------------------------------------------------
+   b) Global Base Styles (mobile-first)
+   -------------------------------------------------------------------------- */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--nsi-font-body);
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--nsi-dark);
+  background-color: var(--nsi-light);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--nsi-font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--nsi-dark);
+}
+
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.125rem; }
+h5 { font-size: 1rem; }
+h6 { font-size: 0.875rem; }
+
+a {
+  color: var(--nsi-primary);
+  transition: var(--nsi-transition-fast);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--nsi-primary-dark);
+}
+
+::selection {
+  background-color: var(--nsi-accent-light);
+  color: var(--nsi-dark);
+}
+
+/* --------------------------------------------------------------------------
+   c) Button Overrides
+   -------------------------------------------------------------------------- */
+.btn {
+  transition: var(--nsi-transition);
+  border-radius: var(--nsi-radius-sm);
+  font-family: var(--nsi-font-body);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.btn-nsi-primary {
+  background-color: var(--nsi-primary);
+  color: var(--nsi-white);
+  border: none;
+  min-height: 44px;
+  padding: 0.625rem 1.5rem;
+  border-radius: var(--nsi-radius-sm);
+}
+
+.btn-nsi-primary:hover,
+.btn-nsi-primary:focus {
+  background-color: var(--nsi-primary-dark);
+  color: var(--nsi-white);
+  transform: translateY(-1px);
+  box-shadow: var(--nsi-shadow-md);
+}
+
+.btn-nsi-primary:active {
+  background-color: var(--nsi-primary-dark);
+  color: var(--nsi-white);
+  transform: translateY(0);
+  box-shadow: var(--nsi-shadow-sm);
+}
+
+.btn-nsi-accent {
+  background-color: var(--nsi-accent);
+  color: var(--nsi-dark);
+  border: none;
+  min-height: 44px;
+  padding: 0.625rem 1.5rem;
+  border-radius: var(--nsi-radius-sm);
+  font-weight: 600;
+}
+
+.btn-nsi-accent:hover,
+.btn-nsi-accent:focus {
+  background-color: var(--nsi-accent-dark);
+  color: var(--nsi-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--nsi-shadow-md);
+}
+
+.btn-nsi-accent:active {
+  background-color: var(--nsi-accent-dark);
+  color: var(--nsi-dark);
+  transform: translateY(0);
+  box-shadow: var(--nsi-shadow-sm);
+}
+
+.btn-nsi-outline {
+  background-color: transparent;
+  border: 2px solid var(--nsi-primary);
+  color: var(--nsi-primary);
+  min-height: 44px;
+  padding: 0.5rem 1.5rem;
+  border-radius: var(--nsi-radius-sm);
+}
+
+.btn-nsi-outline:hover,
+.btn-nsi-outline:focus {
+  background-color: var(--nsi-primary);
+  color: var(--nsi-white);
+  transform: translateY(-1px);
+  box-shadow: var(--nsi-shadow-md);
+}
+
+.btn-nsi-outline:active {
+  background-color: var(--nsi-primary-dark);
+  color: var(--nsi-white);
+  transform: translateY(0);
+}
+
+/* --------------------------------------------------------------------------
+   d) Card Overrides
+   -------------------------------------------------------------------------- */
+.card {
+  border: 1px solid var(--nsi-gray-light);
+  border-radius: var(--nsi-radius-md);
+  box-shadow: var(--nsi-shadow-sm);
+  transition: var(--nsi-transition);
+  overflow: hidden;
+  background-color: var(--nsi-white);
+}
+
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--nsi-shadow-hover);
+}
+
+.card-img-top {
+  border-radius: var(--nsi-radius-md) var(--nsi-radius-md) 0 0;
+}
+
+.card-body {
+  padding: 1.25rem;
+}
+
+.card-header {
+  background-color: var(--nsi-light);
+  border-bottom: 1px solid var(--nsi-gray-light);
+  font-family: var(--nsi-font-display);
+  font-weight: 600;
+  padding: 1rem 1.25rem;
+}
+
+.card-footer {
+  background-color: var(--nsi-light);
+  border-top: 1px solid var(--nsi-gray-light);
+}
+
+/* --------------------------------------------------------------------------
+   e) Form Overrides
+   -------------------------------------------------------------------------- */
+.form-control,
+.form-select {
+  border-radius: var(--nsi-radius-sm);
+  border: 1px solid var(--nsi-gray-light);
+  padding: 0.625rem 1rem;
+  font-family: var(--nsi-font-body);
+  transition: var(--nsi-transition-fast);
+  color: var(--nsi-dark);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--nsi-accent);
+  box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.15);
+  outline: none;
+}
+
+.form-label {
+  font-weight: 500;
+  color: var(--nsi-gray-dark);
+  margin-bottom: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.input-group .form-control {
+  border-radius: 0;
+}
+
+.input-group .form-control:first-child,
+.input-group > :first-child {
+  border-radius: var(--nsi-radius-sm) 0 0 var(--nsi-radius-sm);
+}
+
+.input-group .form-control:last-child,
+.input-group > :last-child {
+  border-radius: 0 var(--nsi-radius-sm) var(--nsi-radius-sm) 0;
+}
+
+/* --------------------------------------------------------------------------
+   f) Table Overrides
+   -------------------------------------------------------------------------- */
+.table-container {
+  background: var(--nsi-white);
+  border-radius: var(--nsi-radius-md);
+  overflow: hidden;
+  box-shadow: var(--nsi-shadow-sm);
+}
+
+.table-container .table {
+  margin-bottom: 0;
+}
+
+.table thead th {
+  background-color: var(--nsi-primary);
+  color: var(--nsi-white);
+  font-weight: 600;
+  border: none;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+}
+
+.table td {
+  padding: 0.875rem 1rem;
+  vertical-align: middle;
+  border-color: var(--nsi-gray-light);
+}
+
+.table tbody tr {
+  transition: var(--nsi-transition-fast);
+}
+
+.table tbody tr:hover {
+  background-color: rgba(139, 115, 85, 0.04);
+}
+
+/* --------------------------------------------------------------------------
+   g) Badge Overrides
+   -------------------------------------------------------------------------- */
+.badge {
+  border-radius: var(--nsi-radius-pill);
+  padding: 0.375em 0.75em;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  letter-spacing: 0.01em;
+}
+
+.badge-nsi-accent {
+  background-color: var(--nsi-accent) !important;
+  color: var(--nsi-dark) !important;
+}
+
+.badge-nsi-success {
+  background-color: var(--nsi-success) !important;
+  color: var(--nsi-white) !important;
+}
+
+.badge-nsi-danger {
+  background-color: var(--nsi-danger) !important;
+  color: var(--nsi-white) !important;
+}
+
+.badge-nsi-warning {
+  background-color: var(--nsi-warning) !important;
+  color: var(--nsi-white) !important;
+}
+
+.badge-nsi-info {
+  background-color: var(--nsi-info) !important;
+  color: var(--nsi-white) !important;
+}
+
+.badge-nsi-primary {
+  background-color: var(--nsi-primary) !important;
+  color: var(--nsi-white) !important;
+}
+
+/* --------------------------------------------------------------------------
+   h) Section Utilities
+   -------------------------------------------------------------------------- */
+.section-warm {
+  background-color: var(--nsi-light);
+  padding: 2.5rem 0;
+}
+
+.section-dark {
+  background-color: var(--nsi-dark);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 2.5rem 0;
+}
+
+.section-dark h1,
+.section-dark h2,
+.section-dark h3,
+.section-dark h4,
+.section-dark h5,
+.section-dark h6 {
+  color: var(--nsi-white);
+}
+
+.section-dark a {
+  color: var(--nsi-accent);
+}
+
+.section-dark a:hover {
+  color: var(--nsi-accent-light);
+}
+
+.section-white {
+  background-color: var(--nsi-white);
+  padding: 2.5rem 0;
+}
+
+/* --------------------------------------------------------------------------
+   i) Image Utilities
+   -------------------------------------------------------------------------- */
+.img-zoom-wrapper {
+  overflow: hidden;
+  border-radius: var(--nsi-radius-md);
+}
+
+.img-zoom-wrapper img {
+  transition: transform 0.4s ease;
+  width: 100%;
+  display: block;
+}
+
+.img-zoom-wrapper:hover img {
+  transform: scale(1.05);
+}
+
+/* --------------------------------------------------------------------------
+   Text & Background Utilities
+   -------------------------------------------------------------------------- */
+.text-nsi-primary {
+  color: var(--nsi-primary) !important;
+}
+
+.text-nsi-accent {
+  color: var(--nsi-accent) !important;
+}
+
+.text-nsi-muted {
+  color: var(--nsi-gray) !important;
+}
+
+.font-display {
+  font-family: var(--nsi-font-display) !important;
+}
+
+.bg-nsi-primary {
+  background-color: var(--nsi-primary) !important;
+}
+
+.bg-nsi-accent {
+  background-color: var(--nsi-accent) !important;
+}
+
+.bg-nsi-light {
+  background-color: var(--nsi-light) !important;
+}
+
+.bg-nsi-dark {
+  background-color: var(--nsi-dark) !important;
+}
+
+/* Accent divider — place on a heading, renders a short accent bar below */
+.divider-accent {
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.divider-accent::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background-color: var(--nsi-accent);
+  border-radius: 2px;
+}
+
+.divider-accent-center::after {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* --------------------------------------------------------------------------
+   Alert Overrides
+   -------------------------------------------------------------------------- */
+.alert {
+  border-radius: var(--nsi-radius-sm);
+  border-left-width: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   j) Animation Keyframes & Utilities
+   -------------------------------------------------------------------------- */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.15); }
+}
+
+.animate-fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 0.6s ease forwards;
+}
+
+.animate-fade-in {
+  opacity: 0;
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.animate-slide-in-left {
+  opacity: 0;
+  animation: slideInLeft 0.5s ease forwards;
+}
+
+.animate-pulse {
+  animation: pulse 0.4s ease;
+}
+
+/* Stagger delays for orchestrated reveals */
+.animate-stagger-1 { animation-delay: 0.1s; }
+.animate-stagger-2 { animation-delay: 0.2s; }
+.animate-stagger-3 { animation-delay: 0.3s; }
+.animate-stagger-4 { animation-delay: 0.4s; }
+.animate-stagger-5 { animation-delay: 0.5s; }
+
+/* --------------------------------------------------------------------------
+   l) Navbar Utility (for Phase 2)
+   -------------------------------------------------------------------------- */
+.navbar-nsi {
+  background-color: var(--nsi-dark);
+  box-shadow: var(--nsi-shadow-md);
+}
+
+.navbar-nsi .navbar-brand {
+  font-family: var(--nsi-font-display);
+  font-weight: 800;
+  color: var(--nsi-white);
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.navbar-nsi .navbar-brand:hover {
+  color: var(--nsi-accent);
+}
+
+.navbar-nsi .nav-link {
+  color: rgba(255, 255, 255, 0.75);
+  transition: var(--nsi-transition-fast);
+  font-weight: 500;
+  padding: 0.75rem 1rem;
+}
+
+.navbar-nsi .nav-link:hover {
+  color: var(--nsi-white);
+}
+
+.navbar-nsi .nav-link.active {
+  color: var(--nsi-white);
+  border-bottom: 2px solid var(--nsi-accent);
+}
+
+.navbar-nsi .navbar-toggler {
+  border-color: rgba(255, 255, 255, 0.2);
+  padding: 0.5rem 0.75rem;
+}
+
+.navbar-nsi .navbar-toggler-icon {
+  filter: invert(1);
+}
+
+/* --------------------------------------------------------------------------
+   m) Sidebar Utility (for Phase 2)
+   -------------------------------------------------------------------------- */
+.sidebar-nsi {
+  background: linear-gradient(180deg, var(--nsi-darker), #222);
+  min-height: 100vh;
+}
+
+.sidebar-nsi .nav-link {
+  color: rgba(255, 255, 255, 0.65);
+  transition: var(--nsi-transition-fast);
+  padding: 0.75rem 1.25rem;
+  border-left: 3px solid transparent;
+  font-weight: 400;
+}
+
+.sidebar-nsi .nav-link:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-nsi .nav-link.active {
+  color: var(--nsi-white);
+  border-left-color: var(--nsi-accent);
+  background-color: rgba(255, 255, 255, 0.08);
+  font-weight: 500;
+}
+
+.sidebar-nsi .nav-link i {
+  width: 1.5rem;
+  text-align: center;
+  margin-right: 0.5rem;
+  font-size: 1.1em;
+}
+
+/* --------------------------------------------------------------------------
+   k) Responsive Enhancements — Tablet (min-width: 768px)
+   -------------------------------------------------------------------------- */
+@media (min-width: 768px) {
+  body {
+    font-size: 1rem;
+  }
+
+  h1 { font-size: 2.25rem; }
+  h2 { font-size: 1.875rem; }
+  h3 { font-size: 1.5rem; }
+  h4 { font-size: 1.25rem; }
+
+  .section-warm,
+  .section-dark,
+  .section-white {
+    padding: 4rem 0;
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Enhancements — Desktop (min-width: 992px)
+   -------------------------------------------------------------------------- */
+@media (min-width: 992px) {
+  h1 { font-size: 2.75rem; }
+  h2 { font-size: 2.125rem; }
+  h3 { font-size: 1.75rem; }
+
+  .section-warm,
+  .section-dark,
+  .section-white {
+    padding: 5rem 0;
+  }
+}

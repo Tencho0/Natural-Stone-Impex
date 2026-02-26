@@ -1,13 +1,13 @@
 .valid.modified:not([type=checkbox]) {
-    outline: 1px solid #26b050;
+    outline: 1px solid var(--nsi-success, #4A8C5C);
 }
 
 .invalid {
-    outline: 1px solid red;
+    outline: 1px solid var(--nsi-danger, #C0392B);
 }
 
 .validation-message {
-    color: red;
+    color: var(--nsi-danger, #C0392B);
 }
 
 #blazor-error-ui {
@@ -56,7 +56,7 @@
     }
 
         .loading-progress circle:last-child {
-            stroke: #1b6ec2;
+            stroke: var(--nsi-primary, #8B7355);
             stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
             transition: stroke-dasharray 0.05s ease-in-out;
         }
