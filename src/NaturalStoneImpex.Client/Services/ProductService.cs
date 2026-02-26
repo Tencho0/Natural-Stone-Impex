@@ -85,6 +85,14 @@ public class ProductService : IProductService
     {
         using var content = new MultipartFormDataContent();
         using var streamContent = new StreamContent(fileStream);
+        var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
+        var contentType = extension switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            _ => "application/octet-stream"
+        };
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
         content.Add(streamContent, "image", fileName);
 
         var response = await _httpClient.PostAsync($"api/products/{id}/image", content);
