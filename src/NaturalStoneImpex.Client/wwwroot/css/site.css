@@ -721,38 +721,296 @@ a:hover {
 }
 
 /* --------------------------------------------------------------------------
-   m) Sidebar Utility (for Phase 2)
+   m) Admin Layout — Mobile-first
    -------------------------------------------------------------------------- */
-.sidebar-nsi {
-  background: linear-gradient(180deg, var(--nsi-darker), #222);
+
+/* -- Overall layout container -- */
+.admin-layout {
   min-height: 100vh;
 }
 
-.sidebar-nsi .nav-link {
-  color: rgba(255, 255, 255, 0.65);
-  transition: var(--nsi-transition-fast);
-  padding: 0.75rem 1.25rem;
-  border-left: 3px solid transparent;
-  font-weight: 400;
+/* -- Mobile top bar -- */
+.admin-topbar-mobile {
+  position: sticky;
+  top: 0;
+  z-index: 1040;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, var(--nsi-darker) 0%, #252220 100%);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
-.sidebar-nsi .nav-link:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background-color: rgba(255, 255, 255, 0.05);
+.admin-topbar-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  text-decoration: none;
 }
 
-.sidebar-nsi .nav-link.active {
+.admin-topbar-brand-text {
+  font-family: var(--nsi-font-display);
+  font-weight: 800;
+  font-size: 1.25rem;
   color: var(--nsi-white);
-  border-left-color: var(--nsi-accent);
-  background-color: rgba(255, 255, 255, 0.08);
-  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.admin-topbar-brand-sub {
+  font-family: var(--nsi-font-body);
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--nsi-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-hamburger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--nsi-radius-sm);
+  background: transparent;
+  color: var(--nsi-white);
+  font-size: 1.5rem;
+  transition: var(--nsi-transition-fast);
+  cursor: pointer;
+}
+
+.admin-hamburger:hover {
+  border-color: var(--nsi-accent);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--nsi-accent);
+}
+
+/* -- Sidebar (offcanvas on mobile, static on desktop) -- */
+.sidebar-nsi {
+  background: linear-gradient(180deg, var(--nsi-darker) 0%, #222 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-nsi.offcanvas-start {
+  width: 270px;
+}
+
+.sidebar-offcanvas-header {
+  background: var(--nsi-darker);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1rem 1.25rem;
+}
+
+.sidebar-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0 !important;
+}
+
+/* -- Brand area (desktop sidebar) -- */
+.sidebar-brand {
+  padding: 1.5rem 1.25rem 1rem;
+}
+
+.sidebar-brand-link {
+  display: block;
+  text-decoration: none;
+  transition: var(--nsi-transition-fast);
+}
+
+.sidebar-brand-link:hover {
+  opacity: 0.85;
+}
+
+.sidebar-brand-name {
+  display: block;
+  font-family: var(--nsi-font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--nsi-white);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.sidebar-brand-subtitle {
+  display: block;
+  font-family: var(--nsi-font-body);
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--nsi-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-top: 0.2rem;
+}
+
+/* -- Sidebar divider -- */
+.sidebar-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 0.5rem 1.25rem;
+}
+
+/* -- Sidebar nav links -- */
+.sidebar-nav {
+  padding: 0.25rem 0;
+}
+
+.sidebar-nsi .nav-link {
+  display: flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: var(--nsi-font-body);
+  font-weight: 400;
+  font-size: 0.9375rem;
+  padding: 0.7rem 1.25rem;
+  min-height: 44px;
+  border-left: 3px solid transparent;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, padding-left 0.2s ease;
+  letter-spacing: 0.01em;
 }
 
 .sidebar-nsi .nav-link i {
   width: 1.5rem;
   text-align: center;
-  margin-right: 0.5rem;
   font-size: 1.1em;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-nsi .nav-link:hover {
+  color: rgba(255, 255, 255, 0.95);
+  background-color: rgba(255, 255, 255, 0.05);
+  padding-left: 1.4rem;
+}
+
+.sidebar-nsi .nav-link:hover i {
+  opacity: 1;
+}
+
+.sidebar-nsi .nav-link.active {
+  color: var(--nsi-white);
+  border-left-color: var(--nsi-accent);
+  background-color: rgba(212, 168, 83, 0.08);
+  font-weight: 500;
+}
+
+.sidebar-nsi .nav-link.active i {
+  opacity: 1;
+  color: var(--nsi-accent);
+}
+
+/* -- "Към сайта" link — subtle external style -- */
+.sidebar-link-external {
+  position: relative;
+}
+
+.sidebar-external-icon {
+  font-size: 0.7em;
+  margin-left: auto;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-link-external:hover .sidebar-external-icon {
+  opacity: 0.8;
+}
+
+/* -- Sidebar footer (logout) -- */
+.sidebar-footer {
+  margin-top: auto;
+  padding-bottom: 1rem;
+}
+
+.sidebar-btn-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin: 0.5rem 1.25rem;
+  width: calc(100% - 2.5rem);
+  min-height: 44px;
+  padding: 0.6rem 1rem;
+  border: 1.5px solid var(--nsi-accent);
+  border-radius: var(--nsi-radius-sm);
+  background: transparent;
+  color: var(--nsi-accent);
+  font-family: var(--nsi-font-body);
+  font-weight: 500;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  transition: var(--nsi-transition);
+  cursor: pointer;
+}
+
+.sidebar-btn-logout:hover {
+  background-color: var(--nsi-accent);
+  color: var(--nsi-darker);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(212, 168, 83, 0.25);
+}
+
+.sidebar-btn-logout:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* -- Main content area -- */
+.admin-content {
+  min-height: 100vh;
+  background-color: var(--nsi-light);
+}
+
+.admin-content-topbar {
+  align-items: center;
+  padding: 0.875rem 2rem;
+  background-color: var(--nsi-white);
+  border-bottom: 1px solid var(--nsi-gray-light);
+  box-shadow: var(--nsi-shadow-sm);
+}
+
+.admin-content-topbar-text {
+  font-family: var(--nsi-font-body);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: var(--nsi-gray-dark);
+  letter-spacing: 0.01em;
+}
+
+.admin-main {
+  padding: 1rem;
+}
+
+/* -- Desktop layout (lg+) -- */
+@media (min-width: 992px) {
+  .admin-layout {
+    display: flex;
+  }
+
+  .sidebar-nsi {
+    position: sticky;
+    top: 0;
+    width: 250px;
+    min-width: 250px;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  /* Hide scrollbar but keep scroll */
+  .sidebar-nsi::-webkit-scrollbar {
+    width: 0;
+  }
+
+  .admin-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .admin-main {
+    padding: 1.5rem 2rem;
+  }
 }
 
 /* --------------------------------------------------------------------------
