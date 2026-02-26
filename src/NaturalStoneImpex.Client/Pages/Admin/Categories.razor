@@ -300,12 +300,12 @@ else
 
     private async Task ShowModalAsync(string modalId)
     {
-        await JS.InvokeVoidAsync("eval", $"new bootstrap.Modal(document.getElementById('{modalId}')).show()");
+        await JS.InvokeVoidAsync("showModal", modalId);
     }
 
     private async Task HideModalAsync(string modalId)
     {
-        await JS.InvokeVoidAsync("eval", $"bootstrap.Modal.getInstance(document.getElementById('{modalId}')).hide()");
+        await JS.InvokeVoidAsync("hideModal", modalId);
     }
 
     private sealed class CategoryFormModel
