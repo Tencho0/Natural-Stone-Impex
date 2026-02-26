@@ -4,98 +4,134 @@
 <PageTitle>Начална страница — Natural Stone Impex</PageTitle>
 
 @* Hero Section *@
-<div class="bg-dark text-white text-center py-5 mb-5 rounded-3">
-    <div class="container py-4">
-        <h1 class="display-4 fw-bold">Natural Stone Impex</h1>
-        <h4 class="fw-light mt-3">Качествени строителни материали</h4>
-        <p class="text-white-50 fs-5 mt-2">Натурален камък, цимент, плочки и още</p>
-        <a href="/catalog" class="btn btn-warning btn-lg mt-3 px-4">Разгледайте каталога</a>
+<section class="hero-section">
+    <div class="hero-overlay"></div>
+    <div class="container position-relative">
+        <div class="hero-content">
+            <h1 class="hero-title animate-fade-in-up">Natural Stone Impex</h1>
+            <h4 class="hero-subtitle animate-fade-in-up animate-stagger-2">Качествени строителни материали</h4>
+            <p class="hero-description animate-fade-in-up animate-stagger-3">Натурален камък, цимент, плочки и още</p>
+            <a href="/catalog" class="btn btn-nsi-accent btn-lg hero-cta animate-fade-in-up animate-stagger-4">Разгледайте каталога</a>
+        </div>
     </div>
-</div>
+</section>
 
 @* Features Section *@
-<div class="container mb-5">
-    <h3 class="text-center mb-4">Защо да изберете нас</h3>
-    <div class="row g-4">
-        <div class="col-md-4">
-            <div class="card h-100 text-center border-0 shadow-sm">
-                <div class="card-body p-4">
-                    <div class="fs-1 mb-3">🏗️</div>
-                    <h5 class="card-title">Качествени материали</h5>
-                    <p class="card-text text-muted">Предлагаме само проверени и висококачествени строителни материали.</p>
+<section class="section-white">
+    <div class="container">
+        <div class="section-heading">
+            <h3>Защо да изберете нас</h3>
+            <div class="heading-accent"></div>
+        </div>
+        <div class="row g-4">
+            <div class="col-12 col-md-4">
+                <div class="card feature-card h-100 text-center border-0 animate-fade-in-up animate-stagger-1">
+                    <div class="card-body p-4">
+                        <div class="feature-icon-circle mb-3">
+                            <i class="bi bi-gem"></i>
+                        </div>
+                        <h5 class="card-title">Качествени материали</h5>
+                        <p class="card-text text-muted">Предлагаме само проверени и висококачествени строителни материали.</p>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 text-center border-0 shadow-sm">
-                <div class="card-body p-4">
-                    <div class="fs-1 mb-3">💰</div>
-                    <h5 class="card-title">Конкурентни цени</h5>
-                    <p class="card-text text-muted">Най-добрите цени на пазара с възможност за доставка.</p>
+            <div class="col-12 col-md-4">
+                <div class="card feature-card h-100 text-center border-0 animate-fade-in-up animate-stagger-2">
+                    <div class="card-body p-4">
+                        <div class="feature-icon-circle mb-3">
+                            <i class="bi bi-tag"></i>
+                        </div>
+                        <h5 class="card-title">Конкурентни цени</h5>
+                        <p class="card-text text-muted">Най-добрите цени на пазара с възможност за доставка.</p>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 text-center border-0 shadow-sm">
-                <div class="card-body p-4">
-                    <div class="fs-1 mb-3">🚚</div>
-                    <h5 class="card-title">Бърза доставка</h5>
-                    <p class="card-text text-muted">Доставяме до вашия обект в най-кратък срок.</p>
+            <div class="col-12 col-md-4">
+                <div class="card feature-card h-100 text-center border-0 animate-fade-in-up animate-stagger-3">
+                    <div class="card-body p-4">
+                        <div class="feature-icon-circle mb-3">
+                            <i class="bi bi-truck"></i>
+                        </div>
+                        <h5 class="card-title">Бърза доставка</h5>
+                        <p class="card-text text-muted">Доставяме до вашия обект в най-кратък срок.</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
+</section>
 
 @* Categories Section *@
 @if (_categories is not null && _categories.Count > 0)
 {
-    <div class="container mb-5">
-        <h3 class="text-center mb-4">Нашите категории</h3>
-        <div class="row g-4">
-            @foreach (var category in _categories)
-            {
-                <div class="col-md-4 col-sm-6">
-                    <a href="@($"/catalog?categoryId={category.Id}")" class="text-decoration-none">
-                        <div class="card h-100 text-center border-0 shadow-sm">
-                            <div class="card-body p-4">
-                                <h5 class="card-title text-dark">@category.Name</h5>
-                                <p class="card-text text-muted">@category.ProductCount продукта</p>
+    <section class="section-warm">
+        <div class="container">
+            <div class="section-heading">
+                <h3>Нашите категории</h3>
+                <div class="heading-accent"></div>
+            </div>
+            <div class="row g-4">
+                @{ var gradientIndex = 0; }
+                @foreach (var category in _categories)
+                {
+                    <div class="col-12 col-sm-6 col-md-4">
+                        <a href="@($"/catalog?categoryId={category.Id}")" class="text-decoration-none">
+                            <div class="category-card category-gradient-@(gradientIndex % 4) animate-fade-in-up animate-stagger-@((gradientIndex % 5) + 1)">
+                                <div class="category-card-content">
+                                    <h5 class="category-card-title">@category.Name</h5>
+                                    <p class="category-card-count">@category.ProductCount продукта</p>
+                                </div>
                             </div>
-                        </div>
-                    </a>
-                </div>
-            }
+                        </a>
+                    </div>
+                    gradientIndex++;
+                }
+            </div>
         </div>
-    </div>
+    </section>
 }
 
 @* Contact Summary Section *@
-<div class="bg-light py-5 mb-0 rounded-3">
+<section class="section-warm home-contact-section">
     <div class="container">
-        <h3 class="text-center mb-4">Свържете се с нас</h3>
+        <div class="section-heading">
+            <h3>Свържете се с нас</h3>
+            <div class="heading-accent"></div>
+        </div>
         <div class="row text-center g-4">
-            <div class="col-md-4">
-                <div class="fs-1">📞</div>
-                <h5>Телефон</h5>
-                <p class="text-muted">+359 XX XXX XXXX</p>
+            <div class="col-12 col-md-4">
+                <div class="contact-item animate-fade-in-up animate-stagger-1">
+                    <div class="contact-icon-circle">
+                        <i class="bi bi-telephone"></i>
+                    </div>
+                    <h5>Телефон</h5>
+                    <p class="text-muted">+359 XX XXX XXXX</p>
+                </div>
             </div>
-            <div class="col-md-4">
-                <div class="fs-1">📍</div>
-                <h5>Адрес</h5>
-                <p class="text-muted">гр. София, ул. Примерна 1</p>
+            <div class="col-12 col-md-4">
+                <div class="contact-item animate-fade-in-up animate-stagger-2">
+                    <div class="contact-icon-circle">
+                        <i class="bi bi-geo-alt"></i>
+                    </div>
+                    <h5>Адрес</h5>
+                    <p class="text-muted">гр. София, ул. Примерна 1</p>
+                </div>
             </div>
-            <div class="col-md-4">
-                <div class="fs-1">🕐</div>
-                <h5>Работно време</h5>
-                <p class="text-muted">Пон–Пет: 08:00–17:00<br />Съб: 09:00–13:00</p>
+            <div class="col-12 col-md-4">
+                <div class="contact-item animate-fade-in-up animate-stagger-3">
+                    <div class="contact-icon-circle">
+                        <i class="bi bi-clock"></i>
+                    </div>
+                    <h5>Работно време</h5>
+                    <p class="text-muted">Пон–Пет: 08:00–17:00<br />Съб: 09:00–13:00</p>
+                </div>
             </div>
         </div>
         <div class="text-center mt-4">
-            <a href="/contacts" class="btn btn-outline-primary">Към контакти</a>
+            <a href="/contacts" class="btn btn-nsi-outline">Към контакти</a>
         </div>
     </div>
-</div>
+</section>
 
 @code {
     private List<CategoryDto>? _categories;
