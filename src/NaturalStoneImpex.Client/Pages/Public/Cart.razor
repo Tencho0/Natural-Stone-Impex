@@ -7,144 +7,173 @@
 
 <PageTitle>Количка — Natural Stone Impex</PageTitle>
 
-<h1 class="mb-4">Количка</h1>
-
-@if (_items.Count == 0)
-{
-    <div class="text-center py-5">
-        <p class="text-muted fs-5">Количката ви е празна.</p>
-        <a href="/catalog" class="btn btn-primary">Разгледайте каталога</a>
+<div class="container">
+    @* Page header *@
+    <div class="mb-4">
+        <h1 class="divider-accent mb-2">Количка</h1>
+        <p class="text-nsi-muted mb-0">
+            @if (_items.Count > 0)
+            {
+                <span>@_items.Count @(_items.Count == 1 ? "продукт" : "продукта") в количката</span>
+            }
+        </p>
     </div>
-}
-else
-{
-    @* Desktop table view *@
-    <div class="d-none d-md-block">
-        <table class="table align-middle">
-            <thead>
-                <tr>
-                    <th>Снимка</th>
-                    <th>Продукт</th>
-                    <th>Ед. цена с ДДС</th>
-                    <th>Количество</th>
-                    <th>Мерна ед.</th>
-                    <th>Общо</th>
-                    <th>Действия</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in _items)
-                {
-                    <tr>
-                        <td>
-                            @if (!string.IsNullOrEmpty(item.ImagePath))
+
+    @if (_items.Count == 0)
+    {
+        <div class="text-center py-5 animate-fade-in-up">
+            <div class="mb-4">
+                <i class="bi bi-cart-x" style="font-size: 4.5rem; color: var(--nsi-gray-light);"></i>
+            </div>
+            <h3 class="mb-2" style="color: var(--nsi-gray);">Количката ви е празна</h3>
+            <p class="text-nsi-muted mb-4" style="max-width: 360px; margin: 0 auto;">
+                Разгледайте нашия каталог и добавете продукти, които ви харесват.
+            </p>
+            <a href="/catalog" class="btn btn-nsi-accent px-4">
+                <i class="bi bi-grid-3x3-gap me-2"></i>Разгледайте каталога
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @* Main content column *@
+            <div class="col-lg-8">
+                @* Desktop table view *@
+                <div class="d-none d-md-block table-container animate-fade-in-up">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 70px;">Снимка</th>
+                                <th>Продукт</th>
+                                <th>Ед. цена с ДДС</th>
+                                <th style="width: 140px;">Количество</th>
+                                <th>Мерна ед.</th>
+                                <th class="text-end">Общо</th>
+                                <th style="width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in _items)
                             {
-                                <img src="@item.ImagePath" alt="@item.ProductName"
-                                     style="width: 60px; height: 60px; object-fit: cover;" class="rounded" />
+                                <tr>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(item.ImagePath))
+                                        {
+                                            <img src="@item.ImagePath" alt="@item.ProductName"
+                                                 style="width: 56px; height: 56px; object-fit: cover; border-radius: var(--nsi-radius-sm);" />
+                                        }
+                                        else
+                                        {
+                                            <div class="d-flex align-items-center justify-content-center rounded"
+                                                 style="width: 56px; height: 56px; background: var(--nsi-gray-light); color: var(--nsi-gray); border-radius: var(--nsi-radius-sm);">
+                                                <i class="bi bi-image" style="font-size: 1.25rem;"></i>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="fw-medium">@item.ProductName</td>
+                                    <td>@item.UnitPriceWithVat.ToString("F2") €</td>
+                                    <td>
+                                        <input type="number"
+                                               class="form-control form-control-sm"
+                                               min="0.01"
+                                               step="0.01"
+                                               value="@item.Quantity"
+                                               @onchange="(e) => OnQuantityChanged(item.ProductId, e)" />
+                                    </td>
+                                    <td>@item.UnitDisplay</td>
+                                    <td class="text-end fw-semibold text-nsi-accent">@((item.Quantity * item.UnitPriceWithVat).ToString("F2")) €</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm p-1 cart-remove-btn" @onclick="() => RemoveItem(item.ProductId)" title="Премахни">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </td>
+                                </tr>
                             }
-                            else
-                            {
-                                <div class="bg-light d-flex align-items-center justify-content-center text-muted rounded"
-                                     style="width: 60px; height: 60px; font-size: 0.7rem;">
-                                    Няма
+                        </tbody>
+                    </table>
+                </div>
+
+                @* Mobile card view *@
+                <div class="d-md-none">
+                    @foreach (var item in _items)
+                    {
+                        <div class="card mb-3 animate-fade-in-up">
+                            <div class="card-body p-3">
+                                <div class="d-flex gap-3 align-items-start">
+                                    @if (!string.IsNullOrEmpty(item.ImagePath))
+                                    {
+                                        <img src="@item.ImagePath" alt="@item.ProductName"
+                                             class="flex-shrink-0"
+                                             style="width: 64px; height: 64px; object-fit: cover; border-radius: var(--nsi-radius-sm);" />
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex align-items-center justify-content-center flex-shrink-0"
+                                             style="width: 64px; height: 64px; background: var(--nsi-gray-light); color: var(--nsi-gray); border-radius: var(--nsi-radius-sm);">
+                                            <i class="bi bi-image" style="font-size: 1.25rem;"></i>
+                                        </div>
+                                    }
+                                    <div class="flex-grow-1 min-width-0">
+                                        <h6 class="mb-1 text-truncate">@item.ProductName</h6>
+                                        <span class="text-nsi-muted" style="font-size: 0.8125rem;">@item.UnitPriceWithVat.ToString("F2") € / @item.UnitDisplay</span>
+                                    </div>
+                                    <button class="btn btn-sm p-1 cart-remove-btn flex-shrink-0" @onclick="() => RemoveItem(item.ProductId)" title="Премахни">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
                                 </div>
-                            }
-                        </td>
-                        <td>@item.ProductName</td>
-                        <td>@item.UnitPriceWithVat.ToString("F2") €</td>
-                        <td style="width: 130px;">
-                            <input type="number"
-                                   class="form-control form-control-sm"
-                                   min="0.01"
-                                   step="0.01"
-                                   value="@item.Quantity"
-                                   @onchange="(e) => OnQuantityChanged(item.ProductId, e)" />
-                        </td>
-                        <td>@item.UnitDisplay</td>
-                        <td>@((item.Quantity * item.UnitPriceWithVat).ToString("F2")) €</td>
-                        <td>
-                            <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveItem(item.ProductId)" title="Премахни">
-                                ×
-                            </button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-
-    @* Mobile card view *@
-    <div class="d-md-none">
-        @foreach (var item in _items)
-        {
-            <div class="card mb-3">
-                <div class="card-body">
-                    <div class="d-flex gap-3">
-                        @if (!string.IsNullOrEmpty(item.ImagePath))
-                        {
-                            <img src="@item.ImagePath" alt="@item.ProductName"
-                                 style="width: 60px; height: 60px; object-fit: cover;" class="rounded flex-shrink-0" />
-                        }
-                        else
-                        {
-                            <div class="bg-light d-flex align-items-center justify-content-center text-muted rounded flex-shrink-0"
-                                 style="width: 60px; height: 60px; font-size: 0.7rem;">
-                                Няма
+                                <div class="d-flex align-items-center justify-content-between mt-3 pt-3" style="border-top: 1px solid var(--nsi-gray-light);">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label class="form-label mb-0" style="font-size: 0.8125rem; color: var(--nsi-gray);">Кол.:</label>
+                                        <input type="number"
+                                               class="form-control form-control-sm"
+                                               style="width: 90px;"
+                                               min="0.01"
+                                               step="0.01"
+                                               value="@item.Quantity"
+                                               @onchange="(e) => OnQuantityChanged(item.ProductId, e)" />
+                                    </div>
+                                    <span class="fw-bold text-nsi-accent" style="font-size: 1.0625rem;">@((item.Quantity * item.UnitPriceWithVat).ToString("F2")) €</span>
+                                </div>
                             </div>
-                        }
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1">@item.ProductName</h6>
-                            <p class="text-muted mb-1 small">@item.UnitPriceWithVat.ToString("F2") € / @item.UnitDisplay</p>
                         </div>
-                        <button class="btn btn-outline-danger btn-sm align-self-start" @onclick="() => RemoveItem(item.ProductId)" title="Премахни">
-                            ×
-                        </button>
-                    </div>
-                    <div class="d-flex align-items-center justify-content-between mt-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <label class="form-label mb-0 small">Кол.:</label>
-                            <input type="number"
-                                   class="form-control form-control-sm"
-                                   style="width: 100px;"
-                                   min="0.01"
-                                   step="0.01"
-                                   value="@item.Quantity"
-                                   @onchange="(e) => OnQuantityChanged(item.ProductId, e)" />
-                        </div>
-                        <span class="fw-bold">@((item.Quantity * item.UnitPriceWithVat).ToString("F2")) €</span>
-                    </div>
+                    }
                 </div>
             </div>
-        }
-    </div>
 
-    @* Totals section *@
-    <div class="d-flex justify-content-end mt-4">
-        <div class="card" style="min-width: 300px;">
-            <div class="card-body">
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Сума без ДДС:</span>
-                    <span>@CartService.GetTotalWithoutVat().ToString("F2") €</span>
-                </div>
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Общо ДДС:</span>
-                    <span>@CartService.GetTotalVat().ToString("F2") €</span>
-                </div>
-                <hr />
-                <div class="d-flex justify-content-between">
-                    <span class="fw-bold fs-5">Обща сума:</span>
-                    <span class="fw-bold fs-5">@CartService.GetTotalWithVat().ToString("F2") €</span>
+            @* Summary sidebar *@
+            <div class="col-lg-4">
+                <div class="card cart-summary-card animate-fade-in-up animate-stagger-2">
+                    <div class="card-body p-4">
+                        <h5 class="font-display mb-4" style="color: var(--nsi-dark);">Обобщение</h5>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-nsi-muted">Сума без ДДС:</span>
+                            <span>@CartService.GetTotalWithoutVat().ToString("F2") €</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="text-nsi-muted">Общо ДДС:</span>
+                            <span>@CartService.GetTotalVat().ToString("F2") €</span>
+                        </div>
+                        <hr style="border-color: var(--nsi-gray-light);" />
+                        <div class="d-flex justify-content-between align-items-baseline mt-3 mb-4">
+                            <span class="fw-semibold" style="font-size: 0.9375rem;">Обща сума:</span>
+                            <span class="font-display fw-bold text-nsi-accent" style="font-size: 1.625rem;">@CartService.GetTotalWithVat().ToString("F2") €</span>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <a href="/checkout" class="btn btn-nsi-accent btn-lg">
+                                <i class="bi bi-arrow-right-circle me-2"></i>Продължи към поръчка
+                            </a>
+                            <a href="/catalog" class="btn btn-nsi-outline">
+                                Продължи пазаруването
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    @* Action buttons *@
-    <div class="d-flex justify-content-end gap-2 mt-3">
-        <a href="/catalog" class="btn btn-outline-secondary">Продължи пазаруването</a>
-        <a href="/checkout" class="btn btn-primary btn-lg">Продължи към поръчка</a>
-    </div>
-}
+    }
+</div>
 
 @code {
     private IReadOnlyList<CartItem> _items = Array.Empty<CartItem>();

@@ -4,17 +4,34 @@
 
 <PageTitle>Поръчка приета — Natural Stone Impex</PageTitle>
 
-<div class="row justify-content-center mt-5">
-    <div class="col-md-6">
-        <div class="card shadow text-center">
-            <div class="card-body p-5">
-                <div class="text-success mb-3" style="font-size: 4rem;">✓</div>
-                <h2 class="text-success mb-4">Вашата поръчка е приета!</h2>
-                <div class="alert alert-light mb-4">
-                    <h4 class="mb-0">Номер на поръчка: @OrderNumber</h4>
+<div class="container">
+    <div class="row justify-content-center" style="padding-top: 3rem; padding-bottom: 3rem;">
+        <div class="col-md-7 col-lg-5">
+            <div class="card text-center animate-fade-in-up" style="box-shadow: var(--nsi-shadow-lg); border: none;">
+                <div class="card-body p-4 p-md-5">
+                    @* Animated success checkmark *@
+                    <div class="order-success-icon mb-4">
+                        <svg class="order-checkmark" viewBox="0 0 52 52">
+                            <circle class="order-checkmark-circle" cx="26" cy="26" r="24" fill="none" />
+                            <path class="order-checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+                        </svg>
+                    </div>
+
+                    <h2 class="font-display mb-3" style="color: var(--nsi-success);">Вашата поръчка е приета!</h2>
+
+                    <div class="order-number-box mb-4">
+                        <span class="text-nsi-muted d-block mb-1" style="font-size: 0.8125rem;">Номер на поръчка</span>
+                        <span class="order-number-value">@OrderNumber</span>
+                    </div>
+
+                    <p class="text-nsi-muted mb-4" style="max-width: 320px; margin: 0 auto; line-height: 1.7;">
+                        Ще се свържем с вас за потвърждение на поръчката.
+                    </p>
+
+                    <a href="/catalog" class="btn btn-nsi-primary px-4">
+                        <i class="bi bi-arrow-left me-2"></i>Обратно към каталога
+                    </a>
                 </div>
-                <p class="text-muted mb-4">Ще се свържем с вас за потвърждение на поръчката.</p>
-                <a href="/catalog" class="btn btn-primary">Обратно към каталога</a>
             </div>
         </div>
     </div>
