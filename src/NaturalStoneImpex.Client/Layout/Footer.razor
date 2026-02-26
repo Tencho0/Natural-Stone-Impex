@@ -1,7 +1,32 @@
-<footer class="bg-dark text-light py-4 mt-5">
-    <div class="container text-center">
-        <p class="mb-1 fw-bold">Natural Stone Impex</p>
-        <p class="mb-1">📞 +359 XX XXX XXXX</p>
-        <p class="mb-0 text-secondary">&copy; @DateTime.Now.Year Natural Stone Impex. Всички права запазени.</p>
+<footer class="site-footer">
+    <div class="container">
+        <div class="row gy-4">
+            @* Column 1 — Company *@
+            <div class="col-12 col-md-4">
+                <h5 class="footer-brand">Natural Stone Impex</h5>
+                <p class="footer-tagline">Качествени строителни материали</p>
+            </div>
+
+            @* Column 2 — Quick links *@
+            <div class="col-12 col-md-4">
+                <h6 class="footer-heading">Навигация</h6>
+                <ul class="footer-links">
+                    <li><a href="/catalog">Каталог</a></li>
+                    <li><a href="/contacts">Контакти</a></li>
+                </ul>
+            </div>
+
+            @* Column 3 — Contact *@
+            <div class="col-12 col-md-4">
+                <h6 class="footer-heading">Контакт</h6>
+                <p class="footer-contact">
+                    <i class="bi bi-telephone me-2"></i>+359 XX XXX XXXX
+                </p>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p class="mb-0">&copy; @DateTime.Now.Year Natural Stone Impex. Всички права запазени.</p>
+        </div>
     </div>
 </footer>

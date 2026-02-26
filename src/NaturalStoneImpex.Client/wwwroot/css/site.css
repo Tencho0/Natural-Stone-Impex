@@ -1051,3 +1051,143 @@ a:hover {
     padding: 5rem 0;
   }
 }
+
+
+/* ==========================================================================
+   FOOTER
+   ========================================================================== */
+
+.site-footer {
+  background-color: var(--nsi-dark);
+  color: rgba(255, 255, 255, 0.7);
+  border-top: 3px solid var(--nsi-accent);
+  padding: 2rem 0 1.5rem;
+  margin-top: auto;
+}
+
+.footer-brand {
+  font-family: var(--nsi-font-display);
+  font-size: 1.35rem;
+  color: #fff;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+}
+
+.footer-tagline {
+  font-size: 0.9rem;
+  margin-bottom: 0;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.footer-heading {
+  font-family: var(--nsi-font-display);
+  color: #fff;
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-links li + li {
+  margin-top: 0.4rem;
+}
+
+.footer-links a {
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  transition: var(--nsi-transition-fast);
+  font-size: 0.9rem;
+}
+
+.footer-links a:hover {
+  color: var(--nsi-accent);
+}
+
+.footer-contact {
+  font-size: 0.9rem;
+  margin-bottom: 0;
+}
+
+.footer-contact i {
+  color: var(--nsi-accent);
+}
+
+.footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  text-align: center;
+  font-size: 0.825rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+@media (min-width: 768px) {
+  .site-footer {
+    padding: 3rem 0 1.5rem;
+  }
+}
+
+
+/* ==========================================================================
+   LOGIN LAYOUT
+   ========================================================================== */
+
+.login-layout {
+  min-height: 100vh;
+  background-color: var(--nsi-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.login-container {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-brand {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.login-brand-text {
+  font-family: var(--nsi-font-display);
+  font-size: 1.75rem;
+  color: var(--nsi-dark);
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.login-accent-line {
+  width: 48px;
+  height: 3px;
+  background: var(--nsi-accent);
+  margin: 0 auto;
+  border-radius: 2px;
+}
+
+.login-card {
+  background: var(--nsi-white);
+  border-radius: var(--nsi-radius-lg);
+  box-shadow: var(--nsi-shadow-lg);
+  padding: 2rem 1.5rem;
+  border: none;
+}
+
+@media (min-width: 768px) {
+  .login-brand-text {
+    font-size: 2rem;
+  }
+
+  .login-card {
+    padding: 2.5rem 2rem;
+  }
+}
