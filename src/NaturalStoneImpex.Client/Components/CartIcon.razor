@@ -2,11 +2,12 @@
 @inject NavigationManager Navigation
 @implements IDisposable
 
-<a class="nav-link" href="/cart" @onclick="NavigateToCart" @onclick:preventDefault>
-    <i class="bi bi-cart3"></i> Количка
+<a class="nav-link cart-icon-wrapper" href="/cart" @onclick="NavigateToCart" @onclick:preventDefault>
+    <i class="bi bi-cart3 cart-icon__icon"></i>
+    <span class="cart-icon__label">Количка</span>
     @if (_itemCount > 0)
     {
-        <span class="badge bg-danger rounded-pill ms-1">@_itemCount</span>
+        <span class="cart-icon__badge badge-nsi-accent">@_itemCount</span>
     }
 </a>
 

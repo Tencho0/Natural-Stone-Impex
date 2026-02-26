@@ -2,14 +2,17 @@
 
 @if (_isVisible)
 {
-    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
-        <div class="toast show align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body">
-                    @Message
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="Hide" aria-label="Затвори"></button>
+    <div class="nsi-toast-wrapper">
+        <div class="nsi-toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="nsi-toast__icon">
+                <i class="bi bi-check-circle-fill"></i>
             </div>
+            <div class="nsi-toast__body">
+                @Message
+            </div>
+            <button type="button" class="nsi-toast__close" @onclick="Hide" aria-label="Затвори">
+                <i class="bi bi-x-lg"></i>
+            </button>
         </div>
     </div>
 }

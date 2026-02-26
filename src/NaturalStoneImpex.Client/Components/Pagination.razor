@@ -1,10 +1,10 @@
 @if (TotalPages > 1)
 {
-    <nav aria-label="Навигация по страници">
-        <ul class="pagination justify-content-center">
+    <nav aria-label="Навигация по страници" class="nsi-pagination mt-4">
+        <ul class="pagination justify-content-center mb-0 gap-1">
             <li class="page-item @(CurrentPage <= 1 ? "disabled" : "")">
-                <button class="page-link" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage - 1)" disabled="@(CurrentPage <= 1)">
-                    <span aria-hidden="true">&laquo;</span> Предишна
+                <button class="page-link nsi-page-btn nsi-page-arrow" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage - 1)" disabled="@(CurrentPage <= 1)">
+                    <i class="bi bi-chevron-left"></i>
                 </button>
             </li>
 
@@ -13,20 +13,20 @@
                 @if (pageNum == -1)
                 {
                     <li class="page-item disabled">
-                        <span class="page-link">&hellip;</span>
+                        <span class="page-link nsi-page-btn nsi-page-ellipsis">&hellip;</span>
                     </li>
                 }
                 else
                 {
                     <li class="page-item @(pageNum == CurrentPage ? "active" : "")">
-                        <button class="page-link" @onclick="() => OnPageChanged.InvokeAsync(pageNum)">@pageNum</button>
+                        <button class="page-link nsi-page-btn @(pageNum == CurrentPage ? "nsi-page-active" : "")" @onclick="() => OnPageChanged.InvokeAsync(pageNum)">@pageNum</button>
                     </li>
                 }
             }
 
             <li class="page-item @(CurrentPage >= TotalPages ? "disabled" : "")">
-                <button class="page-link" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage + 1)" disabled="@(CurrentPage >= TotalPages)">
-                    Следваща <span aria-hidden="true">&raquo;</span>
+                <button class="page-link nsi-page-btn nsi-page-arrow" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage + 1)" disabled="@(CurrentPage >= TotalPages)">
+                    <i class="bi bi-chevron-right"></i>
                 </button>
             </li>
         </ul>
