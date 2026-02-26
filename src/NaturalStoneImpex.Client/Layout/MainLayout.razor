@@ -7,14 +7,14 @@
         <a class="navbar-brand" href="/">
             Natural <span class="navbar-brand-accent">Stone</span> Impex
         </a>
-        <div class="d-flex align-items-center d-lg-none">
-            <div class="navbar-cart-mobile">
-                <CartIcon />
-            </div>
+        <div class="d-flex align-items-center justify-content-between w-100 d-lg-none">
             <button class="navbar-toggler" type="button" @onclick="ToggleNavMenu"
                     aria-controls="navbarNav" aria-expanded="@_navMenuOpen" aria-label="Навигация">
                 <span class="navbar-toggler-icon"></span>
             </button>
+            <div class="navbar-cart-mobile">
+                <CartIcon />
+            </div>
         </div>
         <div class="collapse navbar-collapse @(_navMenuOpen ? "show" : "")" id="navbarNav">
             <ul class="navbar-nav me-auto navbar-nav-main">
