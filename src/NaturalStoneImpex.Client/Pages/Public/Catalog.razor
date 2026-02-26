@@ -8,60 +8,80 @@
 
 <PageTitle>Каталог — Natural Stone Impex</PageTitle>
 
-<h1 class="mb-4">Каталог</h1>
+@* Page header *@
+<div class="catalog-header">
+    <h1 class="catalog-title">Каталог</h1>
+    <p class="catalog-subtitle">Разгледайте нашите строителни материали</p>
+</div>
 
-<div class="row">
-    @* Category sidebar (desktop) *@
-    <div class="col-md-3 d-none d-md-block">
-        <div class="list-group mb-4">
-            <button class="list-group-item list-group-item-action @(_selectedCategoryId == null ? "active" : "")"
-                    @onclick="() => SelectCategory(null)">
-                Всички категории
-            </button>
-            @if (_categories != null)
+@* Mobile category chips (visible < lg) *@
+<div class="catalog-chips-wrapper d-lg-none mb-3">
+    <div class="catalog-chips">
+        <button class="catalog-chip @(_selectedCategoryId == null ? "catalog-chip--active" : "")"
+                @onclick="() => SelectCategory(null)">
+            Всички
+        </button>
+        @if (_categories != null)
+        {
+            @foreach (var category in _categories)
             {
-                @foreach (var category in _categories)
-                {
-                    <button class="list-group-item list-group-item-action @(_selectedCategoryId == category.Id ? "active" : "")"
-                            @onclick="() => SelectCategory(category.Id)">
-                        @category.Name
-                        <span class="badge bg-secondary float-end">@category.ProductCount</span>
-                    </button>
-                }
+                <button class="catalog-chip @(_selectedCategoryId == category.Id ? "catalog-chip--active" : "")"
+                        @onclick="() => SelectCategory(category.Id)">
+                    @category.Name
+                </button>
             }
-        </div>
+        }
     </div>
+</div>
 
-    @* Main content *@
-    <div class="col-md-9">
-        @* Category dropdown (mobile) *@
-        <div class="d-md-none mb-3">
-            <select class="form-select" @onchange="OnCategoryDropdownChanged">
-                <option value="" selected="@(_selectedCategoryId == null)">Всички категории</option>
+<div class="row g-4">
+    @* Category sidebar (desktop, visible lg+) *@
+    <div class="col-lg-3 d-none d-lg-block">
+        <nav class="catalog-sidebar">
+            <h6 class="catalog-sidebar-heading">Категории</h6>
+            <ul class="catalog-sidebar-list">
+                <li>
+                    <button class="catalog-sidebar-item catalog-sidebar-item--all @(_selectedCategoryId == null ? "catalog-sidebar-item--active" : "")"
+                            @onclick="() => SelectCategory(null)">
+                        <span>Всички категории</span>
+                    </button>
+                </li>
                 @if (_categories != null)
                 {
                     @foreach (var category in _categories)
                     {
-                        <option value="@category.Id" selected="@(_selectedCategoryId == category.Id)">@category.Name</option>
+                        <li>
+                            <button class="catalog-sidebar-item @(_selectedCategoryId == category.Id ? "catalog-sidebar-item--active" : "")"
+                                    @onclick="() => SelectCategory(category.Id)">
+                                <span>@category.Name</span>
+                                <span class="catalog-sidebar-badge">@category.ProductCount</span>
+                            </button>
+                        </li>
                     }
                 }
-            </select>
-        </div>
+            </ul>
+        </nav>
+    </div>
 
+    @* Main content *@
+    <div class="col-12 col-lg-9">
         @* Search bar *@
-        <div class="mb-4">
-            <input type="text"
-                   class="form-control"
-                   placeholder="Търсене на продукт..."
-                   value="@_searchInput"
-                   @oninput="OnSearchInput" />
+        <div class="catalog-search mb-4">
+            <div class="catalog-search-wrapper">
+                <i class="bi bi-search catalog-search-icon"></i>
+                <input type="text"
+                       class="form-control catalog-search-input"
+                       placeholder="Търсене на продукт..."
+                       value="@_searchInput"
+                       @oninput="OnSearchInput" />
+            </div>
         </div>
 
         @* Products grid *@
         @if (_isLoading)
         {
             <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
+                <div class="spinner-border catalog-spinner" role="status">
                     <span class="visually-hidden">Зареждане...</span>
                 </div>
                 <p class="mt-2 text-muted">Зареждане...</p>
@@ -69,8 +89,9 @@
         }
         else if (_products == null || !_products.Items.Any())
         {
-            <div class="text-center py-5">
-                <p class="text-muted fs-5">Няма намерени продукти.</p>
+            <div class="catalog-empty">
+                <i class="bi bi-search catalog-empty-icon"></i>
+                <p class="catalog-empty-text">Няма намерени продукти.</p>
             </div>
         }
         else
@@ -78,13 +99,13 @@
             <div class="row g-4">
                 @foreach (var product in _products.Items)
                 {
-                    <div class="col-12 col-sm-6 col-md-4">
+                    <div class="col-12 col-sm-6 col-md-4 col-xl-3">
                         <ProductCard Product="product" />
                     </div>
                 }
             </div>
 
-            <div class="mt-4">
+            <div class="catalog-pagination">
                 <Pagination CurrentPage="_products.Page"
                             TotalPages="_products.TotalPages"
                             OnPageChanged="OnPageChanged" />

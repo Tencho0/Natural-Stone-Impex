@@ -1415,3 +1415,215 @@ a:hover {
   margin-bottom: 0.75rem;
   box-shadow: var(--nsi-shadow-sm);
 }
+
+
+/* ==========================================================================
+   CATALOG PAGE
+   ========================================================================== */
+
+/* -- Page header -- */
+.catalog-header {
+  margin-bottom: 1.5rem;
+}
+
+.catalog-title {
+  font-family: var(--nsi-font-display);
+  margin-bottom: 0.25rem;
+}
+
+.catalog-subtitle {
+  color: var(--nsi-gray);
+  font-size: 0.95rem;
+  margin-bottom: 0;
+}
+
+/* -- Mobile category chips -- */
+.catalog-chips-wrapper {
+  overflow: hidden;
+}
+
+.catalog-chips {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.catalog-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.catalog-chip {
+  flex-shrink: 0;
+  padding: 0.45rem 1rem;
+  border-radius: var(--nsi-radius-pill);
+  border: 1.5px solid var(--nsi-gray-light);
+  background: var(--nsi-white);
+  color: var(--nsi-gray-dark);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--nsi-transition-fast);
+  white-space: nowrap;
+  min-height: 38px;
+}
+
+.catalog-chip:hover {
+  border-color: var(--nsi-primary-light);
+  color: var(--nsi-primary);
+}
+
+.catalog-chip--active {
+  background: var(--nsi-accent);
+  border-color: var(--nsi-accent);
+  color: var(--nsi-dark);
+  font-weight: 600;
+}
+
+.catalog-chip--active:hover {
+  background: var(--nsi-accent-dark);
+  border-color: var(--nsi-accent-dark);
+  color: var(--nsi-dark);
+}
+
+/* -- Desktop sidebar -- */
+.catalog-sidebar {
+  background: var(--nsi-white);
+  border-radius: var(--nsi-radius-md);
+  box-shadow: var(--nsi-shadow-sm);
+  padding: 1.25rem;
+  position: sticky;
+  top: 5.5rem;
+}
+
+.catalog-sidebar-heading {
+  font-family: var(--nsi-font-display);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--nsi-gray);
+  margin-bottom: 0.75rem;
+  padding-left: 0.75rem;
+}
+
+.catalog-sidebar-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.catalog-sidebar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: none;
+  background: none;
+  border-radius: var(--nsi-radius-sm);
+  color: var(--nsi-gray-dark);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: var(--nsi-transition-fast);
+  text-align: left;
+  border-left: 3px solid transparent;
+}
+
+.catalog-sidebar-item:hover {
+  background: var(--nsi-light);
+  color: var(--nsi-primary);
+}
+
+.catalog-sidebar-item--active {
+  border-left-color: var(--nsi-accent);
+  background: rgba(212, 168, 83, 0.08);
+  color: var(--nsi-primary-dark);
+  font-weight: 600;
+}
+
+.catalog-sidebar-item--active:hover {
+  background: rgba(212, 168, 83, 0.12);
+}
+
+.catalog-sidebar-item--all {
+  font-weight: 500;
+}
+
+.catalog-sidebar-badge {
+  font-size: 0.75rem;
+  background: var(--nsi-gray-light);
+  color: var(--nsi-gray-dark);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--nsi-radius-pill);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.catalog-sidebar-item--active .catalog-sidebar-badge {
+  background: var(--nsi-accent);
+  color: var(--nsi-dark);
+}
+
+/* -- Search input -- */
+.catalog-search-wrapper {
+  position: relative;
+}
+
+.catalog-search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--nsi-gray);
+  font-size: 0.9rem;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.catalog-search-input {
+  padding-left: 2.75rem;
+  border-radius: var(--nsi-radius-pill);
+  border: 1.5px solid var(--nsi-gray-light);
+  min-height: 44px;
+  font-size: 0.925rem;
+  transition: var(--nsi-transition-fast);
+}
+
+.catalog-search-input:focus {
+  border-color: var(--nsi-accent);
+  box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.15);
+}
+
+/* -- Spinner -- */
+.catalog-spinner {
+  color: var(--nsi-primary);
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+/* -- Empty state -- */
+.catalog-empty {
+  text-align: center;
+  padding: 4rem 1rem;
+}
+
+.catalog-empty-icon {
+  font-size: 3rem;
+  color: var(--nsi-gray-light);
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.catalog-empty-text {
+  color: var(--nsi-gray);
+  font-size: 1.1rem;
+}
+
+/* -- Pagination wrapper -- */
+.catalog-pagination {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+}
