@@ -2595,3 +2595,451 @@ a:hover {
     right: 0;
   }
 }
+
+
+/* ==========================================================================
+   ADMIN — ORDERS PAGE
+   ========================================================================== */
+
+/* -- Status filter pills -- */
+.order-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.order-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 1.15rem;
+  border-radius: var(--nsi-radius-pill);
+  border: 1.5px solid var(--nsi-gray-light);
+  background: var(--nsi-white);
+  color: var(--nsi-gray-dark);
+  font-family: var(--nsi-font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--nsi-transition-fast);
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.order-filter-pill:hover {
+  border-color: var(--nsi-primary-light);
+  color: var(--nsi-primary);
+  background: rgba(139, 115, 85, 0.04);
+}
+
+.order-filter-pill--active {
+  background: var(--nsi-primary);
+  border-color: var(--nsi-primary);
+  color: var(--nsi-white);
+  font-weight: 600;
+}
+
+.order-filter-pill--active:hover {
+  background: var(--nsi-primary-dark);
+  border-color: var(--nsi-primary-dark);
+  color: var(--nsi-white);
+}
+
+/* -- Order number monospace style -- */
+.order-number-mono {
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  color: var(--nsi-dark);
+}
+
+/* -- Status badges (order-specific) -- */
+.badge-status-pending {
+  background-color: var(--nsi-warning) !important;
+  color: var(--nsi-white) !important;
+}
+
+.badge-status-confirmed {
+  background-color: var(--nsi-info) !important;
+  color: var(--nsi-white) !important;
+}
+
+.badge-status-completed {
+  background-color: var(--nsi-success) !important;
+  color: var(--nsi-white) !important;
+}
+
+.badge-status-cancelled {
+  background-color: var(--nsi-danger) !important;
+  color: var(--nsi-white) !important;
+}
+
+/* -- Clickable table rows -- */
+.table-row-clickable {
+  cursor: pointer;
+}
+
+.table-row-clickable:hover {
+  background-color: rgba(139, 115, 85, 0.06) !important;
+}
+
+/* -- Order stat mini cards -- */
+.order-stat-mini {
+  background: var(--nsi-white);
+  border-radius: var(--nsi-radius-md);
+  box-shadow: var(--nsi-shadow-sm);
+  padding: 1rem;
+  text-align: center;
+  border-top: 3px solid transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.order-stat-mini:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--nsi-shadow-md);
+}
+
+.order-stat-mini--warning { border-top-color: var(--nsi-warning); }
+.order-stat-mini--info    { border-top-color: var(--nsi-info); }
+.order-stat-mini--success { border-top-color: var(--nsi-success); }
+.order-stat-mini--muted   { border-top-color: var(--nsi-gray); }
+
+.order-stat-mini__value {
+  font-family: var(--nsi-font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 0.2rem;
+}
+
+.order-stat-mini--warning .order-stat-mini__value { color: var(--nsi-warning); }
+.order-stat-mini--info    .order-stat-mini__value { color: var(--nsi-info); }
+.order-stat-mini--success .order-stat-mini__value { color: var(--nsi-success); }
+.order-stat-mini--muted   .order-stat-mini__value { color: var(--nsi-gray); }
+
+.order-stat-mini__label {
+  font-size: 0.75rem;
+  color: var(--nsi-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+
+/* ==========================================================================
+   ADMIN — ORDER DETAIL PAGE
+   ========================================================================== */
+
+/* -- Back link -- */
+.od-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--nsi-gray);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: var(--nsi-transition-fast);
+  padding: 0.35rem 0;
+}
+
+.od-back-link:hover {
+  color: var(--nsi-primary);
+}
+
+/* -- Order header -- */
+.od-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.od-order-number {
+  font-family: var(--nsi-font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--nsi-dark);
+  margin: 0;
+}
+
+.od-order-date {
+  color: var(--nsi-gray);
+  font-size: 0.875rem;
+}
+
+/* -- Cancelled banner -- */
+.od-cancelled-banner {
+  background: rgba(192, 57, 43, 0.08);
+  border: 1px solid rgba(192, 57, 43, 0.2);
+  border-radius: var(--nsi-radius-sm);
+  color: var(--nsi-danger);
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  font-size: 0.925rem;
+  letter-spacing: 0.02em;
+}
+
+/* -- Info cards -- */
+.od-card {
+  background: var(--nsi-white);
+  border-radius: var(--nsi-radius-md);
+  box-shadow: var(--nsi-shadow-sm);
+  overflow: hidden;
+}
+
+.od-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  background-color: var(--nsi-light);
+  border-bottom: 1px solid var(--nsi-gray-light);
+  font-family: var(--nsi-font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--nsi-dark);
+}
+
+.od-card-header i {
+  color: var(--nsi-accent-dark);
+  font-size: 1rem;
+}
+
+.od-card-body {
+  padding: 1.25rem;
+}
+
+/* -- Info rows -- */
+.od-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.4rem 0;
+}
+
+.od-info-row + .od-info-row {
+  border-top: 1px solid rgba(233, 229, 224, 0.5);
+}
+
+.od-info-label {
+  color: var(--nsi-gray);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.od-info-value {
+  color: var(--nsi-dark);
+  font-weight: 500;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+/* -- Totals card -- */
+.od-totals-card {
+  border-top: 3px solid var(--nsi-accent);
+}
+
+.od-grand-total {
+  font-family: var(--nsi-font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--nsi-accent-dark);
+}
+
+/* -- Action buttons -- */
+.btn-nsi-success {
+  background-color: var(--nsi-success);
+  color: var(--nsi-white);
+  border: none;
+  min-height: 44px;
+  padding: 0.625rem 1.5rem;
+  border-radius: var(--nsi-radius-sm);
+  font-weight: 600;
+}
+
+.btn-nsi-success:hover,
+.btn-nsi-success:focus {
+  background-color: #3d7a4e;
+  color: var(--nsi-white);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 140, 92, 0.3);
+}
+
+.btn-nsi-success:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.btn-nsi-danger-outline {
+  background-color: transparent;
+  border: 2px solid var(--nsi-danger);
+  color: var(--nsi-danger);
+  min-height: 44px;
+  padding: 0.5rem 1.5rem;
+  border-radius: var(--nsi-radius-sm);
+  font-weight: 600;
+}
+
+.btn-nsi-danger-outline:hover,
+.btn-nsi-danger-outline:focus {
+  background-color: var(--nsi-danger);
+  color: var(--nsi-white);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(192, 57, 43, 0.3);
+}
+
+.btn-nsi-danger-outline:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* -- Delivery fee input -- */
+.od-delivery-input {
+  max-width: 260px;
+}
+
+.od-delivery-input .form-control {
+  border-radius: var(--nsi-radius-sm) 0 0 var(--nsi-radius-sm);
+}
+
+.od-delivery-input .btn {
+  border-radius: 0 var(--nsi-radius-sm) var(--nsi-radius-sm) 0;
+}
+
+/* -- Timestamps -- */
+.od-timestamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  font-size: 0.825rem;
+  color: var(--nsi-gray);
+}
+
+.od-timestamps i {
+  color: var(--nsi-accent-dark);
+}
+
+/* -- Confirmation modal (inline Blazor style) -- */
+.od-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.od-modal-card {
+  background: var(--nsi-white);
+  border-radius: var(--nsi-radius-md);
+  box-shadow: var(--nsi-shadow-lg);
+  width: 100%;
+  max-width: 440px;
+  overflow: hidden;
+  animation: fadeInUp 0.25s ease;
+}
+
+.od-modal-header {
+  padding: 1rem 1.25rem;
+  background: var(--nsi-light);
+  border-bottom: 1px solid var(--nsi-gray-light);
+  font-family: var(--nsi-font-display);
+  font-weight: 600;
+  color: var(--nsi-dark);
+}
+
+.od-modal-body {
+  padding: 1.5rem 1.25rem;
+}
+
+.od-modal-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--nsi-gray-light);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Desktop enhancements for order detail */
+@media (min-width: 768px) {
+  .od-order-number {
+    font-size: 1.75rem;
+  }
+
+  .od-card-body {
+    padding: 1.5rem;
+  }
+}
+
+
+/* ==========================================================================
+   ADMIN — CATEGORIES PAGE
+   ========================================================================== */
+
+/* -- Category modal styling -- */
+.nsi-modal .modal-content {
+  border: none;
+  border-radius: var(--nsi-radius-md);
+  overflow: hidden;
+}
+
+.nsi-modal .modal-header {
+  background: var(--nsi-light);
+  border-bottom: 1px solid var(--nsi-gray-light);
+  padding: 1rem 1.25rem;
+}
+
+.nsi-modal .modal-title {
+  font-family: var(--nsi-font-display);
+  font-weight: 700;
+  color: var(--nsi-dark);
+  font-size: 1.1rem;
+}
+
+.nsi-modal .modal-body {
+  padding: 1.5rem 1.25rem;
+}
+
+.nsi-modal .modal-footer {
+  border-top: 1px solid var(--nsi-gray-light);
+  padding: 1rem 1.25rem;
+}
+
+/* -- Category count badge -- */
+.cat-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  border-radius: var(--nsi-radius-pill);
+  background: var(--nsi-light);
+  color: var(--nsi-gray-dark);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0 0.5rem;
+}
+
+/* -- Empty state (reusable) -- */
+.admin-empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+}
+
+.admin-empty-icon {
+  font-size: 2.5rem;
+  opacity: 0.4;
+  color: var(--nsi-gray);
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.admin-empty-text {
+  color: var(--nsi-gray);
+  font-size: 0.95rem;
+}

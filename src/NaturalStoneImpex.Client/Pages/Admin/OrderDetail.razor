@@ -7,23 +7,25 @@
 
 <PageTitle>@(_order is not null ? $"Поръчка {_order.OrderNumber}" : "Поръчка") — Natural Stone Impex</PageTitle>
 
-<a href="/admin/orders" class="btn btn-outline-secondary btn-sm mb-3">
-    <i class="bi bi-arrow-left me-1"></i> Обратно към поръчките
+<!-- Back link -->
+<a href="/admin/orders" class="od-back-link mb-3">
+    <i class="bi bi-arrow-left"></i> Обратно към поръчките
 </a>
 
 @if (_isLoading)
 {
     <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border text-primary" role="status">
+        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
             <span class="visually-hidden">Зареждане...</span>
         </div>
     </div>
 }
 else if (_order is null)
 {
-    <div class="alert alert-warning">
-        Поръчката не е намерена.
-        <a href="/admin/orders">Обратно към поръчките</a>
+    <div class="admin-empty-state">
+        <i class="bi bi-question-circle admin-empty-icon"></i>
+        <p class="admin-empty-text">Поръчката не е намерена.</p>
+        <a href="/admin/orders" class="btn btn-nsi-outline mt-2">Обратно към поръчките</a>
     </div>
 }
 else
@@ -32,115 +34,190 @@ else
     @if (_successMessage is not null)
     {
         <div class="alert alert-success alert-dismissible fade show" role="alert">
-            @_successMessage
+            <i class="bi bi-check-circle me-2"></i>@_successMessage
             <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
         </div>
     }
     @if (_warningMessage is not null)
     {
         <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            @_warningMessage
+            <i class="bi bi-exclamation-circle me-2"></i>@_warningMessage
             <button type="button" class="btn-close" @onclick="() => _warningMessage = null"></button>
         </div>
     }
     @if (_errorMessage is not null)
     {
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            @_errorMessage
+            <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
             @if (_stockDetails is not null)
             {
-                <table class="table table-sm table-bordered mt-2 mb-0 bg-white">
-                    <thead>
-                        <tr>
-                            <th>Продукт</th>
-                            <th>Поръчано</th>
-                            <th>Налично</th>
-                            <th>Мерна ед.</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var d in _stockDetails)
-                        {
+                <div class="table-container mt-2" style="background: var(--nsi-white);">
+                    <table class="table table-sm mb-0">
+                        <thead>
                             <tr>
-                                <td>@d.ProductName</td>
-                                <td>@d.Ordered.ToString("F2")</td>
-                                <td>@d.Available.ToString("F2")</td>
-                                <td>@d.Unit</td>
+                                <th>Продукт</th>
+                                <th>Поръчано</th>
+                                <th>Налично</th>
+                                <th>Мерна ед.</th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in _stockDetails)
+                            {
+                                <tr>
+                                    <td>@d.ProductName</td>
+                                    <td>@d.Ordered.ToString("F2")</td>
+                                    <td>@d.Available.ToString("F2")</td>
+                                    <td>@d.Unit</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
             <button type="button" class="btn-close" @onclick="DismissError"></button>
         </div>
     }
 
-    @* Section 1 — Order Header *@
+    @* Cancelled banner *@
     @if (_order.IsCancelled)
     {
-        <div class="alert alert-danger fw-bold">ОТКАЗАНА</div>
+        <div class="od-cancelled-banner mb-3">
+            <i class="bi bi-x-octagon me-2"></i>ОТКАЗАНА
+        </div>
     }
 
-    <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
-        <h4 class="mb-0">@_order.OrderNumber</h4>
+    @* Order Header *@
+    <div class="od-header">
+        <h2 class="od-order-number">@_order.OrderNumber</h2>
         @if (_order.IsCancelled)
         {
-            <span class="badge bg-danger text-white fs-6">Отказана</span>
+            <span class="badge badge-status-cancelled fs-6">Отказана</span>
         }
         else
         {
             <span class="badge @GetStatusBadgeClass(_order.Status) fs-6">@_order.StatusDisplay</span>
         }
-        <span class="text-muted">@_order.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+        <span class="od-order-date">
+            <i class="bi bi-calendar3 me-1"></i>@_order.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+        </span>
     </div>
 
-    @* Section 2 — Customer Info *@
-    <div class="card mb-4">
-        <div class="card-header fw-semibold">Данни за клиента</div>
-        <div class="card-body">
-            <span class="badge bg-secondary mb-2">@_order.CustomerTypeDisplay</span>
+    @* Two-column layout: Order Info + Customer Info side by side on desktop *@
+    <div class="row g-4 mb-4">
+        @* Card 1 — Order Info *@
+        <div class="col-12 col-lg-6">
+            <div class="od-card h-100">
+                <div class="od-card-header">
+                    <i class="bi bi-receipt"></i> Данни за поръчката
+                </div>
+                <div class="od-card-body">
+                    <div class="od-info-row">
+                        <span class="od-info-label">Номер</span>
+                        <span class="od-info-value order-number-mono">@_order.OrderNumber</span>
+                    </div>
+                    <div class="od-info-row">
+                        <span class="od-info-label">Дата</span>
+                        <span class="od-info-value">@_order.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                    </div>
+                    <div class="od-info-row">
+                        <span class="od-info-label">Статус</span>
+                        <span class="od-info-value">
+                            @if (_order.IsCancelled)
+                            {
+                                <span class="badge badge-status-cancelled">Отказана</span>
+                            }
+                            else
+                            {
+                                <span class="badge @GetStatusBadgeClass(_order.Status)">@_order.StatusDisplay</span>
+                            }
+                        </span>
+                    </div>
+                    <div class="od-info-row">
+                        <span class="od-info-label">Метод на доставка</span>
+                        <span class="od-info-value">@(_order.DeliveryMethod == 0 ? "Вземане от обекта" : "Доставка")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-            @if (_order.CustomerType == 0)
-            {
-                @* Individual *@
-                <p class="mb-1"><strong>Име:</strong> @_order.CustomerInfo.FullName</p>
-                <p class="mb-1"><strong>Телефон:</strong> @_order.CustomerInfo.Phone</p>
-                @if (_order.DeliveryMethod == 1 && !string.IsNullOrWhiteSpace(_order.CustomerInfo.Address))
-                {
-                    <p class="mb-1"><strong>Адрес:</strong> @_order.CustomerInfo.Address</p>
-                }
-            }
-            else
-            {
-                @* Company *@
-                <p class="mb-1"><strong>Фирма:</strong> @_order.CustomerInfo.CompanyName</p>
-                <p class="mb-1"><strong>ЕИК:</strong> @_order.CustomerInfo.Eik</p>
-                <p class="mb-1"><strong>МОЛ:</strong> @_order.CustomerInfo.Mol</p>
-                <p class="mb-1"><strong>Лице за контакт:</strong> @_order.CustomerInfo.ContactPerson</p>
-                <p class="mb-1"><strong>Телефон:</strong> @_order.CustomerInfo.ContactPhone</p>
-                @if (_order.DeliveryMethod == 1 && !string.IsNullOrWhiteSpace(_order.CustomerInfo.Address))
-                {
-                    <p class="mb-1"><strong>Адрес:</strong> @_order.CustomerInfo.Address</p>
-                }
-            }
+        @* Card 2 — Customer Info *@
+        <div class="col-12 col-lg-6">
+            <div class="od-card h-100">
+                <div class="od-card-header">
+                    <i class="bi bi-person"></i> Данни за клиента
+                </div>
+                <div class="od-card-body">
+                    <div class="mb-2">
+                        <span class="badge" style="background: var(--nsi-light); color: var(--nsi-gray-dark); font-weight: 500;">@_order.CustomerTypeDisplay</span>
+                    </div>
 
-            <hr />
-            <p class="mb-0">
-                <strong>Метод:</strong>
-                @(_order.DeliveryMethod == 0 ? "Вземане от обекта" : "Доставка")
-            </p>
+                    @if (_order.CustomerType == 0)
+                    {
+                        @* Individual *@
+                        <div class="od-info-row">
+                            <span class="od-info-label">Име</span>
+                            <span class="od-info-value">@_order.CustomerInfo.FullName</span>
+                        </div>
+                        <div class="od-info-row">
+                            <span class="od-info-label">Телефон</span>
+                            <span class="od-info-value">@_order.CustomerInfo.Phone</span>
+                        </div>
+                        @if (_order.DeliveryMethod == 1 && !string.IsNullOrWhiteSpace(_order.CustomerInfo.Address))
+                        {
+                            <div class="od-info-row">
+                                <span class="od-info-label">Адрес</span>
+                                <span class="od-info-value">@_order.CustomerInfo.Address</span>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        @* Company *@
+                        <div class="od-info-row">
+                            <span class="od-info-label">Фирма</span>
+                            <span class="od-info-value">@_order.CustomerInfo.CompanyName</span>
+                        </div>
+                        <div class="od-info-row">
+                            <span class="od-info-label">ЕИК</span>
+                            <span class="od-info-value">@_order.CustomerInfo.Eik</span>
+                        </div>
+                        <div class="od-info-row">
+                            <span class="od-info-label">МОЛ</span>
+                            <span class="od-info-value">@_order.CustomerInfo.Mol</span>
+                        </div>
+                        <div class="od-info-row">
+                            <span class="od-info-label">Лице за контакт</span>
+                            <span class="od-info-value">@_order.CustomerInfo.ContactPerson</span>
+                        </div>
+                        <div class="od-info-row">
+                            <span class="od-info-label">Телефон</span>
+                            <span class="od-info-value">@_order.CustomerInfo.ContactPhone</span>
+                        </div>
+                        @if (_order.DeliveryMethod == 1 && !string.IsNullOrWhiteSpace(_order.CustomerInfo.Address))
+                        {
+                            <div class="od-info-row">
+                                <span class="od-info-label">Адрес</span>
+                                <span class="od-info-value">@_order.CustomerInfo.Address</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
         </div>
     </div>
 
-    @* Section 3 — Order Items *@
-    <div class="card mb-4">
-        <div class="card-header fw-semibold">Артикули</div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-striped mb-0">
-                    <thead class="table-dark">
+    @* Card 3 — Order Items (full-width) *@
+    <div class="od-card mb-4">
+        <div class="od-card-header">
+            <i class="bi bi-box-seam"></i> Артикули
+        </div>
+        <div class="table-container" style="border-radius: 0; box-shadow: none;">
+            <div style="overflow-x: auto;">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
                         <tr>
-                            <th>№</th>
+                            <th style="width: 50px;">№</th>
                             <th>Продукт</th>
                             <th>Мерна ед.</th>
                             <th class="text-end">Количество</th>
@@ -155,14 +232,18 @@ else
                         {
                             var item = _order.Items[i];
                             <tr>
-                                <td>@(i + 1)</td>
-                                <td>@item.ProductName</td>
-                                <td>@item.UnitDisplay</td>
+                                <td style="color: var(--nsi-gray);">@(i + 1)</td>
+                                <td>
+                                    <span class="fw-semibold" style="color: var(--nsi-dark);">@item.ProductName</span>
+                                </td>
+                                <td style="color: var(--nsi-gray-dark);">@item.UnitDisplay</td>
                                 <td class="text-end">@item.Quantity.ToString("F2")</td>
-                                <td class="text-end">@item.UnitPriceWithoutVat.ToString("F2") &euro;</td>
-                                <td class="text-end">@item.VatAmount.ToString("F2") &euro;</td>
-                                <td class="text-end">@item.UnitPriceWithVat.ToString("F2") &euro;</td>
-                                <td class="text-end">@item.RowTotalWithVat.ToString("F2") &euro;</td>
+                                <td class="text-end" style="color: var(--nsi-gray-dark);">@item.UnitPriceWithoutVat.ToString("F2") &euro;</td>
+                                <td class="text-end" style="color: var(--nsi-gray-dark);">@item.VatAmount.ToString("F2") &euro;</td>
+                                <td class="text-end" style="color: var(--nsi-gray-dark);">@item.UnitPriceWithVat.ToString("F2") &euro;</td>
+                                <td class="text-end">
+                                    <span class="fw-semibold" style="color: var(--nsi-accent-dark);">@item.RowTotalWithVat.ToString("F2") &euro;</span>
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -171,26 +252,28 @@ else
         </div>
     </div>
 
-    @* Section 4 — Totals *@
+    @* Card 4 — Totals *@
     <div class="d-flex justify-content-end mb-4">
-        <div class="card" style="min-width: 320px;">
-            <div class="card-header fw-semibold">Обобщение</div>
-            <div class="card-body">
-                <div class="d-flex justify-content-between mb-1">
-                    <span>Сума без ДДС:</span>
-                    <span>@_order.SubtotalWithoutVat.ToString("F2") &euro;</span>
+        <div class="od-card od-totals-card" style="min-width: 320px; max-width: 420px; width: 100%;">
+            <div class="od-card-header">
+                <i class="bi bi-calculator"></i> Обобщение
+            </div>
+            <div class="od-card-body">
+                <div class="od-info-row">
+                    <span class="od-info-label">Сума без ДДС</span>
+                    <span class="od-info-value">@_order.SubtotalWithoutVat.ToString("F2") &euro;</span>
                 </div>
-                <div class="d-flex justify-content-between mb-1">
-                    <span>Общо ДДС:</span>
-                    <span>@_order.TotalVat.ToString("F2") &euro;</span>
+                <div class="od-info-row">
+                    <span class="od-info-label">Общо ДДС</span>
+                    <span class="od-info-value">@_order.TotalVat.ToString("F2") &euro;</span>
                 </div>
-                <div class="d-flex justify-content-between mb-1">
-                    <span>Сума с ДДС:</span>
-                    <span>@_order.SubtotalWithVat.ToString("F2") &euro;</span>
+                <div class="od-info-row">
+                    <span class="od-info-label">Сума с ДДС</span>
+                    <span class="od-info-value">@_order.SubtotalWithVat.ToString("F2") &euro;</span>
                 </div>
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Цена за доставка:</span>
-                    <span>
+                <div class="od-info-row">
+                    <span class="od-info-label">Цена за доставка</span>
+                    <span class="od-info-value">
                         @if (_order.DeliveryMethod == 0)
                         {
                             @:Не се прилага
@@ -201,14 +284,14 @@ else
                         }
                         else
                         {
-                            @:Не е определена
+                            <span style="color: var(--nsi-warning);">Не е определена</span>
                         }
                     </span>
                 </div>
-                <hr />
-                <div class="d-flex justify-content-between">
-                    <strong class="fs-5 text-primary">Обща сума:</strong>
-                    <strong class="fs-5 text-primary">@_order.GrandTotal.ToString("F2") &euro;</strong>
+                <hr style="border-color: var(--nsi-gray-light); margin: 0.75rem 0;" />
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="od-grand-total">Обща сума:</span>
+                    <span class="od-grand-total">@_order.GrandTotal.ToString("F2") &euro;</span>
                 </div>
             </div>
         </div>
@@ -217,25 +300,29 @@ else
     @* Completed/Confirmed dates *@
     @if (_order.Status == 2 && !_order.IsCancelled)
     {
-        <div class="mb-3 text-muted">
+        <div class="od-timestamps mb-4">
             @if (_order.ConfirmedAt.HasValue)
             {
-                <p class="mb-1">Потвърдена на: @_order.ConfirmedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+                <span><i class="bi bi-check-circle me-1"></i> Потвърдена на: @_order.ConfirmedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
             }
             @if (_order.CompletedAt.HasValue)
             {
-                <p class="mb-0">Завършена на: @_order.CompletedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+                <span><i class="bi bi-check-all me-1"></i> Завършена на: @_order.CompletedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
             }
         </div>
     }
 
     @* Section 5 — Actions *@
-    <div class="card mb-4">
-        <div class="card-header fw-semibold">Действия</div>
-        <div class="card-body">
+    <div class="od-card mb-4">
+        <div class="od-card-header">
+            <i class="bi bi-gear"></i> Действия
+        </div>
+        <div class="od-card-body">
             @if (_order.IsCancelled)
             {
-                <div class="alert alert-danger mb-0">Тази поръчка е отказана.</div>
+                <div class="od-cancelled-banner" style="margin: 0;">
+                    <i class="bi bi-x-octagon me-2"></i>Тази поръчка е отказана.
+                </div>
             }
             else if (_order.Status == 0)
             {
@@ -244,10 +331,10 @@ else
                 {
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Цена за доставка (&euro;)</label>
-                        <div class="input-group" style="max-width: 300px;">
+                        <div class="input-group od-delivery-input">
                             <input type="number" class="form-control" min="0" step="0.01"
                                    @bind="_deliveryFeeInput" @bind:event="oninput" />
-                            <button class="btn btn-outline-primary btn-sm" disabled="@_isActionLoading"
+                            <button class="btn btn-nsi-primary btn-sm" disabled="@_isActionLoading"
                                     @onclick="SetDeliveryFee">
                                 @if (_isActionLoading && _activeAction == "deliveryFee")
                                 {
@@ -260,21 +347,21 @@ else
                 }
 
                 <div class="d-flex flex-wrap gap-2">
-                    <button class="btn btn-success btn-lg" disabled="@_isActionLoading"
+                    <button class="btn btn-nsi-success" disabled="@_isActionLoading"
                             @onclick="() => ShowConfirmModal(ConfirmAction.Confirm)">
                         @if (_isActionLoading && _activeAction == "confirm")
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        Потвърди поръчката
+                        <i class="bi bi-check-lg me-1"></i>Потвърди поръчката
                     </button>
-                    <button class="btn btn-outline-danger" disabled="@_isActionLoading"
+                    <button class="btn btn-nsi-danger-outline" disabled="@_isActionLoading"
                             @onclick="() => ShowConfirmModal(ConfirmAction.Cancel)">
                         @if (_isActionLoading && _activeAction == "cancel")
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        Откажи поръчката
+                        <i class="bi bi-x-lg me-1"></i>Откажи поръчката
                     </button>
                 </div>
             }
@@ -285,10 +372,10 @@ else
                 {
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Цена за доставка (&euro;)</label>
-                        <div class="input-group" style="max-width: 300px;">
+                        <div class="input-group od-delivery-input">
                             <input type="number" class="form-control" min="0" step="0.01"
                                    @bind="_deliveryFeeInput" @bind:event="oninput" />
-                            <button class="btn btn-outline-primary btn-sm" disabled="@_isActionLoading"
+                            <button class="btn btn-nsi-primary btn-sm" disabled="@_isActionLoading"
                                     @onclick="SetDeliveryFee">
                                 @if (_isActionLoading && _activeAction == "deliveryFee")
                                 {
@@ -301,15 +388,15 @@ else
                 }
 
                 <div class="d-flex flex-wrap gap-2">
-                    <button class="btn btn-success" disabled="@_isActionLoading"
+                    <button class="btn btn-nsi-success" disabled="@_isActionLoading"
                             @onclick="() => ShowConfirmModal(ConfirmAction.Complete)">
                         @if (_isActionLoading && _activeAction == "complete")
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        Маркирай като завършена
+                        <i class="bi bi-check-all me-1"></i>Маркирай като завършена
                     </button>
-                    <a href="/admin/orders/@_order.Id/receipt" target="_blank" class="btn btn-outline-primary">
+                    <a href="/admin/orders/@_order.Id/receipt" target="_blank" class="btn btn-nsi-outline">
                         <i class="bi bi-printer me-1"></i> Принтирай разписка
                     </a>
                 </div>
@@ -317,7 +404,7 @@ else
             else if (_order.Status == 2)
             {
                 @* Completed *@
-                <a href="/admin/orders/@_order.Id/receipt" target="_blank" class="btn btn-outline-primary">
+                <a href="/admin/orders/@_order.Id/receipt" target="_blank" class="btn btn-nsi-outline">
                     <i class="bi bi-printer me-1"></i> Принтирай разписка
                 </a>
             }
@@ -328,26 +415,26 @@ else
 @* Confirmation Modal *@
 @if (_showModal)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Потвърждение</h5>
-                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>@_modalMessage</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Отказ</button>
-                    <button type="button" class="btn @_modalButtonClass" @onclick="ExecuteModalAction" disabled="@_isActionLoading">
-                        @if (_isActionLoading)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1"></span>
-                        }
-                        Да
-                    </button>
-                </div>
+    <div class="od-modal-overlay" tabindex="-1">
+        <div class="od-modal-card">
+            <div class="od-modal-header">
+                <h5 class="mb-0" style="font-family: var(--nsi-font-display); font-weight: 700;">
+                    <i class="bi bi-question-circle me-2" style="color: var(--nsi-accent-dark);"></i>Потвърждение
+                </h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+            <div class="od-modal-body">
+                <p class="mb-0">@_modalMessage</p>
+            </div>
+            <div class="od-modal-footer">
+                <button type="button" class="btn btn-nsi-outline" @onclick="CloseModal">Отказ</button>
+                <button type="button" class="btn @_modalButtonClass" @onclick="ExecuteModalAction" disabled="@_isActionLoading">
+                    @if (_isActionLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Да
+                </button>
             </div>
         </div>
     </div>
