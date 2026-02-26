@@ -1194,6 +1194,178 @@ a:hover {
 
 
 /* ==========================================================================
+   LOGIN PAGE ENHANCEMENTS
+   ========================================================================== */
+
+.login-error-alert {
+  background: rgba(192, 57, 43, 0.08);
+  border: 1px solid rgba(192, 57, 43, 0.25);
+  border-radius: var(--nsi-radius-sm);
+  color: var(--nsi-danger);
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+}
+
+.login-submit-btn {
+  min-height: 48px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+
+/* ==========================================================================
+   ADMIN DASHBOARD
+   ========================================================================== */
+
+.dash-page-title {
+  font-family: var(--nsi-font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--nsi-dark);
+}
+
+@media (min-width: 768px) {
+  .dash-page-title {
+    font-size: 1.75rem;
+  }
+}
+
+/* -- Stat Cards -- */
+.dash-stat-card {
+  background: var(--nsi-white);
+  border-radius: var(--nsi-radius-md);
+  box-shadow: var(--nsi-shadow-sm);
+  padding: 1.25rem;
+  border-left: 4px solid transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  height: 100%;
+}
+
+.dash-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--nsi-shadow-md);
+}
+
+.dash-stat-primary { border-left-color: var(--nsi-primary); }
+.dash-stat-warning { border-left-color: var(--nsi-warning); }
+.dash-stat-accent  { border-left-color: var(--nsi-accent); }
+.dash-stat-success { border-left-color: var(--nsi-success); }
+
+.dash-stat-icon {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.5;
+}
+
+.dash-stat-primary .dash-stat-icon { color: var(--nsi-primary); }
+.dash-stat-warning .dash-stat-icon { color: var(--nsi-warning); }
+.dash-stat-accent  .dash-stat-icon { color: var(--nsi-accent); }
+.dash-stat-success .dash-stat-icon { color: var(--nsi-success); }
+
+.dash-stat-value {
+  font-family: var(--nsi-font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 0.25rem;
+}
+
+.dash-stat-label {
+  font-size: 0.8rem;
+  color: var(--nsi-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+@media (min-width: 768px) {
+  .dash-stat-card {
+    padding: 1.5rem;
+  }
+
+  .dash-stat-icon {
+    font-size: 1.5rem;
+  }
+
+  .dash-stat-value {
+    font-size: 2rem;
+  }
+}
+
+/* -- Dashboard Cards (orders, low stock) -- */
+.dash-card {
+  background: var(--nsi-white);
+  border-radius: var(--nsi-radius-md);
+  box-shadow: var(--nsi-shadow-sm);
+  overflow: hidden;
+}
+
+.dash-card-warning {
+  border-left: 4px solid var(--nsi-warning);
+}
+
+.dash-card-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--nsi-gray-light);
+}
+
+.dash-card-title {
+  font-family: var(--nsi-font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--nsi-dark);
+}
+
+.dash-card-body {
+  padding: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .dash-card-header {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .dash-card-body {
+    padding: 1.5rem;
+  }
+}
+
+/* -- Dashboard Notes -- */
+.dash-warning-note {
+  background: rgba(230, 126, 34, 0.1);
+  border: 1px solid rgba(230, 126, 34, 0.25);
+  border-radius: var(--nsi-radius-sm);
+  color: var(--nsi-warning);
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+}
+
+.dash-success-note {
+  background: rgba(74, 140, 92, 0.1);
+  border: 1px solid rgba(74, 140, 92, 0.25);
+  border-radius: var(--nsi-radius-sm);
+  color: var(--nsi-success);
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+}
+
+/* -- Dashboard Links -- */
+.dash-link {
+  color: var(--nsi-primary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: var(--nsi-transition-fast);
+}
+
+.dash-link:hover {
+  color: var(--nsi-accent);
+}
+
+
+/* ==========================================================================
    HOME PAGE
    ========================================================================== */
 

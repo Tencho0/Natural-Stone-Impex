@@ -9,14 +9,14 @@
 
 <PageTitle>Табло — Natural Stone Impex</PageTitle>
 
-<h1 class="mb-4">Табло</h1>
+<h1 class="dash-page-title mb-4">Табло</h1>
 
 @* Row 1 — Stat Cards *@
-<div class="row mb-4">
+<div class="row g-3 mb-4">
     @if (_statsLoading)
     {
         <div class="col-12 text-center py-4">
-            <div class="spinner-border text-primary" role="status">
+            <div class="spinner-border" role="status" style="color: var(--nsi-primary);">
                 <span class="visually-hidden">Зареждане...</span>
             </div>
         </div>
@@ -29,36 +29,40 @@
     }
     else if (_stats is not null)
     {
-        <div class="col-md-3 mb-3">
-            <div class="card border-start border-primary border-4 h-100">
-                <div class="card-body">
-                    <div class="text-muted small mb-1">Общо продукти</div>
-                    <h3 class="mb-0 text-primary">@_stats.TotalProducts</h3>
+        <div class="col-6 col-lg-3">
+            <div class="dash-stat-card dash-stat-primary">
+                <div class="dash-stat-icon">
+                    <i class="bi bi-box-seam"></i>
                 </div>
+                <div class="dash-stat-value" style="color: var(--nsi-primary);">@_stats.TotalProducts</div>
+                <div class="dash-stat-label">Общо продукти</div>
             </div>
         </div>
-        <div class="col-md-3 mb-3">
-            <div class="card border-start border-warning border-4 h-100">
-                <div class="card-body">
-                    <div class="text-muted small mb-1">Чакащи поръчки</div>
-                    <h3 class="mb-0 @(_stats.PendingOrders > 0 ? "text-warning fw-bold" : "")">@_stats.PendingOrders</h3>
+        <div class="col-6 col-lg-3">
+            <div class="dash-stat-card dash-stat-warning">
+                <div class="dash-stat-icon">
+                    <i class="bi bi-hourglass-split"></i>
                 </div>
+                <div class="dash-stat-value @(_stats.PendingOrders > 0 ? "fw-bold" : "")" style="color: var(--nsi-warning);">@_stats.PendingOrders</div>
+                <div class="dash-stat-label">Чакащи поръчки</div>
             </div>
         </div>
-        <div class="col-md-3 mb-3">
-            <div class="card border-start border-info border-4 h-100">
-                <div class="card-body">
-                    <div class="text-muted small mb-1">Потвърдени поръчки</div>
-                    <h3 class="mb-0 text-info">@_stats.ConfirmedOrders</h3>
+        <div class="col-6 col-lg-3">
+            <div class="dash-stat-card dash-stat-accent">
+                <div class="dash-stat-icon">
+                    <i class="bi bi-check2-circle"></i>
                 </div>
+                <div class="dash-stat-value" style="color: var(--nsi-accent);">@_stats.ConfirmedOrders</div>
+                <div class="dash-stat-label">Потвърдени поръчки</div>
             </div>
         </div>
-        <div class="col-md-3 mb-3">
-            <div class="card border-start border-success border-4 h-100">
-                <div class="card-body">
-                    <div class="text-muted small mb-1">Завършени поръчки</div>
-                    <h3 class="mb-0 text-success">@_stats.CompletedOrders</h3>
+        <div class="col-6 col-lg-3">
+            <div class="dash-stat-card dash-stat-success">
+                <div class="dash-stat-icon">
+                    <i class="bi bi-check2-all"></i>
                 </div>
+                <div class="dash-stat-value" style="color: var(--nsi-success);">@_stats.CompletedOrders</div>
+                <div class="dash-stat-label">Завършени поръчки</div>
             </div>
         </div>
     }
@@ -67,15 +71,18 @@
 @* Row 2 — Recent Orders + Low Stock *@
 <div class="row">
     @* Left column — Recent Orders *@
-    <div class="col-md-7 mb-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Последни поръчки</h5>
-
+    <div class="col-lg-7 mb-4">
+        <div class="dash-card h-100">
+            <div class="dash-card-header">
+                <h5 class="dash-card-title">
+                    <i class="bi bi-clock-history me-2"></i>Последни поръчки
+                </h5>
+            </div>
+            <div class="dash-card-body">
                 @if (_recentLoading)
                 {
                     <div class="text-center py-4">
-                        <div class="spinner-border text-primary" role="status">
+                        <div class="spinner-border" role="status" style="color: var(--nsi-primary);">
                             <span class="visually-hidden">Зареждане...</span>
                         </div>
                     </div>
@@ -86,11 +93,11 @@
                 }
                 else if (_recentOrders is null || _recentOrders.Count == 0)
                 {
-                    <p class="text-muted">Няма поръчки.</p>
+                    <p class="text-muted mb-0">Няма поръчки.</p>
                 }
                 else
                 {
-                    <div class="table-responsive">
+                    <div class="table-container">
                         <table class="table table-hover mb-0">
                             <thead>
                                 <tr>
@@ -109,7 +116,7 @@
                                         <td>@order.CreatedAt.ToString("dd.MM.yyyy")</td>
                                         <td>@order.CustomerName</td>
                                         <td>
-                                            <span class="badge @GetStatusBadgeClass(order)">@order.StatusDisplay</span>
+                                            <span class="badge rounded-pill @GetStatusBadgeClass(order)">@order.StatusDisplay</span>
                                         </td>
                                         <td class="text-end">@order.TotalWithVat.ToString("F2") &euro;</td>
                                     </tr>
@@ -118,7 +125,9 @@
                         </table>
                     </div>
                     <div class="mt-3">
-                        <a href="/admin/orders" class="text-decoration-none">Виж всички поръчки &rarr;</a>
+                        <a href="/admin/orders" class="dash-link">
+                            Виж всички поръчки <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
                     </div>
                 }
             </div>
@@ -126,15 +135,18 @@
     </div>
 
     @* Right column — Low Stock *@
-    <div class="col-md-5 mb-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Ниска наличност</h5>
-
+    <div class="col-lg-5 mb-4">
+        <div class="dash-card dash-card-warning h-100">
+            <div class="dash-card-header">
+                <h5 class="dash-card-title">
+                    <i class="bi bi-exclamation-triangle me-2" style="color: var(--nsi-warning);"></i>Ниска наличност
+                </h5>
+            </div>
+            <div class="dash-card-body">
                 @if (_lowStockLoading)
                 {
                     <div class="text-center py-4">
-                        <div class="spinner-border text-primary" role="status">
+                        <div class="spinner-border" role="status" style="color: var(--nsi-primary);">
                             <span class="visually-hidden">Зареждане...</span>
                         </div>
                     </div>
@@ -145,16 +157,17 @@
                 }
                 else if (_lowStockProducts is null || _lowStockProducts.Count == 0)
                 {
-                    <div class="alert alert-success mb-0">
-                        &#10003; Всички продукти са с достатъчна наличност.
+                    <div class="dash-success-note mb-0">
+                        <i class="bi bi-check-circle me-2"></i>Всички продукти са с достатъчна наличност.
                     </div>
                 }
                 else
                 {
-                    <div class="alert alert-warning py-2 mb-3">
-                        <strong>&#9888; Внимание:</strong> @_lowStockProducts.Count продукт(а) с ниска наличност
+                    <div class="dash-warning-note mb-3">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Внимание:</strong> @_lowStockProducts.Count продукт(а) с ниска наличност
                     </div>
-                    <div class="table-responsive">
+                    <div class="table-container">
                         <table class="table table-sm mb-0">
                             <thead>
                                 <tr>
@@ -169,10 +182,10 @@
                                 {
                                     <tr>
                                         <td>
-                                            <a href="/admin/products/@product.Id/edit" class="text-decoration-none">@product.Name</a>
+                                            <a href="/admin/products/@product.Id/edit" class="dash-link">@product.Name</a>
                                         </td>
                                         <td>@product.CategoryName</td>
-                                        <td class="text-end text-danger fw-bold">@product.StockQuantity.ToString("F2")</td>
+                                        <td class="text-end fw-bold" style="color: var(--nsi-danger);">@product.StockQuantity.ToString("F2")</td>
                                         <td>@product.UnitDisplay</td>
                                     </tr>
                                 }
