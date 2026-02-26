@@ -13,7 +13,7 @@ public record ProductDto
     public int Unit { get; init; }
     public string UnitDisplay { get; init; } = string.Empty;
     public decimal StockQuantity { get; init; }
-    public string? ImagePath { get; init; }
+    public string? ImagePath { get; set; }
     public bool IsActive { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
