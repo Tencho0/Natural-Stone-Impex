@@ -1,4 +1,6 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
 
 <nav class="navbar navbar-nsi navbar-expand-lg sticky-top">
     <div class="container-xl">
@@ -9,12 +11,12 @@
             <div class="navbar-cart-mobile">
                 <CartIcon />
             </div>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-                    aria-controls="navbarNav" aria-expanded="false" aria-label="Навигация">
+            <button class="navbar-toggler" type="button" @onclick="ToggleNavMenu"
+                    aria-controls="navbarNav" aria-expanded="@_navMenuOpen" aria-label="Навигация">
                 <span class="navbar-toggler-icon"></span>
             </button>
         </div>
-        <div class="collapse navbar-collapse" id="navbarNav">
+        <div class="collapse navbar-collapse @(_navMenuOpen ? "show" : "")" id="navbarNav">
             <ul class="navbar-nav me-auto navbar-nav-main">
                 <li class="nav-item">
                     <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
@@ -46,3 +48,28 @@
 </main>
 
 <Footer />
+
+@code {
+    private bool _navMenuOpen;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _navMenuOpen = false;
+        StateHasChanged();
+    }
+
+    private void ToggleNavMenu()
+    {
+        _navMenuOpen = !_navMenuOpen;
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

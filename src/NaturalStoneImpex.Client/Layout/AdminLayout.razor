@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 
@@ -10,14 +11,14 @@
             <span class="admin-topbar-brand-sub">Admin</span>
         </a>
         <button class="admin-hamburger" type="button"
-                data-bs-toggle="offcanvas" data-bs-target="#adminSidebar"
+                @onclick="ToggleSidebar"
                 aria-controls="adminSidebar" aria-label="Меню">
             <i class="bi bi-list"></i>
         </button>
     </header>
 
     @* ---- Sidebar: offcanvas on mobile, fixed on desktop ---- *@
-    <nav class="offcanvas-lg offcanvas-start sidebar-nsi" tabindex="-1"
+    <nav class="offcanvas-lg offcanvas-start sidebar-nsi @(_sidebarOpen ? "show" : "")" tabindex="-1"
          id="adminSidebar" aria-labelledby="adminSidebarLabel">
 
         @* Offcanvas header (mobile only — Bootstrap hides it at lg+) *@
@@ -26,7 +27,7 @@
                 <span class="sidebar-brand-name">Natural Stone Impex</span>
             </span>
             <button type="button" class="btn-close btn-close-white"
-                    data-bs-dismiss="offcanvas" data-bs-target="#adminSidebar"
+                    @onclick="CloseSidebar"
                     aria-label="Затвори"></button>
         </div>
 
@@ -92,6 +93,11 @@
         </div>
     </nav>
 
+    @if (_sidebarOpen)
+    {
+        <div class="offcanvas-backdrop fade show d-lg-none" @onclick="CloseSidebar"></div>
+    }
+
     @* ---- Main content area ---- *@
     <div class="admin-content">
         <header class="admin-content-topbar d-none d-lg-flex">
@@ -104,9 +110,30 @@
 </div>
 
 @code {
+    private bool _sidebarOpen;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _sidebarOpen = false;
+        StateHasChanged();
+    }
+
+    private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+    private void CloseSidebar() => _sidebarOpen = false;
+
     private void HandleLogout()
     {
         AuthService.Logout();
         Navigation.NavigateTo("/admin/login");
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 }
