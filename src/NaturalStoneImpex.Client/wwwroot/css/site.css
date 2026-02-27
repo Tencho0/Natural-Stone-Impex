@@ -2483,11 +2483,7 @@ a:hover {
 }
 
 .cart-icon__badge {
-  position: absolute;
-  top: 2px;
-  right: auto;
-  left: 1.15rem;
-  transform: translate(50%, -50%);
+  position: relative;
   min-width: 18px;
   height: 18px;
   display: inline-flex;
@@ -2498,6 +2494,7 @@ a:hover {
   font-weight: 700;
   line-height: 1;
   padding: 0 5px;
+  margin-left: 4px;
   animation: cartBadgePulse 0.35s ease-out;
 }
 
