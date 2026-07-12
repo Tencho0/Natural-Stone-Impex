@@ -147,6 +147,52 @@ else
                         </div>
                     </div>
                 </div>
+
+                <!-- Section 4: Visualizer -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-eye me-2" style="color: var(--nsi-accent);"></i>Визуализатор
+                    </div>
+                    <div class="card-body" style="padding: 1.5rem;">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="viz-enabled"
+                                   @bind="_formModel.IsVisualizerEnabled" disabled="@_isSaving">
+                            <label class="form-check-label" for="viz-enabled">Достъпен във визуализатора</label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="viz-width">Реална ширина на текстурата (м)</label>
+                            <InputNumber id="viz-width" class="form-control" @bind-Value="_formModel.TextureWidthMeters"
+                                         disabled="@_isSaving" step="0.01" min="0.1" max="100" />
+                            <ValidationMessage For="() => _formModel.TextureWidthMeters" />
+                        </div>
+                        @if (_isEditMode)
+                        {
+                            <div class="mb-0">
+                                <label class="form-label">Текстура за визуализатора (безшевна)</label>
+                                @if (!string.IsNullOrEmpty(_existingTexturePath))
+                                {
+                                    <div class="mb-2 text-center">
+                                        <img src="@_existingTexturePath" alt="Текуща текстура"
+                                             class="img-fluid" style="max-height: 150px; border-radius: var(--nsi-radius-sm);" />
+                                    </div>
+                                }
+                                <InputFile OnChange="OnTextureSelected" accept=".jpg,.jpeg,.png" disabled="@_isSaving" class="form-control" />
+                                <div class="form-text mt-2">
+                                    Снимайте продукта отгоре при равномерна светлина. За безшевна текстура използвайте
+                                    напр. GIMP: Filters → Map → Make Seamless.
+                                </div>
+                                @if (_textureError is not null)
+                                {
+                                    <div class="text-danger small mt-1">@_textureError</div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="form-text mb-0">Текстурата се качва след създаване на продукта (в режим на редакция).</div>
+                        }
+                    </div>
+                </div>
             </div>
 
             <!-- Right column: Image -->
@@ -220,6 +266,9 @@ else
     private string? _existingImagePath;
     private string? _imagePreviewUrl;
     private IBrowserFile? _selectedImage;
+    private string? _textureError;
+    private string? _existingTexturePath;
+    private IBrowserFile? _selectedTexture;
 
     private List<CategoryDto> _categories = new();
     private readonly ProductFormModel _formModel = new();
@@ -247,7 +296,10 @@ else
                 _formModel.PriceWithVat = product.PriceWithVat;
                 _formModel.Unit = product.Unit;
                 _formModel.StockQuantity = product.StockQuantity;
+                _formModel.IsVisualizerEnabled = product.IsVisualizerEnabled;
+                _formModel.TextureWidthMeters = product.TextureWidthMeters;
                 _existingImagePath = product.ImagePath;
+                _existingTexturePath = product.TextureImagePath;
             }
         }
         catch
@@ -310,6 +362,30 @@ else
         _imagePreviewUrl = $"data:{contentType};base64,{base64}";
     }
 
+    private void OnTextureSelected(InputFileChangeEventArgs e)
+    {
+        _textureError = null;
+        _selectedTexture = null;
+
+        var file = e.File;
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+
+        if (!allowedExtensions.Contains(extension))
+        {
+            _textureError = "Позволени формати: .jpg, .png";
+            return;
+        }
+
+        if (file.Size > 5 * 1024 * 1024)
+        {
+            _textureError = "Файлът не може да е по-голям от 5 MB.";
+            return;
+        }
+
+        _selectedTexture = file;
+    }
+
     private async Task HandleSave()
     {
         if (!ValidatePriceConsistency())
@@ -333,7 +409,9 @@ else
                     VatAmount = _formModel.VatAmount,
                     PriceWithVat = _formModel.PriceWithVat,
                     Unit = _formModel.Unit,
-                    StockQuantity = _formModel.StockQuantity
+                    StockQuantity = _formModel.StockQuantity,
+                    IsVisualizerEnabled = _formModel.IsVisualizerEnabled,
+                    TextureWidthMeters = _formModel.TextureWidthMeters
                 };
 
                 var error = await ProductService.UpdateAsync(ProductId!.Value, updateRequest);
@@ -356,7 +434,9 @@ else
                     VatAmount = _formModel.VatAmount,
                     PriceWithVat = _formModel.PriceWithVat,
                     Unit = _formModel.Unit,
-                    StockQuantity = _formModel.StockQuantity
+                    StockQuantity = _formModel.StockQuantity,
+                    IsVisualizerEnabled = _formModel.IsVisualizerEnabled,
+                    TextureWidthMeters = _formModel.TextureWidthMeters
                 };
 
                 var (newProductId, error) = await ProductService.CreateAsync(createRequest);
@@ -377,6 +457,18 @@ else
                 if (imageError is not null)
                 {
                     _errorMessage = imageError;
+                    return;
+                }
+            }
+
+            // Upload texture if selected (edit mode only)
+            if (_isEditMode && _selectedTexture is not null)
+            {
+                using var textureStream = _selectedTexture.OpenReadStream(5 * 1024 * 1024);
+                var textureError = await ProductService.UploadTextureAsync(productId, textureStream, _selectedTexture.Name);
+                if (textureError is not null)
+                {
+                    _errorMessage = textureError;
                     return;
                 }
             }
@@ -425,5 +517,10 @@ else
 
         [System.ComponentModel.DataAnnotations.Range(0, (double)decimal.MaxValue, ErrorMessage = "Количеството трябва да е по-голямо или равно на 0.")]
         public decimal StockQuantity { get; set; }
+
+        public bool IsVisualizerEnabled { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Range(0.1, 100, ErrorMessage = "Ширината трябва да е между 0.1 и 100 м.")]
+        public decimal TextureWidthMeters { get; set; } = 1.00m;
     }
 }

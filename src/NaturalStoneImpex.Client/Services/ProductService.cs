@@ -51,7 +51,10 @@ public class ProductService : IProductService
         {
             var product = await _httpClient.GetFromJsonAsync<ProductDto>($"api/products/{id}");
             if (product != null)
+            {
                 product.ImagePath = ResolveImageUrl(product.ImagePath);
+                product.TextureImagePath = ResolveImageUrl(product.TextureImagePath);
+            }
             return product;
         }
         catch (HttpRequestException)
@@ -112,6 +115,30 @@ public class ProductService : IProductService
         content.Add(streamContent, "image", fileName);
 
         var response = await _httpClient.PostAsync($"api/products/{id}/image", content);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return await ExtractErrorAsync(response);
+        }
+
+        return null;
+    }
+
+    public async Task<string?> UploadTextureAsync(int id, Stream fileStream, string fileName)
+    {
+        using var content = new MultipartFormDataContent();
+        using var streamContent = new StreamContent(fileStream);
+        var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
+        var contentType = extension switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            _ => "application/octet-stream"
+        };
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        content.Add(streamContent, "texture", fileName);
+
+        var response = await _httpClient.PostAsync($"api/products/{id}/texture", content);
 
         if (!response.IsSuccessStatusCode)
         {
