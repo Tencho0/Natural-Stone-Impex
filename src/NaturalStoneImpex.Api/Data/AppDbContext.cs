@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
+    public DbSet<VisualizationRequest> VisualizationRequests => Set<VisualizationRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -126,6 +127,13 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.ProductId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<VisualizationRequest>(entity =>
+        {
+            entity.Property(e => e.IpHash).HasMaxLength(64).IsRequired();
+            entity.HasIndex(e => new { e.IpHash, e.CreatedAt });
+            entity.HasIndex(e => e.CreatedAt);
         });
     }
 }
