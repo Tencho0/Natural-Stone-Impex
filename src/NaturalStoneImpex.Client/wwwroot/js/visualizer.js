@@ -376,6 +376,11 @@ window.nsiVisualizer = (function () {
       glCanvas.style.clipPath = 'inset(0 0 0 ' + percent + '%)';
     },
 
+    getStageRect: function () {
+      var r = photoImg.getBoundingClientRect();
+      return { left: r.left, top: r.top, width: r.width, height: r.height };
+    },
+
     exportResultDataUrl: function () {
       var out = document.createElement('canvas');
       out.width = photoW; out.height = photoH;

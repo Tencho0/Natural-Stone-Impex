@@ -83,3 +83,38 @@ code {
     background: rgba(0, 0, 0, 0.45);
     z-index: 10;
 }
+.viz-handles {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.viz-grid-outline {
+    fill: rgba(13, 110, 253, 0.08);
+    stroke: rgba(13, 110, 253, 0.9);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+.viz-grid-line {
+    stroke: rgba(13, 110, 253, 0.5);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+.viz-handle {
+    fill: #0d6efd;
+    stroke: #fff;
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+    cursor: grab;
+    pointer-events: all;
+}
+.viz-product-list {
+    max-height: 480px;
+    overflow-y: auto;
+}
+.viz-product-thumb {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 4px;
+}
