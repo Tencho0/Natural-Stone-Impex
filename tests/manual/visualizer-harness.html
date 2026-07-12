@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>visualizer.js harness</title>
+<style>
+  body { font-family: sans-serif; margin: 20px; }
+  #stage { position: relative; width: 800px; }
+  #status { font-weight: bold; font-size: 1.2em; }
+  .pass { color: green; } .fail { color: red; }
+  label { display: inline-block; width: 120px; }
+</style>
+</head>
+<body>
+<h1>visualizer.js harness</h1>
+<p id="status">running…</p>
+<div>
+  <label>Scale</label><input id="scale" type="range" min="0.3" max="3" step="0.05" value="1">
+  <label>Rotation</label><input id="rot" type="range" min="0" max="90" step="1" value="0">
+  <label>Compare</label><input id="cmp" type="range" min="0" max="100" step="1" value="0">
+</div>
+<div id="stage"></div>
+<script src="../../src/NaturalStoneImpex.Client/wwwroot/js/visualizer.js"></script>
+<script>
+(async function () {
+  const failures = [];
+  const assert = (cond, msg) => { if (!cond) failures.push(msg); };
+  const near = (a, b, eps) => Math.abs(a - b) < (eps || 1e-6);
+
+  try {
+    const viz = window.nsiVisualizer;
+    assert(!!viz, "module loaded");
+
+    // --- homography math ---
+    // Identity: unit square -> unit square
+    const sq = [0,0, 1,0, 1,1, 0,1];
+    const hI = viz._test.computeHomography(sq, sq);
+    const p = viz._test.applyH(hI, 0.5, 0.5);
+    assert(near(p[0], 0.5) && near(p[1], 0.5), "identity homography");
+
+    // Known projective map: square -> trapezoid; corners must map exactly
+    const dst = [100,50, 700,80, 780,560, 40,540];
+    const h = viz._test.computeHomography(sq, dst);
+    const corners = [[0,0],[1,0],[1,1],[0,1]];
+    corners.forEach((c, i) => {
+      const q = viz._test.applyH(h, c[0], c[1]);
+      assert(near(q[0], dst[i*2], 1e-3) && near(q[1], dst[i*2+1], 1e-3), "corner " + i + " maps exactly");
+    });
+
+    // --- rendering (visual) ---
+    const forceFallback = new URLSearchParams(location.search).has("fallback");
+    const mode = viz.init("stage", null, { forceFallback });
+    document.title += forceFallback ? " (canvas-2d)" : (mode.webgl ? " (webgl)" : " (canvas-2d auto)");
+    if (!forceFallback) {
+      assert(mode.webgl, "WebGL context initialized (headless)");
+    }
+
+    // Procedural photo: sky + green + gray trapezoid "driveway", 1200x900
+    const photo = document.createElement("canvas");
+    photo.width = 1200; photo.height = 900;
+    const pctx = photo.getContext("2d");
+    pctx.fillStyle = "#9ec3e6"; pctx.fillRect(0, 0, 1200, 380);
+    pctx.fillStyle = "#5e9a4e"; pctx.fillRect(0, 380, 1200, 520);
+    pctx.fillStyle = "#8a8a86";
+    pctx.beginPath();
+    pctx.moveTo(430, 400); pctx.lineTo(760, 400); pctx.lineTo(1050, 880); pctx.lineTo(180, 880);
+    pctx.closePath(); pctx.fill();
+    // add a dark "shadow" band to verify luminance transfer
+    pctx.fillStyle = "rgba(20,20,30,0.45)";
+    pctx.fillRect(150, 600, 1050, 120);
+    await viz.loadPhotoFromDataUrl(photo.toDataURL("image/png"));
+
+    // Procedural mask = same trapezoid, white on black
+    const mask = document.createElement("canvas");
+    mask.width = 1200; mask.height = 900;
+    const mctx = mask.getContext("2d");
+    mctx.fillStyle = "#000"; mctx.fillRect(0, 0, 1200, 900);
+    mctx.fillStyle = "#fff";
+    mctx.beginPath();
+    mctx.moveTo(430, 400); mctx.lineTo(760, 400); mctx.lineTo(1050, 880); mctx.lineTo(180, 880);
+    mctx.closePath(); mctx.fill();
+    await viz.setMaskPng(mask.toDataURL("image/png").split(",")[1]);
+    assert(viz.hasMask(), "mask registered");
+
+    const def = viz.defaultCornersFromMask();
+    assert(def.length === 8, "default corners has 8 values");
+    assert(def[7] > def[1], "bottom corners below top corners");
+    viz.setCorners(def);
+
+    // Procedural stone texture
+    const tile = document.createElement("canvas");
+    tile.width = 256; tile.height = 256;
+    const tctx = tile.getContext("2d");
+    tctx.fillStyle = "#b8b0a0"; tctx.fillRect(0, 0, 256, 256);
+    tctx.strokeStyle = "#6b6458"; tctx.lineWidth = 6;
+    for (let i = 0; i <= 2; i++) {
+      tctx.beginPath(); tctx.moveTo(0, i * 128); tctx.lineTo(256, i * 128); tctx.stroke();
+      tctx.beginPath(); tctx.moveTo(i * 128, 0); tctx.lineTo(i * 128, 256); tctx.stroke();
+    }
+    await viz.setProductTexture(tile.toDataURL("image/png"), 1.0);
+    viz.render();
+
+    const dataUrl = viz.exportResultDataUrl();
+    assert(dataUrl.startsWith("data:image/jpeg"), "export produces jpeg data url");
+
+    // --- pixel-level render assertions (headless-safe substitute for eyeballing) ---
+    // Only meaningful on the WebGL path (canvas-2d fallback is Task 8's job).
+    if (mode.webgl) {
+      const internal = viz._internal();
+      const rCanvas = internal.glCanvas;
+      const rgl = rCanvas.getContext("webgl");
+      const W = internal.size.w, H = internal.size.h;
+
+      // Read an averaged block of pixels so we are robust against landing on a
+      // grid line vs. fill color of the procedural stone tile. Coordinates are
+      // in top-left "photo pixel" space; WebGL readPixels is bottom-left origin,
+      // so flip Y.
+      const readBlock = (cx, cy, half) => {
+        const x0 = Math.max(0, cx - half);
+        const y0 = Math.max(0, (H - 1 - cy) - half);
+        const w = Math.min(2 * half + 1, W - x0);
+        const hgt = Math.min(2 * half + 1, H - y0);
+        const buf = new Uint8Array(w * hgt * 4);
+        rgl.readPixels(x0, y0, w, hgt, rgl.RGBA, rgl.UNSIGNED_BYTE, buf);
+        let r = 0, g = 0, b = 0, a = 0;
+        const n = w * hgt;
+        for (let i = 0; i < n; i++) { r += buf[i*4]; g += buf[i*4+1]; b += buf[i*4+2]; a += buf[i*4+3]; }
+        return { r: r/n, g: g/n, b: b/n, a: a/n };
+      };
+      const lum = (px) => 0.299*px.r + 0.587*px.g + 0.114*px.b;
+
+      // (a) well inside the masked trapezoid, in the lit (non-shadow) region:
+      // texture must be drawn (alpha > 0) and must not just be the flat driveway gray.
+      const litPx = readBlock(600, 800, 25);
+      assert(litPx.a > 0, "lit masked pixel has alpha > 0 (texture drawn)");
+      const isFlatGray = near(litPx.r, 138, 6) && near(litPx.g, 138, 6) && near(litPx.b, 134, 6);
+      assert(!isFlatGray, "lit masked pixel differs from flat driveway gray (stone texture actually drawn)");
+
+      // (b) well outside the mask (sky region): alpha must be 0.
+      const outsidePx = readBlock(50, 50, 5);
+      assert(outsidePx.a === 0, "pixel outside mask has alpha 0");
+
+      // (c) inside the mask AND inside the dark shadow band: must be darker than
+      // the lit masked pixel above (luminance transfer working).
+      const shadowPx = readBlock(600, 660, 25);
+      assert(shadowPx.a > 0, "shadow-band masked pixel has alpha > 0");
+      assert(lum(shadowPx) < lum(litPx), "shadow band pixel is darker than lit masked pixel (luminance transfer)");
+    }
+
+    document.getElementById("scale").oninput = e => { viz.setScale(parseFloat(e.target.value)); viz.render(); };
+    document.getElementById("rot").oninput = e => { viz.setRotation(parseFloat(e.target.value)); viz.render(); };
+    document.getElementById("cmp").oninput = e => viz.setCompareRatio(parseFloat(e.target.value));
+  } catch (err) {
+    failures.push("exception: " + err.message);
+    console.error(err);
+  }
+
+  const status = document.getElementById("status");
+  if (failures.length === 0) {
+    status.textContent = "ALL PASS — now verify visually: stones must recede with perspective, shadow band must remain visible on the stones.";
+    status.className = "pass";
+  } else {
+    status.textContent = "FAIL: " + failures.join("; ");
+    status.className = "fail";
+  }
+})();
+</script>
+</body>
+</html>
