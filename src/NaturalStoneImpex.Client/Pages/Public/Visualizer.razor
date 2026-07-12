@@ -77,18 +77,18 @@ else
                 }
             </div>
 
-            <div class="position-relative" @onpointermove="OnHandleMove" @onpointerup="OnHandleUp">
+            <div class="position-relative" @onpointermove="OnHandleMove" @onpointerup="OnHandleUp" @onpointerleave="OnHandleUp">
                 <div id="viz-stage"></div>
                 @if (_showHandles && _photoW > 0)
                 {
                     <svg class="viz-handles" viewBox="0 0 @_photoW @_photoH" preserveAspectRatio="none">
                         <polygon points="@HandlePolygon" class="viz-grid-outline" />
-                        <line x1="@_corners[0]" y1="@_corners[1]" x2="@_corners[6]" y2="@_corners[7]" class="viz-grid-line" />
-                        <line x1="@_corners[2]" y1="@_corners[3]" x2="@_corners[4]" y2="@_corners[5]" class="viz-grid-line" />
+                        <line x1="@Inv(_corners[0])" y1="@Inv(_corners[1])" x2="@Inv(_corners[6])" y2="@Inv(_corners[7])" class="viz-grid-line" />
+                        <line x1="@Inv(_corners[2])" y1="@Inv(_corners[3])" x2="@Inv(_corners[4])" y2="@Inv(_corners[5])" class="viz-grid-line" />
                         @for (var i = 0; i < 4; i++)
                         {
                             var index = i;
-                            <circle cx="@_corners[index * 2]" cy="@_corners[index * 2 + 1]" r="@(_photoW * 0.02)"
+                            <circle cx="@Inv(_corners[index * 2])" cy="@Inv(_corners[index * 2 + 1])" r="@Inv(_photoW * 0.02)"
                                     class="viz-handle" @onpointerdown="e => OnHandleDown(e, index)"
                                     @onpointerdown:preventDefault @onpointerdown:stopPropagation />
                         }
@@ -111,17 +111,17 @@ else
                     <div class="col-sm-4">
                         <label class="form-label small mb-0" for="viz-scale">Размер на камъка</label>
                         <input id="viz-scale" type="range" class="form-range" min="0.3" max="3" step="0.05"
-                               value="@_scale" @oninput="OnScaleChanged" />
+                               value="@Inv(_scale)" @oninput="OnScaleChanged" />
                     </div>
                     <div class="col-sm-4">
                         <label class="form-label small mb-0" for="viz-rot">Завъртане</label>
                         <input id="viz-rot" type="range" class="form-range" min="0" max="90" step="1"
-                               value="@_rotation" @oninput="OnRotationChanged" />
+                               value="@Inv(_rotation)" @oninput="OnRotationChanged" />
                     </div>
                     <div class="col-sm-4">
                         <label class="form-label small mb-0" for="viz-cmp">Преди / След</label>
                         <input id="viz-cmp" type="range" class="form-range" min="0" max="100" step="1"
-                               value="@_compare" @oninput="OnCompareChanged" />
+                               value="@Inv(_compare)" @oninput="OnCompareChanged" />
                     </div>
                 </div>
 
@@ -308,6 +308,7 @@ else
             {
                 _hasMask = true;
                 var corners = await JS.InvokeAsync<double[]>("nsiVisualizer.defaultCornersFromMask");
+                _corners = corners; // mirror JS state so the handle overlay shows correct geometry
                 await JS.InvokeVoidAsync("nsiVisualizer.setCorners", (object)corners);
             }
 
@@ -343,8 +344,15 @@ else
     private string ModeButton(string mode) =>
         _mode == mode ? "btn-primary" : "btn-outline-primary";
 
+    // Blazor WASM adopts the browser locale; under bg-BG an interpolated double renders
+    // as "843,27" — SVG treats the comma as a coordinate separator (corrupting the
+    // polygon/line/circle geometry) and range-input value attributes require dot decimals.
+    // Route every fractional value in markup through this helper instead of changing the
+    // global culture, which would alter price formatting site-wide.
+    private static string Inv(double v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
     private string HandlePolygon =>
-        $"{_corners[0]},{_corners[1]} {_corners[2]},{_corners[3]} {_corners[4]},{_corners[5]} {_corners[6]},{_corners[7]}";
+        $"{Inv(_corners[0])},{Inv(_corners[1])} {Inv(_corners[2])},{Inv(_corners[3])} {Inv(_corners[4])},{Inv(_corners[5])} {Inv(_corners[6])},{Inv(_corners[7])}";
 
     private async Task SetModeAsync(string mode)
     {
@@ -364,6 +372,7 @@ else
         _points.Clear();
         _hasMask = false;
         _showHandles = false;
+        _corners = new double[8]; // stale corners must not survive into the next segmentation
         await SetModeAsync("tap-add");
     }
 
