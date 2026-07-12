@@ -8,6 +8,7 @@ using NaturalStoneImpex.Api.Data.Seed;
 using NaturalStoneImpex.Api.Middleware;
 using NaturalStoneImpex.Api.Models.Entities;
 using NaturalStoneImpex.Api.Services;
+using NaturalStoneImpex.Api.Services.Segmentation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,6 +60,21 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+
+// Visualizer (see docs/visualizer-specification.md)
+builder.Services.Configure<VisualizerOptions>(builder.Configuration.GetSection("Visualizer"));
+builder.Services.AddMemoryCache(options => options.SizeLimit = 16); // embeddings are ~4 MB each
+builder.Services.AddSingleton<EncodeGate>();
+builder.Services.AddSingleton<ISamModel>(sp =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<VisualizerOptions>>().Value;
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    return new SamOnnxModel(
+        Path.Combine(env.ContentRootPath, options.EncoderPath),
+        Path.Combine(env.ContentRootPath, options.DecoderPath));
+});
+builder.Services.AddScoped<ISegmentationService, SegmentationService>();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
