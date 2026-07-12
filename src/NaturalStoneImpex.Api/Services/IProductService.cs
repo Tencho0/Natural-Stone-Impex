@@ -11,4 +11,6 @@ public interface IProductService
     Task<(bool Success, string? Error)> DeleteAsync(int id);
     Task<(string? ImagePath, string? Error)> UploadImageAsync(int id, IFormFile file);
     Task<List<ProductListDto>> GetLowStockAsync(decimal threshold);
+    Task<List<VisualizerProductDto>> GetVisualizerProductsAsync();
+    Task<(string? TexturePath, string? Error)> UploadTextureAsync(int id, IFormFile file);
 }

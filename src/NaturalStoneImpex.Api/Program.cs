@@ -83,7 +83,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    // Product/texture images are public; allow the Blazor client (different port)
+    // to load them into WebGL without tainting the canvas.
+    OnPrepareResponse = ctx =>
+        ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*")
+});
 app.UseCors("BlazorClient");
 app.UseAuthentication();
 app.UseAuthorization();

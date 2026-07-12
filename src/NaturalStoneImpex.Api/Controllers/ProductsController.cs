@@ -102,6 +102,24 @@ public class ProductsController : ControllerBase
     }
 
     [Authorize]
+    [HttpPost("{id}/texture")]
+    public async Task<IActionResult> UploadTexture(int id, IFormFile texture)
+    {
+        if (texture is null || texture.Length == 0)
+            return BadRequest(new { error = "Файлът е задължителен." });
+
+        var (texturePath, error) = await _productService.UploadTextureAsync(id, texture);
+
+        if (error == "Продуктът не е намерен.")
+            return NotFound(new { error });
+
+        if (error is not null)
+            return BadRequest(new { error });
+
+        return Ok(new { texturePath });
+    }
+
+    [Authorize]
     [HttpGet("low-stock")]
     public async Task<IActionResult> GetLowStock([FromQuery] decimal threshold = 10)
     {

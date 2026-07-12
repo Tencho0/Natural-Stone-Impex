@@ -293,4 +293,65 @@ public class ProductService : IProductService
             })
             .ToListAsync();
     }
+
+    public async Task<List<VisualizerProductDto>> GetVisualizerProductsAsync()
+    {
+        return await _context.Products
+            .Include(p => p.Category)
+            .Where(p => p.IsActive && p.IsVisualizerEnabled && p.TextureImagePath != null)
+            .OrderBy(p => p.Name)
+            .Select(p => new VisualizerProductDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                ImagePath = p.ImagePath,
+                TexturePath = p.TextureImagePath!,
+                TextureWidthMeters = p.TextureWidthMeters,
+                PriceWithoutVat = p.PriceWithoutVat,
+                VatAmount = p.VatAmount,
+                PriceWithVat = p.PriceWithVat,
+                Unit = (int)p.Unit,
+                UnitDisplay = p.Unit == UnitType.Kg ? "кг" : "м²",
+                CategoryId = p.CategoryId,
+                CategoryName = p.Category.Name
+            })
+            .ToListAsync();
+    }
+
+    public async Task<(string? TexturePath, string? Error)> UploadTextureAsync(int id, IFormFile file)
+    {
+        var product = await _context.Products.FindAsync(id);
+        if (product is null)
+            return (null, "Продуктът не е намерен.");
+
+        var allowedTypes = new[] { "image/jpeg", "image/png" };
+        if (!allowedTypes.Contains(file.ContentType) || file.Length > 5 * 1024 * 1024)
+            return (null, "Позволени са само JPG и PNG файлове до 5MB.");
+
+        var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "textures");
+        Directory.CreateDirectory(uploadsDir);
+
+        if (!string.IsNullOrEmpty(product.TextureImagePath))
+        {
+            var oldPath = Path.Combine(_env.WebRootPath, product.TextureImagePath.TrimStart('/'));
+            if (File.Exists(oldPath))
+                File.Delete(oldPath);
+        }
+
+        var extension = file.ContentType == "image/png" ? ".png" : ".jpg";
+        var fileName = $"{id}_texture{extension}";
+        var filePath = Path.Combine(uploadsDir, fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        var texturePath = $"/uploads/textures/{fileName}";
+        product.TextureImagePath = texturePath;
+        product.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return (texturePath, null);
+    }
 }
