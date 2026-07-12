@@ -34,4 +34,7 @@ public record UpdateProductRequest
     [Required(ErrorMessage = "Количеството е задължително.")]
     [Range(0, double.MaxValue, ErrorMessage = "Количеството трябва да е по-голямо или равно на 0.")]
     public decimal StockQuantity { get; set; }
+
+    public bool IsVisualizerEnabled { get; set; }
+    public decimal TextureWidthMeters { get; set; } = 1.00m;
 }
