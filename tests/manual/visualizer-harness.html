@@ -183,6 +183,42 @@
       assert(lum(shadowPx) < lum(litPx), tag + "shadow band pixel is darker than lit masked pixel (luminance transfer)");
     }
 
+    // --- mid-stroke tool switch (regression) ---
+    // setMode(null) while a pointer is down must COMMIT the live stroke (paint at
+    // the first point sticks) and stop further painting (second point untouched).
+    // Uses synthetic PointerEvents on the edit canvas; photo-px -> client coords
+    // via the photo element's bounding rect (photo is 1200x900 natural).
+    try {
+      const strokeInternals = viz._internal();
+      const editC = strokeInternals.editCanvas;
+      const photoRect = strokeInternals.photoImg.getBoundingClientRect();
+      const firePointer = (type, px, py) => {
+        editC.dispatchEvent(new PointerEvent(type, {
+          pointerId: 7, bubbles: true, cancelable: true,
+          clientX: photoRect.left + px / 1200 * photoRect.width,
+          clientY: photoRect.top + py / 900 * photoRect.height
+        }));
+      };
+      const maskPx = (x, y) => strokeInternals.maskCanvas.getContext("2d")
+        .getImageData(x, y, 1, 1).data[0];
+      // Both points lie OUTSIDE the mask trapezoid (430,400 760,400 1050,880 180,880):
+      // left edge at y=800 is x~222 (brush r=30 spans [70,130]); right edge at
+      // y=500 is x~820 (brush spans [1070,1130]).
+      assert(maskPx(100, 800) < 128, "mid-stroke: first point starts unselected");
+      assert(maskPx(1100, 500) < 128, "mid-stroke: second point starts unselected");
+      viz.setMode("brush");
+      viz.setBrushSize(60);
+      firePointer("pointerdown", 100, 800);
+      firePointer("pointermove", 100, 800);
+      viz.setMode(null);                     // tool switch mid-stroke: commits stroke
+      firePointer("pointermove", 1100, 500); // must NOT paint after the switch
+      firePointer("pointerup", 1100, 500);
+      assert(maskPx(100, 800) > 128, "mid-stroke: stroke committed on tool switch (first point painted)");
+      assert(maskPx(1100, 500) < 128, "mid-stroke: no stray painting after tool switch (second point clean)");
+    } catch (e) {
+      failures.push("mid-stroke tool switch threw: " + e.message);
+    }
+
     // --- dispose / re-init lifecycle ---
     // After dispose() + init(), all engine state must be reset: no stale mask,
     // and render() must be a safe no-op (guards on reset state), not a throw.

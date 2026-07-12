@@ -443,12 +443,24 @@ window.nsiVisualizer = (function () {
     drawMaskTint();
   }
 
+  // Commit an in-progress brush/erase stroke: rebuild derived mask data,
+  // re-render, and notify .NET. Safe to call when no stroke is active.
+  function finalizeStroke() {
+    if (!stroking) return;
+    stroking = false;
+    rebuildMaskDerived();
+    api.render();
+    if (dotNetRef) dotNetRef.invokeMethodAsync('OnMaskEditedAsync');
+  }
+
   function onPointerDown(evt) {
     if (!mode || !photoW) return;
     evt.preventDefault();
     if (mode === 'brush' || mode === 'erase') {
       stroking = true;
-      editCanvas.setPointerCapture(evt.pointerId);
+      // Synthetic PointerEvents (test harness) and inactive pointer ids throw
+      // NotFoundError here; the stroke must not depend on capture succeeding.
+      try { editCanvas.setPointerCapture(evt.pointerId); } catch (e) { /* ignore */ }
       var p = eventToPhotoPx(evt);
       paintAt(p.x, p.y);
     }
@@ -456,27 +468,27 @@ window.nsiVisualizer = (function () {
   }
 
   function onPointerMove(evt) {
-    if (!stroking) return;
+    // Paint only while a stroke is live AND the current tool still paints —
+    // a mid-stroke setMode() switch must not keep painting with stale semantics.
+    if (!stroking || (mode !== 'brush' && mode !== 'erase')) return;
     strokeMoved = true;
     var p = eventToPhotoPx(evt);
     paintAt(p.x, p.y);
   }
 
   function onPointerUp(evt) {
+    // A live stroke always gets committed, even if the tool changed mid-stroke.
+    if (stroking) { finalizeStroke(); return; }
     if (!mode || !photoW) return;
     var p = eventToPhotoPx(evt);
     if (mode === 'tap-add' || mode === 'tap-remove') {
       if (dotNetRef)
         dotNetRef.invokeMethodAsync('OnCanvasTapAsync', p.x, p.y, mode === 'tap-add' ? 1 : 0);
-    } else if (stroking) {
-      stroking = false;
-      rebuildMaskDerived();
-      api.render();
-      if (dotNetRef) dotNetRef.invokeMethodAsync('OnMaskEditedAsync');
     }
   }
 
   api.setMode = function (m) {
+    finalizeStroke(); // switching tools mid-stroke commits the live stroke first
     mode = m;
     editCanvas.style.cursor = (m === 'brush' || m === 'erase') ? 'crosshair'
       : (m ? 'pointer' : 'default');
