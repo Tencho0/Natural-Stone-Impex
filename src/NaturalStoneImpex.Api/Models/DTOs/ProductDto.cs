@@ -15,6 +15,9 @@ public record ProductDto
     public decimal StockQuantity { get; init; }
     public string? ImagePath { get; init; }
     public bool IsActive { get; init; }
+    public bool IsVisualizerEnabled { get; init; }
+    public string? TextureImagePath { get; init; }
+    public decimal TextureWidthMeters { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
 }

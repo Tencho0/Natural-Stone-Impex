@@ -13,6 +13,9 @@ public class Product
     public decimal StockQuantity { get; set; }
     public string? ImagePath { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsVisualizerEnabled { get; set; }
+    public string? TextureImagePath { get; set; }
+    public decimal TextureWidthMeters { get; set; } = 1.00m;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

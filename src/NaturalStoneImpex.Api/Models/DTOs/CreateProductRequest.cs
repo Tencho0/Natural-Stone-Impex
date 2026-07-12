@@ -34,4 +34,9 @@ public record CreateProductRequest
     [Required(ErrorMessage = "Количеството е задължително.")]
     [Range(0, double.MaxValue, ErrorMessage = "Количеството трябва да е по-голямо или равно на 0.")]
     public decimal StockQuantity { get; init; }
+
+    public bool IsVisualizerEnabled { get; init; }
+
+    [Range(0.1, 100, ErrorMessage = "Ширината на текстурата трябва да е между 0.1 и 100 метра.")]
+    public decimal TextureWidthMeters { get; init; } = 1.00m;
 }

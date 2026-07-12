@@ -88,6 +88,9 @@ public class ProductService : IProductService
                 StockQuantity = p.StockQuantity,
                 ImagePath = p.ImagePath,
                 IsActive = p.IsActive,
+                IsVisualizerEnabled = p.IsVisualizerEnabled,
+                TextureImagePath = p.TextureImagePath,
+                TextureWidthMeters = p.TextureWidthMeters,
                 CreatedAt = p.CreatedAt,
                 UpdatedAt = p.UpdatedAt
             })
@@ -108,6 +111,9 @@ public class ProductService : IProductService
         if (nameExists)
             throw new InvalidOperationException("Продукт с това име вече съществува в тази категория.");
 
+        if (request.IsVisualizerEnabled)
+            throw new InvalidOperationException("За да включите продукта във визуализатора, първо качете текстура.");
+
         var now = DateTime.UtcNow;
         var product = new Product
         {
@@ -119,6 +125,7 @@ public class ProductService : IProductService
             PriceWithVat = request.PriceWithVat,
             Unit = (UnitType)request.Unit,
             StockQuantity = request.StockQuantity,
+            TextureWidthMeters = request.TextureWidthMeters,
             IsActive = true,
             CreatedAt = now,
             UpdatedAt = now
@@ -144,6 +151,9 @@ public class ProductService : IProductService
             StockQuantity = product.StockQuantity,
             ImagePath = product.ImagePath,
             IsActive = product.IsActive,
+            IsVisualizerEnabled = product.IsVisualizerEnabled,
+            TextureImagePath = product.TextureImagePath,
+            TextureWidthMeters = product.TextureWidthMeters,
             CreatedAt = product.CreatedAt,
             UpdatedAt = product.UpdatedAt
         };
@@ -175,6 +185,12 @@ public class ProductService : IProductService
         product.PriceWithVat = request.PriceWithVat;
         product.Unit = (UnitType)request.Unit;
         product.StockQuantity = request.StockQuantity;
+
+        if (request.IsVisualizerEnabled && string.IsNullOrEmpty(product.TextureImagePath))
+            throw new InvalidOperationException("За да включите продукта във визуализатора, първо качете текстура.");
+
+        product.IsVisualizerEnabled = request.IsVisualizerEnabled;
+        product.TextureWidthMeters = request.TextureWidthMeters;
         product.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -196,6 +212,9 @@ public class ProductService : IProductService
             StockQuantity = product.StockQuantity,
             ImagePath = product.ImagePath,
             IsActive = product.IsActive,
+            IsVisualizerEnabled = product.IsVisualizerEnabled,
+            TextureImagePath = product.TextureImagePath,
+            TextureWidthMeters = product.TextureWidthMeters,
             CreatedAt = product.CreatedAt,
             UpdatedAt = product.UpdatedAt
         };

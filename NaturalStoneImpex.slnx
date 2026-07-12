@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NaturalStoneImpex.Api/NaturalStoneImpex.Api.csproj" />
+    <Project Path="src/NaturalStoneImpex.Client/NaturalStoneImpex.Client.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NaturalStoneImpex.Api.Tests/NaturalStoneImpex.Api.Tests.csproj" />
+  </Folder>
+</Solution>

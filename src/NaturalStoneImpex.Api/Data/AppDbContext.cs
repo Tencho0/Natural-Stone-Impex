@@ -44,6 +44,9 @@ public class AppDbContext : DbContext
             entity.Property(e => e.PriceWithVat).HasPrecision(18, 2);
             entity.Property(e => e.StockQuantity).HasPrecision(18, 2);
             entity.Property(e => e.ImagePath).HasMaxLength(500);
+            entity.Property(e => e.TextureImagePath).HasMaxLength(500);
+            entity.Property(e => e.TextureWidthMeters).HasPrecision(18, 2).HasDefaultValue(1.00m);
+            entity.HasIndex(e => e.IsVisualizerEnabled);
 
             entity.HasOne(e => e.Category)
                   .WithMany(c => c.Products)
