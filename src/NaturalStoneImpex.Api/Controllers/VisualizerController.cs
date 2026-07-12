@@ -30,7 +30,7 @@ public class VisualizerController : ControllerBase
 
     [HttpPost("segment")]
     [RequestSizeLimit(12_000_000)]
-    public async Task<IActionResult> Segment(IFormFile photo, [FromForm] string points)
+    public async Task<IActionResult> Segment(IFormFile? photo, [FromForm] string? points)
     {
         if (photo is null || photo.Length == 0)
             return BadRequest(new { error = "Снимката е задължителна." });
@@ -46,7 +46,7 @@ public class VisualizerController : ControllerBase
     }
 
     [HttpPost("segment/{sessionToken}")]
-    public async Task<IActionResult> Refine(string sessionToken, [FromBody] List<SegmentPointDto> points)
+    public async Task<IActionResult> Refine(string sessionToken, [FromBody] List<SegmentPointDto>? points)
     {
         if (points is null || points.Count == 0)
             return BadRequest(new { error = "Моля, докоснете областта, която искате да покриете." });
