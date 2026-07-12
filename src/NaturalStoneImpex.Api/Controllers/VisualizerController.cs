@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using NaturalStoneImpex.Api.Models.DTOs;
 using NaturalStoneImpex.Api.Services;
 using NaturalStoneImpex.Api.Services.Segmentation;
@@ -10,15 +11,21 @@ namespace NaturalStoneImpex.Api.Controllers;
 [Route("api/visualizer")]
 public class VisualizerController : ControllerBase
 {
+    private const string ErrorTooManyPoints = "Моля, докоснете областта, която искате да покриете.";
+    private const int MaxPoints = 50;
+
     private static readonly JsonSerializerOptions PointsJson = new(JsonSerializerDefaults.Web);
 
     private readonly IProductService _productService;
     private readonly ISegmentationService _segmentationService;
+    private readonly VisualizerOptions _options;
 
-    public VisualizerController(IProductService productService, ISegmentationService segmentationService)
+    public VisualizerController(IProductService productService, ISegmentationService segmentationService,
+        IOptions<VisualizerOptions> options)
     {
         _productService = productService;
         _segmentationService = segmentationService;
+        _options = options.Value;
     }
 
     [HttpGet("products")]
@@ -35,9 +42,14 @@ public class VisualizerController : ControllerBase
         if (photo is null || photo.Length == 0)
             return BadRequest(new { error = "Снимката е задължителна." });
 
+        if (photo.Length > _options.MaxUploadBytes)
+            return BadRequest(new { error = "Моля, качете снимка във формат JPG или PNG до 10 MB." });
+
         var parsed = ParsePoints(points);
         if (parsed is null || parsed.Count == 0)
-            return BadRequest(new { error = "Моля, докоснете областта, която искате да покриете." });
+            return BadRequest(new { error = ErrorTooManyPoints });
+        if (parsed.Count > MaxPoints)
+            return BadRequest(new { error = ErrorTooManyPoints });
 
         var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         await using var stream = photo.OpenReadStream();
@@ -49,7 +61,9 @@ public class VisualizerController : ControllerBase
     public async Task<IActionResult> Refine(string sessionToken, [FromBody] List<SegmentPointDto>? points)
     {
         if (points is null || points.Count == 0)
-            return BadRequest(new { error = "Моля, докоснете областта, която искате да покриете." });
+            return BadRequest(new { error = ErrorTooManyPoints });
+        if (points.Count > MaxPoints)
+            return BadRequest(new { error = ErrorTooManyPoints });
 
         var outcome = await _segmentationService.RefineAsync(sessionToken,
             points.Select(p => new SamPoint((float)p.X, (float)p.Y, p.Label)).ToList());

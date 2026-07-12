@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using NaturalStoneImpex.Api.Data;
+using NaturalStoneImpex.Api.Models.Entities;
 using NaturalStoneImpex.Api.Services.Segmentation;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -38,9 +39,9 @@ public class FakeSamModel : ISamModel
 
 public class SegmentationServiceTests
 {
-    private static byte[] TestPhotoBytes()
+    private static byte[] TestPhotoBytes(int width = 400, int height = 300)
     {
-        using var image = new Image<Rgb24>(400, 300, new Rgb24(100, 100, 100));
+        using var image = new Image<Rgb24>(width, height, new Rgb24(100, 100, 100));
         using var ms = new MemoryStream();
         image.SaveAsJpeg(ms);
         return ms.ToArray();
@@ -134,5 +135,64 @@ public class SegmentationServiceTests
         var outcome = await service.SegmentNewAsync(junk, Tap(), "1.2.3.4");
         Assert.Equal(400, outcome.StatusCode);
         Assert.Equal("Моля, качете снимка във формат JPG или PNG до 10 MB.", outcome.Error);
+    }
+
+    [Fact]
+    public async Task Oversized_declared_dimensions_returns_400_and_persists_failed_row()
+    {
+        // A real 100x100 JPEG, but MaxImageDimension is set so low that 100 > 2 * 20 —
+        // this must be rejected by the cheap IdentifyAsync header check before any decode.
+        var (service, _, db) = CreateService(new VisualizerOptions { MaxImageDimension = 20 });
+        using var photo = new MemoryStream(TestPhotoBytes(100, 100));
+
+        var outcome = await service.SegmentNewAsync(photo, Tap(), "9.9.9.9");
+
+        Assert.Equal(400, outcome.StatusCode);
+        Assert.Equal("Моля, качете снимка във формат JPG или PNG до 10 MB.", outcome.Error);
+        var row = Assert.Single(db.VisualizationRequests.ToList());
+        Assert.Equal(VisualizationStatus.Failed, row.Status);
+    }
+
+    [Fact]
+    public async Task Invalid_image_persists_failed_row_and_exhausts_per_ip_quota()
+    {
+        var (service, _, db) = CreateService(new VisualizerOptions { PerIpDailyLimit = 2 });
+
+        for (var i = 0; i < 2; i++)
+        {
+            using var junk = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
+            var outcome = await service.SegmentNewAsync(junk, Tap(), "8.8.8.8");
+            Assert.Equal(400, outcome.StatusCode);
+        }
+
+        // Failed attempts must count toward the quota — the table now has 2 Failed rows
+        // for this IP, exhausting the PerIpDailyLimit of 2.
+        Assert.Equal(2, db.VisualizationRequests.ToList().Count(r => r.Status == VisualizationStatus.Failed));
+
+        using var third = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
+        var blocked = await service.SegmentNewAsync(third, Tap(), "8.8.8.8");
+
+        Assert.Equal(429, blocked.StatusCode);
+        Assert.Equal("Достигнахте дневния лимит за визуализации. Опитайте отново утре.", blocked.Error);
+    }
+
+    [Fact]
+    public async Task Refine_beyond_ceiling_returns_429()
+    {
+        var (service, _, _) = CreateService();
+        using var photo = new MemoryStream(TestPhotoBytes());
+        var first = await service.SegmentNewAsync(photo, Tap(), "3.3.3.3");
+        var token = first.Result!.SessionToken;
+
+        for (var i = 0; i < 200; i++)
+        {
+            var outcome = await service.RefineAsync(token, Tap());
+            Assert.Equal(200, outcome.StatusCode);
+        }
+
+        var blocked = await service.RefineAsync(token, Tap());
+
+        Assert.Equal(429, blocked.StatusCode);
+        Assert.Equal("Достигнахте дневния лимит за визуализации. Опитайте отново утре.", blocked.Error);
     }
 }

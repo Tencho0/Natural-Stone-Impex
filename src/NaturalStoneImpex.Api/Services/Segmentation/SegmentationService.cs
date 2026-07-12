@@ -21,6 +21,7 @@ public class SegmentationService : ISegmentationService
     private const string ErrorBadImage = "Моля, качете снимка във формат JPG или PNG до 10 MB.";
     private const string ErrorExpired = "Сесията е изтекла. Моля, качете снимката отново.";
     private const string ErrorNoSurface = "Не разпознахме повърхност тук. Опитайте друго място или използвайте четката.";
+    private const int MaxRefinesPerToken = 200;
 
     private readonly ISamModel _model;
     private readonly AppDbContext _context;
@@ -54,14 +55,31 @@ public class SegmentationService : ISegmentationService
         if (globalCount >= _options.GlobalDailyLimit)
             return SegmentOutcome.Fail(429, ErrorGlobalQuota);
 
+        var stopwatch = Stopwatch.StartNew();
+
         Image<Rgb24> image;
         try
         {
+            // Cheap header-only check before the full decode: rejects declared-oversized
+            // images (e.g. a crafted header claiming huge dimensions) without ever
+            // allocating the decoded pixel buffer.
+            var info = await Image.IdentifyAsync(photo);
+            if (Math.Max(info.Width, info.Height) > 2 * _options.MaxImageDimension)
+            {
+                await RecordAsync(ipHash, VisualizationStatus.Failed, stopwatch.ElapsedMilliseconds);
+                return SegmentOutcome.Fail(400, ErrorBadImage);
+            }
+
+            // IdentifyAsync consumed the stream up to the header; rewind before the full decode.
+            // IFormFile streams (MemoryStream / FileBufferingReadStream) are always seekable.
+            photo.Position = 0;
+
             // Fully in-memory: the photo is never written to disk.
             image = await Image.LoadAsync<Rgb24>(photo);
         }
         catch (Exception ex) when (ex is UnknownImageFormatException or InvalidImageContentException)
         {
+            await RecordAsync(ipHash, VisualizationStatus.Failed, stopwatch.ElapsedMilliseconds);
             return SegmentOutcome.Fail(400, ErrorBadImage);
         }
 
@@ -78,7 +96,6 @@ public class SegmentationService : ISegmentationService
                 return SegmentOutcome.Fail(503, ErrorBusy);
 
             SamEmbedding embedding;
-            var stopwatch = Stopwatch.StartNew();
             try
             {
                 embedding = _model.Encode(image);
@@ -95,16 +112,11 @@ public class SegmentationService : ISegmentationService
                 SlidingExpiration = TimeSpan.FromMinutes(_options.EmbeddingCacheMinutes)
             });
 
-            _context.VisualizationRequests.Add(new VisualizationRequest
-            {
-                IpHash = ipHash,
-                Status = VisualizationStatus.Succeeded,
-                DurationMs = (int)stopwatch.ElapsedMilliseconds,
-                CreatedAt = DateTime.UtcNow
-            });
-            await _context.SaveChangesAsync();
+            var outcome = BuildOutcome(token, embedding, points);
+            var status = outcome.StatusCode == 200 ? VisualizationStatus.Succeeded : VisualizationStatus.Failed;
+            await RecordAsync(ipHash, status, stopwatch.ElapsedMilliseconds);
 
-            return BuildOutcome(token, embedding, points);
+            return outcome;
         }
     }
 
@@ -115,6 +127,12 @@ public class SegmentationService : ISegmentationService
 
         if (!_cache.TryGetValue(CacheKey(sessionToken), out SamEmbedding? embedding) || embedding is null)
             return Task.FromResult(SegmentOutcome.Fail(404, ErrorExpired));
+
+        // Per-token refine ceiling: without this, a single segmentation session (which
+        // records nothing per-refine in the quota table) could be refined unboundedly.
+        var refineCount = IncrementRefineCount(sessionToken);
+        if (refineCount > MaxRefinesPerToken)
+            return Task.FromResult(SegmentOutcome.Fail(429, ErrorQuota));
 
         return Task.FromResult(BuildOutcome(sessionToken, embedding, points));
     }
@@ -140,7 +158,33 @@ public class SegmentationService : ISegmentationService
             embedding.OrigWidth, embedding.OrigHeight));
     }
 
+    private async Task RecordAsync(string ipHash, VisualizationStatus status, long durationMs)
+    {
+        _context.VisualizationRequests.Add(new VisualizationRequest
+        {
+            IpHash = ipHash,
+            Status = status,
+            DurationMs = (int)durationMs,
+            CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+    }
+
+    private int IncrementRefineCount(string sessionToken)
+    {
+        var key = RefineCountCacheKey(sessionToken);
+        var count = (_cache.TryGetValue(key, out int existing) ? existing : 0) + 1;
+        _cache.Set(key, count, new MemoryCacheEntryOptions
+        {
+            Size = 1,
+            SlidingExpiration = TimeSpan.FromMinutes(_options.EmbeddingCacheMinutes)
+        });
+        return count;
+    }
+
     private static string CacheKey(string token) => $"viz-embedding:{token}";
+
+    private static string RefineCountCacheKey(string token) => $"viz-refines:{token}";
 
     private static string HashIp(string ip)
     {

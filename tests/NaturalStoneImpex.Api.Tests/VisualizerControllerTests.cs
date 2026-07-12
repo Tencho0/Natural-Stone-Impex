@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using NaturalStoneImpex.Api.Controllers;
 using NaturalStoneImpex.Api.Models.DTOs;
 using NaturalStoneImpex.Api.Services;
@@ -52,8 +53,8 @@ public class VisualizerControllerTests
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    private static VisualizerController CreateController() =>
-        new(new FakeProductServiceForController(), new FakeSegmentationService())
+    private static VisualizerController CreateController(VisualizerOptions? options = null) =>
+        new(new FakeProductServiceForController(), new FakeSegmentationService(), Options.Create(options ?? new VisualizerOptions()))
         {
             ControllerContext = new ControllerContext
             {
@@ -96,5 +97,45 @@ public class VisualizerControllerTests
         var result = await controller.Refine("sometoken", null);
         var bad = Assert.IsType<BadRequestObjectResult>(result);
         Assert.Contains("Моля, докоснете областта", JsonSerializer.Serialize(bad.Value, Utf8Json));
+    }
+
+    private static string Points(int count)
+    {
+        var points = Enumerable.Range(0, count).Select(i => new SegmentPointDto(i, i, 1));
+        return JsonSerializer.Serialize(points, PointsJson);
+    }
+
+    private static readonly JsonSerializerOptions PointsJson = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public async Task Segment_with_more_than_50_points_returns_400()
+    {
+        var controller = CreateController();
+        var photo = new Microsoft.AspNetCore.Http.FormFile(new MemoryStream(new byte[] { 1 }), 0, 1, "photo", "p.jpg");
+        var result = await controller.Segment(photo, Points(51));
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Contains("Моля, докоснете областта", JsonSerializer.Serialize(bad.Value, Utf8Json));
+    }
+
+    [Fact]
+    public async Task Refine_with_more_than_50_points_returns_400()
+    {
+        var controller = CreateController();
+        var points = Enumerable.Range(0, 51).Select(i => new SegmentPointDto(i, i, 1)).ToList();
+        var result = await controller.Refine("sometoken", points);
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Contains("Моля, докоснете областта", JsonSerializer.Serialize(bad.Value, Utf8Json));
+    }
+
+    [Fact]
+    public async Task Segment_with_oversized_photo_length_returns_400()
+    {
+        var controller = CreateController(new VisualizerOptions { MaxUploadBytes = 10_485_760 });
+        // Small backing stream, but a declared length above MaxUploadBytes — the check is
+        // on IFormFile.Length, not on actually reading the (small) stream.
+        var photo = new Microsoft.AspNetCore.Http.FormFile(new MemoryStream(new byte[] { 1 }), 0, 11_000_000, "photo", "p.jpg");
+        var result = await controller.Segment(photo, Points(1));
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Contains("Моля, качете снимка във формат JPG или PNG до 10 MB.", JsonSerializer.Serialize(bad.Value, Utf8Json));
     }
 }

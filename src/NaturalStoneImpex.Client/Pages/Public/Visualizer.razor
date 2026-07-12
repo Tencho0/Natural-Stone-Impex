@@ -88,6 +88,9 @@ else
                         @for (var i = 0; i < 4; i++)
                         {
                             var index = i;
+                            <circle cx="@Inv(_corners[index * 2])" cy="@Inv(_corners[index * 2 + 1])" r="@Inv(_photoW * 0.055)"
+                                    class="viz-handle-hit" @onpointerdown="e => OnHandleDown(e, index)"
+                                    @onpointerdown:preventDefault @onpointerdown:stopPropagation />
                             <circle cx="@Inv(_corners[index * 2])" cy="@Inv(_corners[index * 2 + 1])" r="@Inv(_photoW * 0.02)"
                                     class="viz-handle" @onpointerdown="e => OnHandleDown(e, index)"
                                     @onpointerdown:preventDefault @onpointerdown:stopPropagation />
@@ -188,7 +191,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        _products = await VisualizerService.GetProductsAsync();
+        try
+        {
+            _products = await VisualizerService.GetProductsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _products = new List<VisualizerProductDto>();
+        }
 
         var productId = ParseProductIdFromQuery(Navigation.Uri);
         if (productId is int id)

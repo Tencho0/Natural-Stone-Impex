@@ -400,6 +400,25 @@ else
 
             if (_isEditMode)
             {
+                productId = ProductId!.Value;
+
+                // Upload the texture BEFORE updating the product: the server rejects
+                // enabling the visualizer without an existing texture ("първо качете
+                // текстура"), so if we saved the toggle first, ticking "enabled" +
+                // choosing a texture in the same save would fail and discard the file.
+                if (_selectedTexture is not null)
+                {
+                    using var textureStream = _selectedTexture.OpenReadStream(5 * 1024 * 1024);
+                    var textureUploadError = await ProductService.UploadTextureAsync(productId, textureStream, _selectedTexture.Name);
+                    if (textureUploadError is not null)
+                    {
+                        _errorMessage = textureUploadError;
+                        return;
+                    }
+
+                    _existingTexturePath = await BuildTexturePreviewDataUrlAsync(_selectedTexture);
+                }
+
                 var updateRequest = new UpdateProductRequest
                 {
                     Name = _formModel.Name,
@@ -414,14 +433,12 @@ else
                     TextureWidthMeters = _formModel.TextureWidthMeters
                 };
 
-                var error = await ProductService.UpdateAsync(ProductId!.Value, updateRequest);
+                var error = await ProductService.UpdateAsync(productId, updateRequest);
                 if (error is not null)
                 {
                     _errorMessage = error;
                     return;
                 }
-
-                productId = ProductId!.Value;
             }
             else
             {
@@ -461,18 +478,6 @@ else
                 }
             }
 
-            // Upload texture if selected (edit mode only)
-            if (_isEditMode && _selectedTexture is not null)
-            {
-                using var textureStream = _selectedTexture.OpenReadStream(5 * 1024 * 1024);
-                var textureError = await ProductService.UploadTextureAsync(productId, textureStream, _selectedTexture.Name);
-                if (textureError is not null)
-                {
-                    _errorMessage = textureError;
-                    return;
-                }
-            }
-
             Navigation.NavigateTo("/admin/products");
         }
         catch
@@ -488,6 +493,20 @@ else
     private void NavigateBack()
     {
         Navigation.NavigateTo("/admin/products");
+    }
+
+    // Builds a local data-URL preview from the just-uploaded texture file so the UI
+    // reflects the new texture immediately, without depending on the upload response
+    // (UploadTextureAsync only returns an error, not the stored path).
+    private static async Task<string> BuildTexturePreviewDataUrlAsync(IBrowserFile file)
+    {
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+        var buffer = new byte[file.Size];
+        await using var stream = file.OpenReadStream(5 * 1024 * 1024);
+        await stream.ReadAsync(buffer);
+        var base64 = Convert.ToBase64String(buffer);
+        var contentType = extension == ".png" ? "image/png" : "image/jpeg";
+        return $"data:{contentType};base64,{base64}";
     }
 
     private sealed class ProductFormModel

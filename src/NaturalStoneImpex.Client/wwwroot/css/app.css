@@ -111,6 +111,11 @@ code {
     cursor: grab;
     pointer-events: all;
 }
+.viz-handle-hit {
+    fill: transparent;
+    pointer-events: all;
+    cursor: grab;
+}
 .viz-product-list {
     max-height: 480px;
     overflow-y: auto;
