@@ -102,6 +102,13 @@ else
                         @onclick="AddToCart">
                     <i class="bi bi-cart-plus me-2"></i>Добави в количката
                 </button>
+
+                @if (_product.IsVisualizerEnabled)
+                {
+                    <a class="btn btn-outline-primary mt-2" href="/visualizer?productId=@_product.Id">
+                        Виж как ще изглежда при вас
+                    </a>
+                }
             </div>
 
             @* Quantity input visible on mobile (above sticky bar) *@
