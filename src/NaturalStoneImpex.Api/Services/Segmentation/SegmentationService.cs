@@ -176,7 +176,9 @@ public class SegmentationService : ISegmentationService
         var count = (_cache.TryGetValue(key, out int existing) ? existing : 0) + 1;
         _cache.Set(key, count, new MemoryCacheEntryOptions
         {
-            Size = 1,
+            // Size 0: an int counter must not compete with ~4 MB embeddings
+            // for the cache's SizeLimit budget.
+            Size = 0,
             SlidingExpiration = TimeSpan.FromMinutes(_options.EmbeddingCacheMinutes)
         });
         return count;
