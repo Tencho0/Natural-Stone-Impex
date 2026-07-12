@@ -416,3 +416,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Visualizer ONNX models (downloaded via scripts/download-visualizer-models.ps1)
+src/NaturalStoneImpex.Api/MLModels/*.onnx
