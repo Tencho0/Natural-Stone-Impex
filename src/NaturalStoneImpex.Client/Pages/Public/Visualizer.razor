@@ -109,11 +109,10 @@ else
     // Manual query-string parsing: Microsoft.AspNetCore.WebUtilities.QueryHelpers is not
     // available as a compile-time reference in the Blazor WASM client (it only ships as an
     // internal "tools/" asset of the WebAssembly.DevServer package, not a referenceable lib).
+    // System.Uri.Query excludes any #fragment per RFC 3986, so "?productId=5#x" parses as 5.
     private static int? ParseProductIdFromQuery(string uri)
     {
-        var queryStart = uri.IndexOf('?');
-        if (queryStart < 0) return null;
-        var query = uri[(queryStart + 1)..];
+        var query = new Uri(uri).Query.TrimStart('?');
         foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             var kv = pair.Split('=', 2);
@@ -130,20 +129,33 @@ else
         _busy = true;
         try
         {
-            // Downscale client-side: mobile photos are 8-12 MP; the server needs at most 2048 px.
-            var resized = await e.File.RequestImageFileAsync("image/jpeg", 2048, 2048);
-            await using var stream = resized.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            _photoBytes = ms.ToArray();
-            _photoLoaded = true;
+            try
+            {
+                // Downscale client-side: mobile photos are 8-12 MP; the server needs at most 2048 px.
+                var resized = await e.File.RequestImageFileAsync("image/jpeg", 2048, 2048);
+                await using var stream = resized.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                _photoBytes = ms.ToArray();
+                _photoLoaded = true;
+            }
+            catch (Exception)
+            {
+                _error = "Моля, качете снимка във формат JPG или PNG до 10 MB.";
+                _photoLoaded = false;
+                return;
+            }
+
             StateHasChanged(); // render the stage div before JS init
-            await InitStageAsync();
-        }
-        catch (Exception)
-        {
-            _error = "Моля, качете снимка във формат JPG или PNG до 10 MB.";
-            _photoLoaded = false;
+            try
+            {
+                await InitStageAsync();
+            }
+            catch (JSException)
+            {
+                _error = "Възникна грешка при зареждането на визуализатора. Моля, опитайте отново.";
+                _photoLoaded = false;
+            }
         }
         finally
         {
@@ -208,6 +220,10 @@ else
             }
 
             await ApplySelectedProductAsync();
+        }
+        catch (JSException)
+        {
+            _error = "Възникна грешка при показването на визуализацията. Моля, опитайте отново.";
         }
         finally
         {
