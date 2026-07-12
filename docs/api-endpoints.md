@@ -993,6 +993,23 @@ Creates a new invoice and **automatically increments stock** for each item.
 
 ---
 
+## 7. Visualizer (Визуализатор)
+
+| Method | Endpoint                                | Description                                        | Auth  |
+|--------|-----------------------------------------|----------------------------------------------------|-------|
+| GET    | /api/visualizer/products                | Visualizer-enabled products with texture info      | No    |
+| POST   | /api/visualizer/segment                 | Segment uploaded photo (multipart: photo + points) | No    |
+| POST   | /api/visualizer/segment/{sessionToken}  | Refine mask with additional points (JSON body)     | No    |
+| POST   | /api/products/{id}/texture              | Upload product texture image                       | Admin |
+
+`POST /api/visualizer/segment` responses: `200 { sessionToken, maskPng, width, height }`,
+`400` invalid photo/points, `429` daily quota reached, `503` visualizer disabled or busy.
+`POST /api/visualizer/segment/{sessionToken}` additionally returns `404` when the server-side
+embedding cache has expired (client re-uploads the photo). Photos are processed in memory and
+never stored; quotas are enforced per hashed IP per day (see `Visualizer` section in appsettings).
+
+---
+
 ## HTTP Status Code Summary
 
 | Code | Meaning                          | Used For                                  |

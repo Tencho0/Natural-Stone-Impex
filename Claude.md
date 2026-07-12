@@ -40,6 +40,9 @@ dotnet build
 
 # Run tests
 dotnet test
+
+# Download visualizer ONNX models (one-time, required for the visualizer feature)
+powershell -File scripts/download-visualizer-models.ps1
 ```
 
 ## Conventions

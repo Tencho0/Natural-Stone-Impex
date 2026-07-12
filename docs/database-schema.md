@@ -143,21 +143,24 @@ entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
 
 Products in the shop catalog. Soft-deleted via `IsActive` flag.
 
-| Column          | Type           | Constraints                       | Notes                              |
-|-----------------|----------------|-----------------------------------|------------------------------------|
-| Id              | int            | PK, Identity                      |                                    |
-| Name            | nvarchar(200)  | Required                          |                                    |
-| Description     | nvarchar(2000) | Nullable                          | Optional product description       |
-| CategoryId      | int            | FK → Category.Id, Required        |                                    |
-| PriceWithoutVat | decimal(18,2)  | Required, > 0                     | Price excluding ДДС in EUR         |
-| VatAmount       | decimal(18,2)  | Required, ≥ 0                     | ДДС amount in EUR                  |
-| PriceWithVat    | decimal(18,2)  | Required, > 0                     | Price including ДДС in EUR         |
-| Unit            | int            | Required                          | Enum: 0 = Kg, 1 = Sqm             |
-| StockQuantity   | decimal(18,2)  | Required, Default: 0, ≥ 0        | Current stock level                |
-| ImagePath       | nvarchar(500)  | Nullable                          | Relative path to uploaded image    |
-| IsActive        | bit            | Required, Default: true           | false = soft-deleted               |
-| CreatedAt       | datetime2      | Required, Default: UTC now        |                                    |
-| UpdatedAt       | datetime2      | Required, Default: UTC now        |                                    |
+| Column                | Type           | Constraints                       | Notes                              |
+|-----------------------|----------------|-----------------------------------|------------------------------------|
+| Id                    | int            | PK, Identity                      |                                    |
+| Name                  | nvarchar(200)  | Required                          |                                    |
+| Description           | nvarchar(2000) | Nullable                          | Optional product description       |
+| CategoryId            | int            | FK → Category.Id, Required        |                                    |
+| PriceWithoutVat       | decimal(18,2)  | Required, > 0                     | Price excluding ДДС in EUR         |
+| VatAmount             | decimal(18,2)  | Required, ≥ 0                     | ДДС amount in EUR                  |
+| PriceWithVat          | decimal(18,2)  | Required, > 0                     | Price including ДДС in EUR         |
+| Unit                  | int            | Required                          | Enum: 0 = Kg, 1 = Sqm             |
+| StockQuantity         | decimal(18,2)  | Required, Default: 0, ≥ 0        | Current stock level                |
+| ImagePath             | nvarchar(500)  | Nullable                          | Relative path to uploaded image    |
+| IsActive              | bit            | Required, Default: true           | false = soft-deleted               |
+| IsVisualizerEnabled   | bit            | Required, Default: false          | Whether product can be visualized  |
+| TextureImagePath      | nvarchar(500)  | Nullable                          | Path to uploaded texture image     |
+| TextureWidthMeters    | decimal(18,2)  | Required, Default: 1.00           | Real-world width of texture in m   |
+| CreatedAt             | datetime2      | Required, Default: UTC now        |                                    |
+| UpdatedAt             | datetime2      | Required, Default: UTC now        |                                    |
 
 **EF Core Configuration:**
 ```csharp
@@ -168,6 +171,8 @@ entity.Property(e => e.VatAmount).HasPrecision(18, 2);
 entity.Property(e => e.PriceWithVat).HasPrecision(18, 2);
 entity.Property(e => e.StockQuantity).HasPrecision(18, 2);
 entity.Property(e => e.ImagePath).HasMaxLength(500);
+entity.Property(e => e.TextureImagePath).HasMaxLength(500);
+entity.Property(e => e.TextureWidthMeters).HasPrecision(18, 2).HasDefaultValue(1.00m);
 
 entity.HasOne(e => e.Category)
       .WithMany(c => c.Products)
@@ -176,6 +181,7 @@ entity.HasOne(e => e.Category)
 
 entity.HasIndex(e => new { e.Name, e.CategoryId }).IsUnique();
 entity.HasIndex(e => e.IsActive); // For filtering active products
+entity.HasIndex(e => e.IsVisualizerEnabled); // For visualizer product listings
 ```
 
 **Validation Rule:** `PriceWithVat == PriceWithoutVat + VatAmount` — enforced in the service layer, not the database.
@@ -393,19 +399,56 @@ await _context.SaveChangesAsync();
 
 ---
 
+### VisualizationRequests
+
+Quota tracking for the visualizer feature. Each row represents one segmentation request. Rows are pruned after 90 days to maintain table hygiene (see `VisualizationRequestCleanupService`).
+
+| Column   | Type           | Constraints                | Notes                              |
+|----------|----------------|----------------------------|------------------------------------|
+| Id       | int            | PK, Identity               |                                    |
+| IpHash   | nvarchar(64)   | Required                   | SHA256(IPv4/IPv6 address)          |
+| Status   | int            | Required, Default: 0       | Enum: 0 = Success, 1 = Invalid, 2 = Error |
+| DurationMs | int         | Nullable                   | Processing duration in milliseconds |
+| CreatedAt| datetime2      | Required, Default: UTC now | When the request was processed     |
+
+**EF Core Configuration:**
+```csharp
+entity.Property(e => e.IpHash).HasMaxLength(64).IsRequired();
+
+entity.HasIndex(e => new { e.IpHash, e.CreatedAt }); // For quota enforcement (daily per IP)
+entity.HasIndex(e => e.CreatedAt); // For cleanup job (delete rows > 90 days)
+```
+
+**Quota Logic (Service Layer):**
+```csharp
+// At request time:
+var ipHash = SHA256(clientIpAddress).ToHexString();
+var today = DateTime.UtcNow.Date;
+var todayCount = await _context.VisualizationRequests
+    .Where(r => r.IpHash == ipHash && r.CreatedAt >= today)
+    .CountAsync();
+if (todayCount >= PerIpDailyLimit)
+    return StatusCode(429, new { error = "Дневния лимит е достигнат." });
+```
+
+---
+
 ## Indexes Summary
 
-| Table             | Index                              | Type   | Purpose                    |
-|-------------------|------------------------------------|--------|----------------------------|
-| AdminUser         | Username                           | Unique | Login lookup               |
-| Category          | Name                               | Unique | Prevent duplicate names    |
-| Product           | (Name, CategoryId)                 | Unique | Prevent duplicates per category |
-| Product           | IsActive                           | Index  | Filter active products     |
-| Order             | OrderNumber                        | Unique | Order lookup               |
-| Order             | Status                             | Index  | Filter by status           |
-| Order             | CreatedAt                          | Index  | Sort by date               |
-| OrderCustomerInfo | OrderId                            | Unique | One-to-one enforcement     |
-| Invoice           | EntryDate                          | Index  | Sort by date               |
+| Table               | Index                              | Type   | Purpose                    |
+|---------------------|------------------------------------|--------|----------------------------|
+| AdminUser           | Username                           | Unique | Login lookup               |
+| Category            | Name                               | Unique | Prevent duplicate names    |
+| Product             | (Name, CategoryId)                 | Unique | Prevent duplicates per category |
+| Product             | IsActive                           | Index  | Filter active products     |
+| Product             | IsVisualizerEnabled                | Index  | List visualizer-enabled products |
+| Order               | OrderNumber                        | Unique | Order lookup               |
+| Order               | Status                             | Index  | Filter by status           |
+| Order               | CreatedAt                          | Index  | Sort by date               |
+| OrderCustomerInfo   | OrderId                            | Unique | One-to-one enforcement     |
+| Invoice             | EntryDate                          | Index  | Sort by date               |
+| VisualizationRequests | (IpHash, CreatedAt)               | Index  | Quota enforcement (daily per IP) |
+| VisualizationRequests | CreatedAt                         | Index  | Cleanup job (prune > 90 days) |
 
 ---
 

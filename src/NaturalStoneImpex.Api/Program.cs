@@ -74,6 +74,7 @@ builder.Services.AddSingleton<ISamModel>(sp =>
         Path.Combine(env.ContentRootPath, options.DecoderPath));
 });
 builder.Services.AddScoped<ISegmentationService, SegmentationService>();
+builder.Services.AddHostedService<VisualizationRequestCleanupService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
