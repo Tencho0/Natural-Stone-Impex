@@ -202,10 +202,37 @@ window.nsiVisualizer = (function () {
     return { x0: minX * sx, y0: minY * sy, x1: (maxX + 1) * sx, y1: (maxY + 1) * sy };
   }
 
+  // ---------- lifecycle ----------
+
+  // Reset all non-GL module state so a fresh init() starts from a clean slate.
+  // Without this, render()'s guard (!maskPresent || !tileSource || !pxToGround)
+  // could pass on stale data from a previous session after dispose()/re-init.
+  function resetState() {
+    photoW = 0; photoH = 0;
+    maskCanvas = null; blurredMask = null; maskPresent = false;
+    corners = null; groundToPx = null; pxToGround = null;
+    tileSource = null; tileMeters = 1.0; scaleFactor = 1.0; rotationRad = 0;
+    lumMean = 0.5;
+  }
+
+  // Release the WebGL context (if any) and drop GPU resource handles.
+  // Browsers cap live WebGL contexts (~16); repeated init() without an explicit
+  // loseContext() would leak them until getContext('webgl') starts returning null.
+  function releaseGl() {
+    if (gl) {
+      var lose = gl.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+    }
+    gl = null; program = null;
+    photoTexture = null; maskTexture = null; tileTexture = null;
+  }
+
   // ---------- public API ----------
 
   var api = {
     init: function (stageId, ref, options) {
+      releaseGl();   // Blazor may re-mount without calling dispose(); free the old context
+      resetState();
       stage = document.getElementById(stageId);
       dotNetRef = ref || null;
       forceFallback = !!(options && options.forceFallback);
@@ -365,7 +392,8 @@ window.nsiVisualizer = (function () {
     dispose: function () {
       dotNetRef = null;
       if (stage) stage.innerHTML = '';
-      gl = null; photoTexture = null; maskTexture = null; tileTexture = null;
+      releaseGl();
+      resetState();
     },
 
     _test: { computeHomography: computeHomography, applyH: applyH, invert3: invert3 },

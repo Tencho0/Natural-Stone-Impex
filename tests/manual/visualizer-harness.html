@@ -147,6 +147,20 @@
       assert(lum(shadowPx) < lum(litPx), "shadow band pixel is darker than lit masked pixel (luminance transfer)");
     }
 
+    // --- dispose / re-init lifecycle ---
+    // After dispose() + init(), all engine state must be reset: no stale mask,
+    // and render() must be a safe no-op (guards on reset state), not a throw.
+    // Runs last: it leaves the stage re-initialized without a photo, which is
+    // fine because all visual/pixel assertions above have already completed.
+    viz.dispose();
+    viz.init("stage", null, { forceFallback: false });
+    assert(viz.hasMask() === false, "hasMask() is false after dispose + re-init");
+    try {
+      viz.render();
+    } catch (e) {
+      failures.push("render() after dispose + re-init threw: " + e.message);
+    }
+
     document.getElementById("scale").oninput = e => { viz.setScale(parseFloat(e.target.value)); viz.render(); };
     document.getElementById("rot").oninput = e => { viz.setRotation(parseFloat(e.target.value)); viz.render(); };
     document.getElementById("cmp").oninput = e => viz.setCompareRatio(parseFloat(e.target.value));
