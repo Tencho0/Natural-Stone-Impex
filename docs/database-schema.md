@@ -401,15 +401,24 @@ await _context.SaveChangesAsync();
 
 ### VisualizationRequests
 
-Quota tracking for the visualizer feature. Each row represents one segmentation request. Rows are pruned after 90 days to maintain table hygiene (see `VisualizationRequestCleanupService`).
+Quota tracking and telemetry for the visualizer feature. Each row represents one segmentation request (one uploaded photo). Rows contain no personal data — photos and results are never stored — and are pruned after 90 days by `VisualizationRequestCleanupService` as table hygiene.
 
-| Column   | Type           | Constraints                | Notes                              |
-|----------|----------------|----------------------------|------------------------------------|
-| Id       | int            | PK, Identity               |                                    |
-| IpHash   | nvarchar(64)   | Required                   | SHA256(IPv4/IPv6 address)          |
-| Status   | int            | Required, Default: 0       | Enum: 0 = Success, 1 = Invalid, 2 = Error |
-| DurationMs | int         | Nullable                   | Processing duration in milliseconds |
-| CreatedAt| datetime2      | Required, Default: UTC now | When the request was processed     |
+| Column     | Type           | Constraints                | Notes                              |
+|------------|----------------|----------------------------|------------------------------------|
+| Id         | int            | PK, Identity               |                                    |
+| IpHash     | nvarchar(64)   | Required                   | SHA-256 of `"{ip}:{yyyyMMdd}"` (see below) |
+| Status     | int            | Required                   | Enum `VisualizationStatus`: 0 = Succeeded, 1 = Failed |
+| DurationMs | int            | Required                   | Processing duration in milliseconds (always populated) |
+| CreatedAt  | datetime2      | Required, Default: UTC now | When the request was processed     |
+
+**Enum:**
+```csharp
+public enum VisualizationStatus
+{
+    Succeeded = 0,
+    Failed = 1
+}
+```
 
 **EF Core Configuration:**
 ```csharp
@@ -419,17 +428,12 @@ entity.HasIndex(e => new { e.IpHash, e.CreatedAt }); // For quota enforcement (d
 entity.HasIndex(e => e.CreatedAt); // For cleanup job (delete rows > 90 days)
 ```
 
-**Quota Logic (Service Layer):**
-```csharp
-// At request time:
-var ipHash = SHA256(clientIpAddress).ToHexString();
-var today = DateTime.UtcNow.Date;
-var todayCount = await _context.VisualizationRequests
-    .Where(r => r.IpHash == ipHash && r.CreatedAt >= today)
-    .CountAsync();
-if (todayCount >= PerIpDailyLimit)
-    return StatusCode(429, new { error = "Дневния лимит е достигнат." });
-```
+**IpHash (Privacy):** `IpHash` is the SHA-256 hex digest of the client IP concatenated with the current UTC date (`"{ip}:{yyyyMMdd}"`). Because the date is part of the hashed input, the hash rotates every day — it is deliberately **not** a stable per-IP identifier and cannot be used to track a visitor across days. This is a privacy feature.
+
+**Quota Logic (Service Layer):** `SegmentationService` enforces two quota tiers before processing an upload, both returning HTTP `429`:
+
+1. **Per-IP daily limit** (checked first) — counts today's rows matching the caller's `IpHash`. Default: 20 (`Visualizer:PerIpDailyLimit`). Error: «Достигнахте дневния лимит за визуализации. Опитайте отново утре.»
+2. **Global daily limit** — counts all of today's rows regardless of IP. Default: 500 (`Visualizer:GlobalDailyLimit`). Error: «Визуализаторът е временно недостъпен. Моля, опитайте по-късно.»
 
 ---
 
