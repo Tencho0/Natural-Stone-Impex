@@ -1,0 +1,312 @@
+# Review package: e53346f..537bd3a
+
+## Commits
+537bd3a feat(visualizer): products endpoint and texture upload
+
+## Files changed
+ .../Controllers/ProductsController.cs              | 18 +++++++
+ .../Controllers/VisualizerController.cs            | 23 ++++++++
+ .../Models/DTOs/VisualizerProductDto.cs            | 17 ++++++
+ src/NaturalStoneImpex.Api/Program.cs               |  8 ++-
+ .../Services/IProductService.cs                    |  2 +
+ .../Services/ProductService.cs                     | 61 ++++++++++++++++++++++
+ .../FakeWebHostEnvironment.cs                      | 14 +++++
+ .../VisualizerProductsTests.cs                     | 48 +++++++++++++++++
+ 8 files changed, 190 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/src/NaturalStoneImpex.Api/Controllers/ProductsController.cs b/src/NaturalStoneImpex.Api/Controllers/ProductsController.cs
+index 4ff560a..83c7079 100644
+--- a/src/NaturalStoneImpex.Api/Controllers/ProductsController.cs
++++ b/src/NaturalStoneImpex.Api/Controllers/ProductsController.cs
+@@ -94,18 +94,36 @@ public class ProductsController : ControllerBase
+ 
+         if (error == "Продуктът не е намерен.")
+             return NotFound(new { error });
+ 
+         if (error is not null)
+             return BadRequest(new { error });
+ 
+         return Ok(new { imagePath });
+     }
+ 
++    [Authorize]
++    [HttpPost("{id}/texture")]
++    public async Task<IActionResult> UploadTexture(int id, IFormFile texture)
++    {
++        if (texture is null || texture.Length == 0)
++            return BadRequest(new { error = "Файлът е задължителен." });
++
++        var (texturePath, error) = await _productService.UploadTextureAsync(id, texture);
++
++        if (error == "Продуктът не е намерен.")
++            return NotFound(new { error });
++
++        if (error is not null)
++            return BadRequest(new { error });
++
++        return Ok(new { texturePath });
++    }
++
+     [Authorize]
+     [HttpGet("low-stock")]
+     public async Task<IActionResult> GetLowStock([FromQuery] decimal threshold = 10)
+     {
+         var products = await _productService.GetLowStockAsync(threshold);
+         return Ok(products);
+     }
+ }
+diff --git a/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs b/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs
+new file mode 100644
+index 0000000..36fd4ce
+--- /dev/null
++++ b/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs
+@@ -0,0 +1,23 @@
++using Microsoft.AspNetCore.Mvc;
++using NaturalStoneImpex.Api.Services;
++
++namespace NaturalStoneImpex.Api.Controllers;
++
++[ApiController]
++[Route("api/visualizer")]
++public class VisualizerController : ControllerBase
++{
++    private readonly IProductService _productService;
++
++    public VisualizerController(IProductService productService)
++    {
++        _productService = productService;
++    }
++
++    [HttpGet("products")]
++    public async Task<IActionResult> GetProducts()
++    {
++        var products = await _productService.GetVisualizerProductsAsync();
++        return Ok(products);
++    }
++}
+diff --git a/src/NaturalStoneImpex.Api/Models/DTOs/VisualizerProductDto.cs b/src/NaturalStoneImpex.Api/Models/DTOs/VisualizerProductDto.cs
+new file mode 100644
+index 0000000..91f5ac1
+--- /dev/null
++++ b/src/NaturalStoneImpex.Api/Models/DTOs/VisualizerProductDto.cs
+@@ -0,0 +1,17 @@
++namespace NaturalStoneImpex.Api.Models.DTOs;
++
++public record VisualizerProductDto
++{
++    public int Id { get; init; }
++    public string Name { get; init; } = string.Empty;
++    public string? ImagePath { get; init; }
++    public string TexturePath { get; init; } = string.Empty;
++    public decimal TextureWidthMeters { get; init; }
++    public decimal PriceWithoutVat { get; init; }
++    public decimal VatAmount { get; init; }
++    public decimal PriceWithVat { get; init; }
++    public int Unit { get; init; }
++    public string UnitDisplay { get; init; } = string.Empty;
++    public int CategoryId { get; init; }
++    public string CategoryName { get; init; } = string.Empty;
++}
+diff --git a/src/NaturalStoneImpex.Api/Program.cs b/src/NaturalStoneImpex.Api/Program.cs
+index ae5adbb..9d64dbb 100644
+--- a/src/NaturalStoneImpex.Api/Program.cs
++++ b/src/NaturalStoneImpex.Api/Program.cs
+@@ -76,21 +76,27 @@ using (var scope = app.Services.CreateScope())
+ // Exception handling middleware
+ app.UseMiddleware<ExceptionHandlingMiddleware>();
+ 
+ if (app.Environment.IsDevelopment())
+ {
+     app.UseSwagger();
+     app.UseSwaggerUI();
+ }
+ 
+ app.UseHttpsRedirection();
+-app.UseStaticFiles();
++app.UseStaticFiles(new StaticFileOptions
++{
++    // Product/texture images are public; allow the Blazor client (different port)
++    // to load them into WebGL without tainting the canvas.
++    OnPrepareResponse = ctx =>
++        ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*")
++});
+ app.UseCors("BlazorClient");
+ app.UseAuthentication();
+ app.UseAuthorization();
+ 
+ app.MapControllers();
+ 
+ // Health check endpoint
+ app.MapGet("/api/health", () => Results.Ok(new
+ {
+     status = "ok",
+diff --git a/src/NaturalStoneImpex.Api/Services/IProductService.cs b/src/NaturalStoneImpex.Api/Services/IProductService.cs
+index f32db12..55fd747 100644
+--- a/src/NaturalStoneImpex.Api/Services/IProductService.cs
++++ b/src/NaturalStoneImpex.Api/Services/IProductService.cs
+@@ -4,11 +4,13 @@ namespace NaturalStoneImpex.Api.Services;
+ 
+ public interface IProductService
+ {
+     Task<PaginatedResponse<ProductListDto>> GetAllAsync(int? categoryId, string? search, int page, int pageSize, bool includeInactive);
+     Task<ProductDto?> GetByIdAsync(int id);
+     Task<ProductDto> CreateAsync(CreateProductRequest request);
+     Task<ProductDto?> UpdateAsync(int id, UpdateProductRequest request);
+     Task<(bool Success, string? Error)> DeleteAsync(int id);
+     Task<(string? ImagePath, string? Error)> UploadImageAsync(int id, IFormFile file);
+     Task<List<ProductListDto>> GetLowStockAsync(decimal threshold);
++    Task<List<VisualizerProductDto>> GetVisualizerProductsAsync();
++    Task<(string? TexturePath, string? Error)> UploadTextureAsync(int id, IFormFile file);
+ }
+diff --git a/src/NaturalStoneImpex.Api/Services/ProductService.cs b/src/NaturalStoneImpex.Api/Services/ProductService.cs
+index 56518fd..c8499d5 100644
+--- a/src/NaturalStoneImpex.Api/Services/ProductService.cs
++++ b/src/NaturalStoneImpex.Api/Services/ProductService.cs
+@@ -286,11 +286,72 @@ public class ProductService : IProductService
+                 VatAmount = p.VatAmount,
+                 PriceWithVat = p.PriceWithVat,
+                 Unit = (int)p.Unit,
+                 UnitDisplay = p.Unit == UnitType.Kg ? "кг" : "м²",
+                 StockQuantity = p.StockQuantity,
+                 ImagePath = p.ImagePath,
+                 IsActive = p.IsActive
+             })
+             .ToListAsync();
+     }
++
++    public async Task<List<VisualizerProductDto>> GetVisualizerProductsAsync()
++    {
++        return await _context.Products
++            .Include(p => p.Category)
++            .Where(p => p.IsActive && p.IsVisualizerEnabled && p.TextureImagePath != null)
++            .OrderBy(p => p.Name)
++            .Select(p => new VisualizerProductDto
++            {
++                Id = p.Id,
++                Name = p.Name,
++                ImagePath = p.ImagePath,
++                TexturePath = p.TextureImagePath!,
++                TextureWidthMeters = p.TextureWidthMeters,
++                PriceWithoutVat = p.PriceWithoutVat,
++                VatAmount = p.VatAmount,
++                PriceWithVat = p.PriceWithVat,
++                Unit = (int)p.Unit,
++                UnitDisplay = p.Unit == UnitType.Kg ? "кг" : "м²",
++                CategoryId = p.CategoryId,
++                CategoryName = p.Category.Name
++            })
++            .ToListAsync();
++    }
++
++    public async Task<(string? TexturePath, string? Error)> UploadTextureAsync(int id, IFormFile file)
++    {
++        var product = await _context.Products.FindAsync(id);
++        if (product is null)
++            return (null, "Продуктът не е намерен.");
++
++        var allowedTypes = new[] { "image/jpeg", "image/png" };
++        if (!allowedTypes.Contains(file.ContentType) || file.Length > 5 * 1024 * 1024)
++            return (null, "Позволени са само JPG и PNG файлове до 5MB.");
++
++        var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "textures");
++        Directory.CreateDirectory(uploadsDir);
++
++        if (!string.IsNullOrEmpty(product.TextureImagePath))
++        {
++            var oldPath = Path.Combine(_env.WebRootPath, product.TextureImagePath.TrimStart('/'));
++            if (File.Exists(oldPath))
++                File.Delete(oldPath);
++        }
++
++        var extension = file.ContentType == "image/png" ? ".png" : ".jpg";
++        var fileName = $"{id}_texture{extension}";
++        var filePath = Path.Combine(uploadsDir, fileName);
++
++        using (var stream = new FileStream(filePath, FileMode.Create))
++        {
++            await file.CopyToAsync(stream);
++        }
++
++        var texturePath = $"/uploads/textures/{fileName}";
++        product.TextureImagePath = texturePath;
++        product.UpdatedAt = DateTime.UtcNow;
++        await _context.SaveChangesAsync();
++
++        return (texturePath, null);
++    }
+ }
+diff --git a/tests/NaturalStoneImpex.Api.Tests/FakeWebHostEnvironment.cs b/tests/NaturalStoneImpex.Api.Tests/FakeWebHostEnvironment.cs
+new file mode 100644
+index 0000000..e243786
+--- /dev/null
++++ b/tests/NaturalStoneImpex.Api.Tests/FakeWebHostEnvironment.cs
+@@ -0,0 +1,14 @@
++using Microsoft.AspNetCore.Hosting;
++using Microsoft.Extensions.FileProviders;
++
++namespace NaturalStoneImpex.Api.Tests;
++
++public class FakeWebHostEnvironment : IWebHostEnvironment
++{
++    public string WebRootPath { get; set; } = Path.Combine(Path.GetTempPath(), "nsi-tests-wwwroot");
++    public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
++    public string ApplicationName { get; set; } = "NaturalStoneImpex.Api";
++    public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
++    public string ContentRootPath { get; set; } = Path.GetTempPath();
++    public string EnvironmentName { get; set; } = "Development";
++}
+diff --git a/tests/NaturalStoneImpex.Api.Tests/VisualizerProductsTests.cs b/tests/NaturalStoneImpex.Api.Tests/VisualizerProductsTests.cs
+new file mode 100644
+index 0000000..31b9320
+--- /dev/null
++++ b/tests/NaturalStoneImpex.Api.Tests/VisualizerProductsTests.cs
+@@ -0,0 +1,48 @@
++using Microsoft.EntityFrameworkCore;
++using NaturalStoneImpex.Api.Data;
++using NaturalStoneImpex.Api.Models.Entities;
++using NaturalStoneImpex.Api.Services;
++
++namespace NaturalStoneImpex.Api.Tests;
++
++public class VisualizerProductsTests
++{
++    private static AppDbContext CreateContext()
++    {
++        var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
++            .UseInMemoryDatabase(Guid.NewGuid().ToString())
++            .Options);
++        db.Categories.Add(new Category { Id = 1, Name = "Павета" });
++        db.Products.AddRange(
++            new Product { Id = 1, Name = "Включен с текстура", CategoryId = 1, Unit = UnitType.Sqm,
++                IsActive = true, IsVisualizerEnabled = true,
++                TextureImagePath = "/uploads/textures/1_texture.jpg", TextureWidthMeters = 1.2m,
++                PriceWithoutVat = 20m, VatAmount = 4m, PriceWithVat = 24m },
++            new Product { Id = 2, Name = "Изключен", CategoryId = 1, Unit = UnitType.Sqm,
++                IsActive = true, IsVisualizerEnabled = false,
++                TextureImagePath = "/uploads/textures/2_texture.jpg" },
++            new Product { Id = 3, Name = "Без текстура", CategoryId = 1, Unit = UnitType.Sqm,
++                IsActive = true, IsVisualizerEnabled = true, TextureImagePath = null },
++            new Product { Id = 4, Name = "Неактивен", CategoryId = 1, Unit = UnitType.Sqm,
++                IsActive = false, IsVisualizerEnabled = true,
++                TextureImagePath = "/uploads/textures/4_texture.jpg" });
++        db.SaveChanges();
++        return db;
++    }
++
++    [Fact]
++    public async Task Returns_only_active_enabled_products_with_textures()
++    {
++        await using var db = CreateContext();
++        var service = new ProductService(db, new FakeWebHostEnvironment());
++
++        var result = await service.GetVisualizerProductsAsync();
++
++        var product = Assert.Single(result);
++        Assert.Equal(1, product.Id);
++        Assert.Equal("/uploads/textures/1_texture.jpg", product.TexturePath);
++        Assert.Equal(1.2m, product.TextureWidthMeters);
++        Assert.Equal("м²", product.UnitDisplay);
++        Assert.Equal(24m, product.PriceWithVat);
++    }
++}

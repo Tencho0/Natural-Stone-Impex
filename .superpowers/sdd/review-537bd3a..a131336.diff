@@ -1,0 +1,399 @@
+# Review package: 537bd3a..a131336
+
+## Commits
+a131336 feat(visualizer): MobileSAM ONNX wrapper with CPU inference
+
+## Files changed
+ .gitignore                                         |   3 +
+ scripts/download-visualizer-models.ps1             |  51 ++++++
+ src/NaturalStoneImpex.Api/MLModels/.gitkeep        |   0
+ .../NaturalStoneImpex.Api.csproj                   |   6 +
+ .../Services/Segmentation/ISamModel.cs             |  18 ++
+ .../Services/Segmentation/SamOnnxModel.cs          | 186 +++++++++++++++++++++
+ .../SamOnnxModelTests.cs                           |  58 +++++++
+ 7 files changed, 322 insertions(+)
+
+## Diff
+diff --git a/.gitignore b/.gitignore
+index ce89292..174acdd 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -409,10 +409,13 @@ FodyWeavers.xsd
+ 
+ # Built Visual Studio Code Extensions
+ *.vsix
+ 
+ # Windows Installer files from build outputs
+ *.cab
+ *.msi
+ *.msix
+ *.msm
+ *.msp
++
++# Visualizer ONNX models (downloaded via scripts/download-visualizer-models.ps1)
++src/NaturalStoneImpex.Api/MLModels/*.onnx
+diff --git a/scripts/download-visualizer-models.ps1 b/scripts/download-visualizer-models.ps1
+new file mode 100644
+index 0000000..11396b6
+--- /dev/null
++++ b/scripts/download-visualizer-models.ps1
+@@ -0,0 +1,51 @@
++# Downloads the MobileSAM ONNX models used by the product visualizer.
++#
++# Source: Hugging Face repo "vietanhdev/segment-anything-onnx-models" (from the
++# samexporter project, Apache-2.0) - https://huggingface.co/vietanhdev/segment-anything-onnx-models
++#
++# Unlike a plain file listing, this repo ships one zip per model variant. The
++# MobileSAM zip is "mobile_sam_20230629.zip" (~36.7 MB) and contains:
++#   - mobile_sam.encoder.onnx           (MobileSAM image encoder, ~28 MB)
++#   - sam_vit_h_4b8939.decoder.onnx     (shared SAM mask decoder, ~16.5 MB)
++# The decoder is named after the ViT-H variant because the SAM mask decoder is
++# a small, backbone-agnostic network reused across all SAM/MobileSAM exports in
++# this repo (confirmed via the zip's own config.yaml, which pairs the two files
++# above for the "mobile_sam_20230629" model). This is expected, not a mistake.
++#
++# This script downloads the zip, extracts just those two files, renames them to
++# the stable names the app expects, and removes the temporary zip.
++
++$ErrorActionPreference = "Stop"
++
++$repo = "https://huggingface.co/vietanhdev/segment-anything-onnx-models/resolve/main"
++$zipFile = "mobile_sam_20230629.zip"          # <-- confirm against the repo listing
++$encoderEntry = "mobile_sam.encoder.onnx"      # <-- confirm against the zip's config.yaml
++$decoderEntry = "sam_vit_h_4b8939.decoder.onnx" # <-- confirm against the zip's config.yaml
++
++$target = Join-Path $PSScriptRoot "..\src\NaturalStoneImpex.Api\MLModels"
++New-Item -ItemType Directory -Force -Path $target | Out-Null
++
++$tempZip = Join-Path ([System.IO.Path]::GetTempPath()) "mobile_sam_20230629.zip"
++$tempExtract = Join-Path ([System.IO.Path]::GetTempPath()) ("mobile_sam_extract_" + [System.Guid]::NewGuid())
++
++Write-Host "Downloading $zipFile ..."
++Invoke-WebRequest "$repo/$zipFile" -OutFile $tempZip
++
++Write-Host "Extracting models ..."
++Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
++
++Copy-Item (Join-Path $tempExtract $encoderEntry) (Join-Path $target "mobilesam-encoder.onnx") -Force
++Copy-Item (Join-Path $tempExtract $decoderEntry) (Join-Path $target "mobilesam-decoder.onnx") -Force
++
++Remove-Item $tempZip -Force
++Remove-Item $tempExtract -Recurse -Force
++
++Write-Host "Models downloaded to $target"
++
++# Fallback if the repo layout changed: pip install samexporter and export from the
++# MobileSAM checkpoint per https://github.com/vietanhdev/samexporter#usage, e.g.:
++#   python -m samexporter.export_encoder --checkpoint original_models/mobile_sam.pt `
++#       --output output_models/mobile_sam.encoder.onnx --model-type mobile_sam --use-preprocess
++#   python -m samexporter.export_decoder --checkpoint original_models/mobile_sam.pt `
++#       --output output_models/mobile_sam.decoder.onnx --model-type mobile_sam --return-single-mask
++# Then copy the outputs to MLModels\mobilesam-encoder.onnx / mobilesam-decoder.onnx.
+diff --git a/src/NaturalStoneImpex.Api/MLModels/.gitkeep b/src/NaturalStoneImpex.Api/MLModels/.gitkeep
+new file mode 100644
+index 0000000..e69de29
+diff --git a/src/NaturalStoneImpex.Api/NaturalStoneImpex.Api.csproj b/src/NaturalStoneImpex.Api/NaturalStoneImpex.Api.csproj
+index 0ae9e1f..f48ecb5 100644
+--- a/src/NaturalStoneImpex.Api/NaturalStoneImpex.Api.csproj
++++ b/src/NaturalStoneImpex.Api/NaturalStoneImpex.Api.csproj
+@@ -7,14 +7,20 @@
+   </PropertyGroup>
+ 
+   <ItemGroup>
+     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
+     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.*" />
+     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.*" />
+     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.*">
+       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+       <PrivateAssets>all</PrivateAssets>
+     </PackageReference>
++    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.27.1" />
++    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.4" />
+   </ItemGroup>
+ 
++  <ItemGroup>
++    <Content Include="MLModels\*.onnx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
++  </ItemGroup>
++
+ </Project>
+diff --git a/src/NaturalStoneImpex.Api/Services/Segmentation/ISamModel.cs b/src/NaturalStoneImpex.Api/Services/Segmentation/ISamModel.cs
+new file mode 100644
+index 0000000..bccf30b
+--- /dev/null
++++ b/src/NaturalStoneImpex.Api/Services/Segmentation/ISamModel.cs
+@@ -0,0 +1,18 @@
++using SixLabors.ImageSharp;
++using SixLabors.ImageSharp.PixelFormats;
++
++namespace NaturalStoneImpex.Api.Services.Segmentation;
++
++/// <summary>A point prompt in original-photo pixel coordinates. Label: 1 = include, 0 = exclude.</summary>
++public record SamPoint(float X, float Y, int Label);
++
++/// <summary>Encoder output plus the geometry needed to run the decoder. ~4 MB per photo.</summary>
++public record SamEmbedding(float[] Data, float Scale, int OrigWidth, int OrigHeight);
++
++public interface ISamModel
++{
++    bool IsAvailable { get; }
++    SamEmbedding Encode(Image<Rgb24> image);
++    /// <returns>Mask logits [OrigHeight, OrigWidth]; values &gt; 0 are selected.</returns>
++    float[,] Decode(SamEmbedding embedding, IReadOnlyList<SamPoint> points);
++}
+diff --git a/src/NaturalStoneImpex.Api/Services/Segmentation/SamOnnxModel.cs b/src/NaturalStoneImpex.Api/Services/Segmentation/SamOnnxModel.cs
+new file mode 100644
+index 0000000..e9e5fb6
+--- /dev/null
++++ b/src/NaturalStoneImpex.Api/Services/Segmentation/SamOnnxModel.cs
+@@ -0,0 +1,186 @@
++using Microsoft.ML.OnnxRuntime;
++using Microsoft.ML.OnnxRuntime.Tensors;
++using SixLabors.ImageSharp;
++using SixLabors.ImageSharp.PixelFormats;
++using SixLabors.ImageSharp.Processing;
++
++namespace NaturalStoneImpex.Api.Services.Segmentation;
++
++/// <summary>
++/// MobileSAM via ONNX Runtime on CPU.
++///
++/// Model source: Hugging Face repo "vietanhdev/segment-anything-onnx-models"
++/// (mobile_sam_20230629.zip -&gt; mobile_sam.encoder.onnx + sam_vit_h_4b8939.decoder.onnx),
++/// produced by the samexporter project (Apache-2.0, exported with --use-preprocess) and
++/// renamed by scripts/download-visualizer-models.ps1 to mobilesam-encoder.onnx /
++/// mobilesam-decoder.onnx. See that script for full provenance details.
++///
++/// TENSOR-CONTRACT DEVIATION FROM THE STANDARD SAM ONNX EXPORT (documented per task
++/// brief instructions — verified via InputMetadata/OutputMetadata of the real models):
++/// - Encoder input "input_image" is float32 HWC with DYNAMIC height/width, i.e. rank 3
++///   [-1, -1, 3] — NOT the usual batched, channel-first, fixed 1024x1024
++///   [1, 3, 1024, 1024] tensor. This export was built with samexporter's
++///   `--use-preprocess` flag, which bakes ImageNet mean/std normalization AND the
++///   1024x1024 padding into the ONNX graph itself. The caller therefore must only:
++///     (a) resize the image so its long side is 1024 (aspect ratio preserved, no
++///         padding — the graph pads internally), and
++///     (b) feed raw, unnormalized 0-255 RGB pixel values in HWC layout, no batch dim.
++///   This matches samexporter's own inference.py/sam_onnx.py reference implementation.
++/// - Encoder output "image_embeddings" is already [1, 256, 64, 64] — no reshape needed,
++///   matches the decoder's expected embedding input directly.
++/// - Decoder inputs/outputs match the standard 6-input SAM contract exactly
++///   (image_embeddings, point_coords, point_labels, mask_input, has_mask_input,
++///   orig_im_size -&gt; masks/iou_predictions/low_res_masks), so Decode() below is
++///   unchanged from the brief's reference code. Point coordinates are still scaled by
++///   the same long-side-1024 ratio used for the image (SAM's standard convention),
++///   since the decoder has no visibility into the original photo's pixel grid.
++/// - The exported "masks" output is already upscaled to the original photo resolution
++///   by this decoder (it consumes orig_im_size directly), so the low-res-mask bilinear
++///   upscale path in Decode() is untested against this specific export but is kept as a
++///   defensive fallback for other SAM ONNX exports that only return 256x256 logits.
++///
++/// InferenceSession.Run is thread-safe; register this class as a singleton.
++/// </summary>
++public class SamOnnxModel : ISamModel, IDisposable
++{
++    private const int InputSize = 1024;
++
++    private readonly InferenceSession? _encoder;
++    private readonly InferenceSession? _decoder;
++
++    public bool IsAvailable => _encoder is not null && _decoder is not null;
++
++    public SamOnnxModel(string encoderPath, string decoderPath)
++    {
++        if (File.Exists(encoderPath) && File.Exists(decoderPath))
++        {
++            _encoder = new InferenceSession(encoderPath);
++            _decoder = new InferenceSession(decoderPath);
++        }
++    }
++
++    public SamEmbedding Encode(Image<Rgb24> image)
++    {
++        if (_encoder is null) throw new InvalidOperationException("Encoder model not loaded.");
++
++        var origW = image.Width;
++        var origH = image.Height;
++        var scale = InputSize / (float)Math.Max(origW, origH);
++        var scaledW = (int)Math.Round(origW * scale);
++        var scaledH = (int)Math.Round(origH * scale);
++
++        // This export bakes normalization + 1024x1024 padding into the graph itself
++        // (samexporter --use-preprocess); the caller only resizes (aspect-preserving,
++        // no padding) and feeds raw, unnormalized HWC pixel values — no batch dim.
++        using var resized = image.Clone(ctx => ctx.Resize(scaledW, scaledH));
++        var tensor = new DenseTensor<float>(new[] { scaledH, scaledW, 3 });
++        resized.ProcessPixelRows(accessor =>
++        {
++            for (var y = 0; y < accessor.Height; y++)
++            {
++                var row = accessor.GetRowSpan(y);
++                for (var x = 0; x < row.Length; x++)
++                {
++                    tensor[y, x, 0] = row[x].R;
++                    tensor[y, x, 1] = row[x].G;
++                    tensor[y, x, 2] = row[x].B;
++                }
++            }
++        });
++
++        var inputName = _encoder.InputMetadata.Keys.First();
++        using var results = _encoder.Run(new[] { NamedOnnxValue.CreateFromTensor(inputName, tensor) });
++        var embedding = results.First().AsEnumerable<float>().ToArray();
++        return new SamEmbedding(embedding, scale, origW, origH);
++    }
++
++    public float[,] Decode(SamEmbedding embedding, IReadOnlyList<SamPoint> points)
++    {
++        if (_decoder is null) throw new InvalidOperationException("Decoder model not loaded.");
++
++        var n = points.Count + 1; // + padding point
++        var coords = new DenseTensor<float>(new[] { 1, n, 2 });
++        var labels = new DenseTensor<float>(new[] { 1, n });
++        for (var i = 0; i < points.Count; i++)
++        {
++            coords[0, i, 0] = points[i].X * embedding.Scale;
++            coords[0, i, 1] = points[i].Y * embedding.Scale;
++            labels[0, i] = points[i].Label;
++        }
++        coords[0, n - 1, 0] = 0f;
++        coords[0, n - 1, 1] = 0f;
++        labels[0, n - 1] = -1f;
++
++        var embeddingTensor = new DenseTensor<float>(embedding.Data, new[] { 1, 256, 64, 64 });
++        var maskInput = new DenseTensor<float>(new[] { 1, 1, 256, 256 });
++        var hasMask = new DenseTensor<float>(new[] { 0f }, new[] { 1 });
++        var origSize = new DenseTensor<float>(
++            new[] { (float)embedding.OrigHeight, embedding.OrigWidth }, new[] { 2 });
++
++        var candidates = new Dictionary<string, NamedOnnxValue>
++        {
++            ["image_embeddings"] = NamedOnnxValue.CreateFromTensor("image_embeddings", embeddingTensor),
++            ["point_coords"] = NamedOnnxValue.CreateFromTensor("point_coords", coords),
++            ["point_labels"] = NamedOnnxValue.CreateFromTensor("point_labels", labels),
++            ["mask_input"] = NamedOnnxValue.CreateFromTensor("mask_input", maskInput),
++            ["has_mask_input"] = NamedOnnxValue.CreateFromTensor("has_mask_input", hasMask),
++            ["orig_im_size"] = NamedOnnxValue.CreateFromTensor("orig_im_size", origSize)
++        };
++        // Feed only the inputs this particular export declares.
++        var inputs = _decoder.InputMetadata.Keys
++            .Where(candidates.ContainsKey)
++            .Select(k => candidates[k])
++            .ToList();
++
++        using var results = _decoder.Run(inputs);
++        var masks = results.First(r => r.Name is "masks" or "low_res_masks");
++        var tensor = (DenseTensor<float>)masks.AsTensor<float>();
++        var dims = tensor.Dimensions.ToArray();
++        var h = dims[^2];
++        var w = dims[^1];
++
++        if (h == embedding.OrigHeight && w == embedding.OrigWidth)
++        {
++            var mask = new float[h, w];
++            for (var y = 0; y < h; y++)
++                for (var x = 0; x < w; x++)
++                    mask[y, x] = tensor[0, 0, y, x];
++            return mask;
++        }
++
++        // Export returned low-res (e.g., 256x256) logits — upscale bilinearly to photo size.
++        return BilinearResize(tensor, h, w, embedding.OrigHeight, embedding.OrigWidth,
++            embedding.Scale, embedding.OrigWidth, embedding.OrigHeight);
++    }
++
++    private static float[,] BilinearResize(DenseTensor<float> src, int srcH, int srcW,
++        int dstH, int dstW, float scale, int origW, int origH)
++    {
++        // Low-res SAM masks correspond to the 1024x1024 padded frame; only the
++        // (origW*scale) x (origH*scale) top-left region is valid.
++        var validW = origW * scale / 1024f * srcW;
++        var validH = origH * scale / 1024f * srcH;
++        var result = new float[dstH, dstW];
++        for (var y = 0; y < dstH; y++)
++        {
++            var sy = Math.Clamp(y / (float)dstH * validH, 0, srcH - 1.001f);
++            int y0 = (int)sy; var fy = sy - y0;
++            for (var x = 0; x < dstW; x++)
++            {
++                var sx = Math.Clamp(x / (float)dstW * validW, 0, srcW - 1.001f);
++                int x0 = (int)sx; var fx = sx - x0;
++                var top = src[0, 0, y0, x0] * (1 - fx) + src[0, 0, y0, x0 + 1] * fx;
++                var bottom = src[0, 0, y0 + 1, x0] * (1 - fx) + src[0, 0, y0 + 1, x0 + 1] * fx;
++                result[y, x] = top * (1 - fy) + bottom * fy;
++            }
++        }
++        return result;
++    }
++
++    public void Dispose()
++    {
++        _encoder?.Dispose();
++        _decoder?.Dispose();
++        GC.SuppressFinalize(this);
++    }
++}
+diff --git a/tests/NaturalStoneImpex.Api.Tests/SamOnnxModelTests.cs b/tests/NaturalStoneImpex.Api.Tests/SamOnnxModelTests.cs
+new file mode 100644
+index 0000000..69c5f24
+--- /dev/null
++++ b/tests/NaturalStoneImpex.Api.Tests/SamOnnxModelTests.cs
+@@ -0,0 +1,58 @@
++using NaturalStoneImpex.Api.Services.Segmentation;
++using SixLabors.ImageSharp;
++using SixLabors.ImageSharp.PixelFormats;
++
++namespace NaturalStoneImpex.Api.Tests;
++
++public class SamOnnxModelTests
++{
++    private static string ModelsDir =>
++        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
++            "..", "..", "..", "..", "..", "src", "NaturalStoneImpex.Api", "MLModels"));
++
++    [Fact]
++    public void Encode_and_decode_segments_the_tapped_region()
++    {
++        var encoderPath = Path.Combine(ModelsDir, "mobilesam-encoder.onnx");
++        var decoderPath = Path.Combine(ModelsDir, "mobilesam-decoder.onnx");
++        if (!File.Exists(encoderPath) || !File.Exists(decoderPath))
++            return; // models not downloaded — skip (see scripts/download-visualizer-models.ps1)
++
++        // NOTE: the brief specified SixLabors.ImageSharp.Drawing for RectangularPolygon/Fill,
++        // but ImageSharp.Drawing 3.x requires a paid Six Labors commercial license key at build
++        // time (see SixLabors.Licensing.ValidateLicenseTask in its .targets file) — a hard
++        // external blocker unrelated to the tensor contract. The core SixLabors.ImageSharp
++        // package has no such requirement, so the gray "driveway" rectangle is filled here via
++        // plain pixel access instead, producing an identical synthetic photo without the
++        // licensed dependency.
++        using var image = new Image<Rgb24>(1024, 768, new Rgb24(60, 140, 60));
++        image.ProcessPixelRows(accessor =>
++        {
++            for (var y = 400; y < 700; y++) // height 300, starting at y=400
++            {
++                var row = accessor.GetRowSpan(y);
++                for (var x = 300; x < 900; x++) // width 600, starting at x=300
++                    row[x] = new Rgb24(128, 126, 124);
++            }
++        }); // gray rectangle = "driveway"
++
++        var model = new SamOnnxModel(encoderPath, decoderPath);
++        Assert.True(model.IsAvailable);
++
++        var embedding = model.Encode(image);
++        Assert.Equal(1024, embedding.OrigWidth);
++        Assert.Equal(768, embedding.OrigHeight);
++
++        var logits = model.Decode(embedding, new[] { new SamPoint(600f, 550f, 1) });
++        Assert.Equal(768, logits.GetLength(0));
++        Assert.Equal(1024, logits.GetLength(1));
++        Assert.True(logits[550, 600] > 0, "tapped pixel must be selected");
++
++        var selected = 0;
++        for (var y = 0; y < 768; y++)
++            for (var x = 0; x < 1024; x++)
++                if (logits[y, x] > 0) selected++;
++        var fraction = selected / (768.0 * 1024.0);
++        Assert.InRange(fraction, 0.02, 0.90); // some region, not the whole image
++    }
++}

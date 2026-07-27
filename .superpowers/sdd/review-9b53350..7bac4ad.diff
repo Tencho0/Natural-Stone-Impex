@@ -1,0 +1,713 @@
+# Review package: 9b53350..7bac4ad
+
+## Commits
+7bac4ad fix(visualizer): pre-merge hardening from final review
+
+## Files changed
+ .../Controllers/VisualizerController.cs            | 20 ++++++-
+ .../Services/Segmentation/SegmentationService.cs   | 64 ++++++++++++++++++----
+ .../Pages/Admin/ProductForm.razor                  | 49 ++++++++++++-----
+ .../Pages/Public/Visualizer.razor                  | 12 +++-
+ src/NaturalStoneImpex.Client/wwwroot/css/app.css   |  5 ++
+ .../SegmentationServiceTests.cs                    | 64 +++++++++++++++++++++-
+ .../VisualizerControllerTests.cs                   | 45 ++++++++++++++-
+ 7 files changed, 226 insertions(+), 33 deletions(-)
+
+## Diff
+diff --git a/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs b/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs
+index bf5d3f6..1c2aa6b 100644
+--- a/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs
++++ b/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs
+@@ -1,62 +1,76 @@
+ using System.Text.Json;
+ using Microsoft.AspNetCore.Mvc;
++using Microsoft.Extensions.Options;
+ using NaturalStoneImpex.Api.Models.DTOs;
+ using NaturalStoneImpex.Api.Services;
+ using NaturalStoneImpex.Api.Services.Segmentation;
+ 
+ namespace NaturalStoneImpex.Api.Controllers;
+ 
+ [ApiController]
+ [Route("api/visualizer")]
+ public class VisualizerController : ControllerBase
+ {
++    private const string ErrorTooManyPoints = "Моля, докоснете областта, която искате да покриете.";
++    private const int MaxPoints = 50;
++
+     private static readonly JsonSerializerOptions PointsJson = new(JsonSerializerDefaults.Web);
+ 
+     private readonly IProductService _productService;
+     private readonly ISegmentationService _segmentationService;
++    private readonly VisualizerOptions _options;
+ 
+-    public VisualizerController(IProductService productService, ISegmentationService segmentationService)
++    public VisualizerController(IProductService productService, ISegmentationService segmentationService,
++        IOptions<VisualizerOptions> options)
+     {
+         _productService = productService;
+         _segmentationService = segmentationService;
++        _options = options.Value;
+     }
+ 
+     [HttpGet("products")]
+     public async Task<IActionResult> GetProducts()
+     {
+         var products = await _productService.GetVisualizerProductsAsync();
+         return Ok(products);
+     }
+ 
+     [HttpPost("segment")]
+     [RequestSizeLimit(12_000_000)]
+     public async Task<IActionResult> Segment(IFormFile? photo, [FromForm] string? points)
+     {
+         if (photo is null || photo.Length == 0)
+             return BadRequest(new { error = "Снимката е задължителна." });
+ 
++        if (photo.Length > _options.MaxUploadBytes)
++            return BadRequest(new { error = "Моля, качете снимка във формат JPG или PNG до 10 MB." });
++
+         var parsed = ParsePoints(points);
+         if (parsed is null || parsed.Count == 0)
+-            return BadRequest(new { error = "Моля, докоснете областта, която искате да покриете." });
++            return BadRequest(new { error = ErrorTooManyPoints });
++        if (parsed.Count > MaxPoints)
++            return BadRequest(new { error = ErrorTooManyPoints });
+ 
+         var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+         await using var stream = photo.OpenReadStream();
+         var outcome = await _segmentationService.SegmentNewAsync(stream, parsed, clientIp);
+         return ToActionResult(outcome);
+     }
+ 
+     [HttpPost("segment/{sessionToken}")]
+     public async Task<IActionResult> Refine(string sessionToken, [FromBody] List<SegmentPointDto>? points)
+     {
+         if (points is null || points.Count == 0)
+-            return BadRequest(new { error = "Моля, докоснете областта, която искате да покриете." });
++            return BadRequest(new { error = ErrorTooManyPoints });
++        if (points.Count > MaxPoints)
++            return BadRequest(new { error = ErrorTooManyPoints });
+ 
+         var outcome = await _segmentationService.RefineAsync(sessionToken,
+             points.Select(p => new SamPoint((float)p.X, (float)p.Y, p.Label)).ToList());
+         return ToActionResult(outcome);
+     }
+ 
+     private static List<SamPoint>? ParsePoints(string? json)
+     {
+         if (string.IsNullOrWhiteSpace(json)) return null;
+         try
+diff --git a/src/NaturalStoneImpex.Api/Services/Segmentation/SegmentationService.cs b/src/NaturalStoneImpex.Api/Services/Segmentation/SegmentationService.cs
+index a1b70b3..823db4b 100644
+--- a/src/NaturalStoneImpex.Api/Services/Segmentation/SegmentationService.cs
++++ b/src/NaturalStoneImpex.Api/Services/Segmentation/SegmentationService.cs
+@@ -14,20 +14,21 @@ namespace NaturalStoneImpex.Api.Services.Segmentation;
+ 
+ public class SegmentationService : ISegmentationService
+ {
+     private const string ErrorUnavailable = "Визуализаторът е временно недостъпен.";
+     private const string ErrorBusy = "В момента има много заявки. Опитайте отново след малко.";
+     private const string ErrorQuota = "Достигнахте дневния лимит за визуализации. Опитайте отново утре.";
+     private const string ErrorGlobalQuota = "Визуализаторът е временно недостъпен. Моля, опитайте по-късно.";
+     private const string ErrorBadImage = "Моля, качете снимка във формат JPG или PNG до 10 MB.";
+     private const string ErrorExpired = "Сесията е изтекла. Моля, качете снимката отново.";
+     private const string ErrorNoSurface = "Не разпознахме повърхност тук. Опитайте друго място или използвайте четката.";
++    private const int MaxRefinesPerToken = 200;
+ 
+     private readonly ISamModel _model;
+     private readonly AppDbContext _context;
+     private readonly IMemoryCache _cache;
+     private readonly VisualizerOptions _options;
+     private readonly EncodeGate _gate;
+ 
+     public SegmentationService(ISamModel model, AppDbContext context, IMemoryCache cache,
+         IOptions<VisualizerOptions> options, EncodeGate gate)
+     {
+@@ -47,82 +48,99 @@ public class SegmentationService : ISegmentationService
+         var ipHash = HashIp(clientIp);
+         var ipCount = await _context.VisualizationRequests
+             .CountAsync(r => r.IpHash == ipHash && r.CreatedAt >= today);
+         if (ipCount >= _options.PerIpDailyLimit)
+             return SegmentOutcome.Fail(429, ErrorQuota);
+ 
+         var globalCount = await _context.VisualizationRequests.CountAsync(r => r.CreatedAt >= today);
+         if (globalCount >= _options.GlobalDailyLimit)
+             return SegmentOutcome.Fail(429, ErrorGlobalQuota);
+ 
++        var stopwatch = Stopwatch.StartNew();
++
+         Image<Rgb24> image;
+         try
+         {
++            // Cheap header-only check before the full decode: rejects declared-oversized
++            // images (e.g. a crafted header claiming huge dimensions) without ever
++            // allocating the decoded pixel buffer.
++            var info = await Image.IdentifyAsync(photo);
++            if (Math.Max(info.Width, info.Height) > 2 * _options.MaxImageDimension)
++            {
++                await RecordAsync(ipHash, VisualizationStatus.Failed, stopwatch.ElapsedMilliseconds);
++                return SegmentOutcome.Fail(400, ErrorBadImage);
++            }
++
++            // IdentifyAsync consumed the stream up to the header; rewind before the full decode.
++            // IFormFile streams (MemoryStream / FileBufferingReadStream) are always seekable.
++            photo.Position = 0;
++
+             // Fully in-memory: the photo is never written to disk.
+             image = await Image.LoadAsync<Rgb24>(photo);
+         }
+         catch (Exception ex) when (ex is UnknownImageFormatException or InvalidImageContentException)
+         {
++            await RecordAsync(ipHash, VisualizationStatus.Failed, stopwatch.ElapsedMilliseconds);
+             return SegmentOutcome.Fail(400, ErrorBadImage);
+         }
+ 
+         using (image)
+         {
+             if (Math.Max(image.Width, image.Height) > _options.MaxImageDimension)
+             {
+                 var factor = _options.MaxImageDimension / (double)Math.Max(image.Width, image.Height);
+                 image.Mutate(ctx => ctx.Resize(
+                     (int)Math.Round(image.Width * factor), (int)Math.Round(image.Height * factor)));
+             }
+ 
+             if (!await _gate.Semaphore.WaitAsync(TimeSpan.FromSeconds(30)))
+                 return SegmentOutcome.Fail(503, ErrorBusy);
+ 
+             SamEmbedding embedding;
+-            var stopwatch = Stopwatch.StartNew();
+             try
+             {
+                 embedding = _model.Encode(image);
+             }
+             finally
+             {
+                 _gate.Semaphore.Release();
+             }
+ 
+             var token = Guid.NewGuid().ToString("N");
+             _cache.Set(CacheKey(token), embedding, new MemoryCacheEntryOptions
+             {
+                 Size = 1,
+                 SlidingExpiration = TimeSpan.FromMinutes(_options.EmbeddingCacheMinutes)
+             });
+ 
+-            _context.VisualizationRequests.Add(new VisualizationRequest
+-            {
+-                IpHash = ipHash,
+-                Status = VisualizationStatus.Succeeded,
+-                DurationMs = (int)stopwatch.ElapsedMilliseconds,
+-                CreatedAt = DateTime.UtcNow
+-            });
+-            await _context.SaveChangesAsync();
++            var outcome = BuildOutcome(token, embedding, points);
++            var status = outcome.StatusCode == 200 ? VisualizationStatus.Succeeded : VisualizationStatus.Failed;
++            await RecordAsync(ipHash, status, stopwatch.ElapsedMilliseconds);
+ 
+-            return BuildOutcome(token, embedding, points);
++            return outcome;
+         }
+     }
+ 
+     public Task<SegmentOutcome> RefineAsync(string sessionToken, IReadOnlyList<SamPoint> points)
+     {
+         if (!_options.Enabled || !_model.IsAvailable)
+             return Task.FromResult(SegmentOutcome.Fail(503, ErrorUnavailable));
+ 
+         if (!_cache.TryGetValue(CacheKey(sessionToken), out SamEmbedding? embedding) || embedding is null)
+             return Task.FromResult(SegmentOutcome.Fail(404, ErrorExpired));
+ 
++        // Per-token refine ceiling: without this, a single segmentation session (which
++        // records nothing per-refine in the quota table) could be refined unboundedly.
++        var refineCount = IncrementRefineCount(sessionToken);
++        if (refineCount > MaxRefinesPerToken)
++            return Task.FromResult(SegmentOutcome.Fail(429, ErrorQuota));
++
+         return Task.FromResult(BuildOutcome(sessionToken, embedding, points));
+     }
+ 
+     private SegmentOutcome BuildOutcome(string token, SamEmbedding embedding, IReadOnlyList<SamPoint> points)
+     {
+         var logits = _model.Decode(embedding, points);
+         var mask = MaskPostProcessor.Threshold(logits);
+         var seeds = points.Where(p => p.Label == 1).Select(p => ((int)p.X, (int)p.Y));
+         mask = MaskPostProcessor.KeepComponentsContaining(mask, seeds);
+         mask = MaskPostProcessor.MorphClose(mask, 2);
+@@ -133,18 +151,44 @@ public class SegmentationService : ISegmentationService
+             for (var x = 0; x < mask.GetLength(1); x++)
+                 if (mask[y, x]) { anySelected = true; break; }
+         if (!anySelected)
+             return SegmentOutcome.Fail(400, ErrorNoSurface); // spec §3.4: tap hit no recognizable surface
+ 
+         var png = MaskPostProcessor.ToPng(mask);
+         return SegmentOutcome.Ok(new SegmentResult(token, Convert.ToBase64String(png),
+             embedding.OrigWidth, embedding.OrigHeight));
+     }
+ 
++    private async Task RecordAsync(string ipHash, VisualizationStatus status, long durationMs)
++    {
++        _context.VisualizationRequests.Add(new VisualizationRequest
++        {
++            IpHash = ipHash,
++            Status = status,
++            DurationMs = (int)durationMs,
++            CreatedAt = DateTime.UtcNow
++        });
++        await _context.SaveChangesAsync();
++    }
++
++    private int IncrementRefineCount(string sessionToken)
++    {
++        var key = RefineCountCacheKey(sessionToken);
++        var count = (_cache.TryGetValue(key, out int existing) ? existing : 0) + 1;
++        _cache.Set(key, count, new MemoryCacheEntryOptions
++        {
++            Size = 1,
++            SlidingExpiration = TimeSpan.FromMinutes(_options.EmbeddingCacheMinutes)
++        });
++        return count;
++    }
++
+     private static string CacheKey(string token) => $"viz-embedding:{token}";
+ 
++    private static string RefineCountCacheKey(string token) => $"viz-refines:{token}";
++
+     private static string HashIp(string ip)
+     {
+         var input = $"{ip}:{DateTime.UtcNow:yyyyMMdd}";
+         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
+     }
+ }
+diff --git a/src/NaturalStoneImpex.Client/Pages/Admin/ProductForm.razor b/src/NaturalStoneImpex.Client/Pages/Admin/ProductForm.razor
+index 2205877..6c27e69 100644
+--- a/src/NaturalStoneImpex.Client/Pages/Admin/ProductForm.razor
++++ b/src/NaturalStoneImpex.Client/Pages/Admin/ProductForm.razor
+@@ -393,42 +393,59 @@ else
+ 
+         _isSaving = true;
+         _errorMessage = null;
+ 
+         try
+         {
+             int productId;
+ 
+             if (_isEditMode)
+             {
++                productId = ProductId!.Value;
++
++                // Upload the texture BEFORE updating the product: the server rejects
++                // enabling the visualizer without an existing texture ("първо качете
++                // текстура"), so if we saved the toggle first, ticking "enabled" +
++                // choosing a texture in the same save would fail and discard the file.
++                if (_selectedTexture is not null)
++                {
++                    using var textureStream = _selectedTexture.OpenReadStream(5 * 1024 * 1024);
++                    var textureUploadError = await ProductService.UploadTextureAsync(productId, textureStream, _selectedTexture.Name);
++                    if (textureUploadError is not null)
++                    {
++                        _errorMessage = textureUploadError;
++                        return;
++                    }
++
++                    _existingTexturePath = await BuildTexturePreviewDataUrlAsync(_selectedTexture);
++                }
++
+                 var updateRequest = new UpdateProductRequest
+                 {
+                     Name = _formModel.Name,
+                     Description = _formModel.Description,
+                     CategoryId = _formModel.CategoryId,
+                     PriceWithoutVat = _formModel.PriceWithoutVat,
+                     VatAmount = _formModel.VatAmount,
+                     PriceWithVat = _formModel.PriceWithVat,
+                     Unit = _formModel.Unit,
+                     StockQuantity = _formModel.StockQuantity,
+                     IsVisualizerEnabled = _formModel.IsVisualizerEnabled,
+                     TextureWidthMeters = _formModel.TextureWidthMeters
+                 };
+ 
+-                var error = await ProductService.UpdateAsync(ProductId!.Value, updateRequest);
++                var error = await ProductService.UpdateAsync(productId, updateRequest);
+                 if (error is not null)
+                 {
+                     _errorMessage = error;
+                     return;
+                 }
+-
+-                productId = ProductId!.Value;
+             }
+             else
+             {
+                 var createRequest = new CreateProductRequest
+                 {
+                     Name = _formModel.Name,
+                     Description = _formModel.Description,
+                     CategoryId = _formModel.CategoryId,
+                     PriceWithoutVat = _formModel.PriceWithoutVat,
+                     VatAmount = _formModel.VatAmount,
+@@ -454,49 +471,51 @@ else
+             {
+                 using var stream = _selectedImage.OpenReadStream(5 * 1024 * 1024);
+                 var imageError = await ProductService.UploadImageAsync(productId, stream, _selectedImage.Name);
+                 if (imageError is not null)
+                 {
+                     _errorMessage = imageError;
+                     return;
+                 }
+             }
+ 
+-            // Upload texture if selected (edit mode only)
+-            if (_isEditMode && _selectedTexture is not null)
+-            {
+-                using var textureStream = _selectedTexture.OpenReadStream(5 * 1024 * 1024);
+-                var textureError = await ProductService.UploadTextureAsync(productId, textureStream, _selectedTexture.Name);
+-                if (textureError is not null)
+-                {
+-                    _errorMessage = textureError;
+-                    return;
+-                }
+-            }
+-
+             Navigation.NavigateTo("/admin/products");
+         }
+         catch
+         {
+             _errorMessage = "Възникна грешка при свързване със сървъра.";
+         }
+         finally
+         {
+             _isSaving = false;
+         }
+     }
+ 
+     private void NavigateBack()
+     {
+         Navigation.NavigateTo("/admin/products");
+     }
+ 
++    // Builds a local data-URL preview from the just-uploaded texture file so the UI
++    // reflects the new texture immediately, without depending on the upload response
++    // (UploadTextureAsync only returns an error, not the stored path).
++    private static async Task<string> BuildTexturePreviewDataUrlAsync(IBrowserFile file)
++    {
++        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
++        var buffer = new byte[file.Size];
++        await using var stream = file.OpenReadStream(5 * 1024 * 1024);
++        await stream.ReadAsync(buffer);
++        var base64 = Convert.ToBase64String(buffer);
++        var contentType = extension == ".png" ? "image/png" : "image/jpeg";
++        return $"data:{contentType};base64,{base64}";
++    }
++
+     private sealed class ProductFormModel
+     {
+         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Името на продукта е задължително.")]
+         [System.ComponentModel.DataAnnotations.MinLength(2, ErrorMessage = "Името трябва да е поне 2 символа.")]
+         [System.ComponentModel.DataAnnotations.MaxLength(200, ErrorMessage = "Името не може да надвишава 200 символа.")]
+         public string Name { get; set; } = string.Empty;
+ 
+         [System.ComponentModel.DataAnnotations.MaxLength(2000, ErrorMessage = "Описанието не може да надвишава 2000 символа.")]
+         public string? Description { get; set; }
+ 
+diff --git a/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor b/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor
+index 40cf088..4ef46c0 100644
+--- a/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor
++++ b/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor
+@@ -81,20 +81,23 @@ else
+                 <div id="viz-stage"></div>
+                 @if (_showHandles && _photoW > 0)
+                 {
+                     <svg class="viz-handles" viewBox="0 0 @_photoW @_photoH" preserveAspectRatio="none">
+                         <polygon points="@HandlePolygon" class="viz-grid-outline" />
+                         <line x1="@Inv(_corners[0])" y1="@Inv(_corners[1])" x2="@Inv(_corners[6])" y2="@Inv(_corners[7])" class="viz-grid-line" />
+                         <line x1="@Inv(_corners[2])" y1="@Inv(_corners[3])" x2="@Inv(_corners[4])" y2="@Inv(_corners[5])" class="viz-grid-line" />
+                         @for (var i = 0; i < 4; i++)
+                         {
+                             var index = i;
++                            <circle cx="@Inv(_corners[index * 2])" cy="@Inv(_corners[index * 2 + 1])" r="@Inv(_photoW * 0.055)"
++                                    class="viz-handle-hit" @onpointerdown="e => OnHandleDown(e, index)"
++                                    @onpointerdown:preventDefault @onpointerdown:stopPropagation />
+                             <circle cx="@Inv(_corners[index * 2])" cy="@Inv(_corners[index * 2 + 1])" r="@Inv(_photoW * 0.02)"
+                                     class="viz-handle" @onpointerdown="e => OnHandleDown(e, index)"
+                                     @onpointerdown:preventDefault @onpointerdown:stopPropagation />
+                         }
+                     </svg>
+                 }
+                 @if (_busy)
+                 {
+                     <div class="viz-overlay d-flex align-items-center justify-content-center">
+                         <div class="text-center text-white">
+@@ -181,21 +184,28 @@ else
+     private double[] _corners = new double[8];
+     private int _photoW, _photoH;
+     private int _dragIndex = -1;
+     private double _scale = 1.0;
+     private double _rotation;
+     private double _compare;
+     private string? _cartMessage;
+ 
+     protected override async Task OnInitializedAsync()
+     {
+-        _products = await VisualizerService.GetProductsAsync();
++        try
++        {
++            _products = await VisualizerService.GetProductsAsync();
++        }
++        catch (HttpRequestException)
++        {
++            _products = new List<VisualizerProductDto>();
++        }
+ 
+         var productId = ParseProductIdFromQuery(Navigation.Uri);
+         if (productId is int id)
+             _selected = _products.FirstOrDefault(p => p.Id == id);
+         _selected ??= _products.FirstOrDefault();
+     }
+ 
+     // Manual query-string parsing: Microsoft.AspNetCore.WebUtilities.QueryHelpers is not
+     // available as a compile-time reference in the Blazor WASM client (it only ships as an
+     // internal "tools/" asset of the WebAssembly.DevServer package, not a referenceable lib).
+diff --git a/src/NaturalStoneImpex.Client/wwwroot/css/app.css b/src/NaturalStoneImpex.Client/wwwroot/css/app.css
+index 3d2809c..5e18832 100644
+--- a/src/NaturalStoneImpex.Client/wwwroot/css/app.css
++++ b/src/NaturalStoneImpex.Client/wwwroot/css/app.css
+@@ -104,20 +104,25 @@ code {
+     vector-effect: non-scaling-stroke;
+ }
+ .viz-handle {
+     fill: #0d6efd;
+     stroke: #fff;
+     stroke-width: 2;
+     vector-effect: non-scaling-stroke;
+     cursor: grab;
+     pointer-events: all;
+ }
++.viz-handle-hit {
++    fill: transparent;
++    pointer-events: all;
++    cursor: grab;
++}
+ .viz-product-list {
+     max-height: 480px;
+     overflow-y: auto;
+ }
+ .viz-product-thumb {
+     width: 48px;
+     height: 48px;
+     object-fit: cover;
+     border-radius: 4px;
+ }
+diff --git a/tests/NaturalStoneImpex.Api.Tests/SegmentationServiceTests.cs b/tests/NaturalStoneImpex.Api.Tests/SegmentationServiceTests.cs
+index 6a67824..375b1f5 100644
+--- a/tests/NaturalStoneImpex.Api.Tests/SegmentationServiceTests.cs
++++ b/tests/NaturalStoneImpex.Api.Tests/SegmentationServiceTests.cs
+@@ -1,14 +1,15 @@
+ using Microsoft.EntityFrameworkCore;
+ using Microsoft.Extensions.Caching.Memory;
+ using Microsoft.Extensions.Options;
+ using NaturalStoneImpex.Api.Data;
++using NaturalStoneImpex.Api.Models.Entities;
+ using NaturalStoneImpex.Api.Services.Segmentation;
+ using SixLabors.ImageSharp;
+ using SixLabors.ImageSharp.PixelFormats;
+ 
+ namespace NaturalStoneImpex.Api.Tests;
+ 
+ public class FakeSamModel : ISamModel
+ {
+     public bool IsAvailable => true;
+     public int EncodeCalls;
+@@ -31,23 +32,23 @@ public class FakeSamModel : ISamModel
+         var py = (int)points[0].Y;
+         for (var y = Math.Max(0, py - 50); y < Math.Min(embedding.OrigHeight, py + 50); y++)
+             for (var x = Math.Max(0, px - 50); x < Math.Min(embedding.OrigWidth, px + 50); x++)
+                 logits[y, x] = 10f;
+         return logits;
+     }
+ }
+ 
+ public class SegmentationServiceTests
+ {
+-    private static byte[] TestPhotoBytes()
++    private static byte[] TestPhotoBytes(int width = 400, int height = 300)
+     {
+-        using var image = new Image<Rgb24>(400, 300, new Rgb24(100, 100, 100));
++        using var image = new Image<Rgb24>(width, height, new Rgb24(100, 100, 100));
+         using var ms = new MemoryStream();
+         image.SaveAsJpeg(ms);
+         return ms.ToArray();
+     }
+ 
+     private static (SegmentationService Service, FakeSamModel Model, AppDbContext Db) CreateService(
+         VisualizerOptions? options = null)
+     {
+         options ??= new VisualizerOptions();
+         var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+@@ -128,11 +129,70 @@ public class SegmentationServiceTests
+ 
+     [Fact]
+     public async Task Invalid_image_returns_400()
+     {
+         var (service, _, _) = CreateService();
+         using var junk = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
+         var outcome = await service.SegmentNewAsync(junk, Tap(), "1.2.3.4");
+         Assert.Equal(400, outcome.StatusCode);
+         Assert.Equal("Моля, качете снимка във формат JPG или PNG до 10 MB.", outcome.Error);
+     }
++
++    [Fact]
++    public async Task Oversized_declared_dimensions_returns_400_and_persists_failed_row()
++    {
++        // A real 100x100 JPEG, but MaxImageDimension is set so low that 100 > 2 * 20 —
++        // this must be rejected by the cheap IdentifyAsync header check before any decode.
++        var (service, _, db) = CreateService(new VisualizerOptions { MaxImageDimension = 20 });
++        using var photo = new MemoryStream(TestPhotoBytes(100, 100));
++
++        var outcome = await service.SegmentNewAsync(photo, Tap(), "9.9.9.9");
++
++        Assert.Equal(400, outcome.StatusCode);
++        Assert.Equal("Моля, качете снимка във формат JPG или PNG до 10 MB.", outcome.Error);
++        var row = Assert.Single(db.VisualizationRequests.ToList());
++        Assert.Equal(VisualizationStatus.Failed, row.Status);
++    }
++
++    [Fact]
++    public async Task Invalid_image_persists_failed_row_and_exhausts_per_ip_quota()
++    {
++        var (service, _, db) = CreateService(new VisualizerOptions { PerIpDailyLimit = 2 });
++
++        for (var i = 0; i < 2; i++)
++        {
++            using var junk = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
++            var outcome = await service.SegmentNewAsync(junk, Tap(), "8.8.8.8");
++            Assert.Equal(400, outcome.StatusCode);
++        }
++
++        // Failed attempts must count toward the quota — the table now has 2 Failed rows
++        // for this IP, exhausting the PerIpDailyLimit of 2.
++        Assert.Equal(2, db.VisualizationRequests.ToList().Count(r => r.Status == VisualizationStatus.Failed));
++
++        using var third = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
++        var blocked = await service.SegmentNewAsync(third, Tap(), "8.8.8.8");
++
++        Assert.Equal(429, blocked.StatusCode);
++        Assert.Equal("Достигнахте дневния лимит за визуализации. Опитайте отново утре.", blocked.Error);
++    }
++
++    [Fact]
++    public async Task Refine_beyond_ceiling_returns_429()
++    {
++        var (service, _, _) = CreateService();
++        using var photo = new MemoryStream(TestPhotoBytes());
++        var first = await service.SegmentNewAsync(photo, Tap(), "3.3.3.3");
++        var token = first.Result!.SessionToken;
++
++        for (var i = 0; i < 200; i++)
++        {
++            var outcome = await service.RefineAsync(token, Tap());
++            Assert.Equal(200, outcome.StatusCode);
++        }
++
++        var blocked = await service.RefineAsync(token, Tap());
++
++        Assert.Equal(429, blocked.StatusCode);
++        Assert.Equal("Достигнахте дневния лимит за визуализации. Опитайте отново утре.", blocked.Error);
++    }
+ }
+diff --git a/tests/NaturalStoneImpex.Api.Tests/VisualizerControllerTests.cs b/tests/NaturalStoneImpex.Api.Tests/VisualizerControllerTests.cs
+index a468daf..7afe05c 100644
+--- a/tests/NaturalStoneImpex.Api.Tests/VisualizerControllerTests.cs
++++ b/tests/NaturalStoneImpex.Api.Tests/VisualizerControllerTests.cs
+@@ -1,13 +1,14 @@
+ using System.Text.Encodings.Web;
+ using System.Text.Json;
+ using Microsoft.AspNetCore.Mvc;
++using Microsoft.Extensions.Options;
+ using NaturalStoneImpex.Api.Controllers;
+ using NaturalStoneImpex.Api.Models.DTOs;
+ using NaturalStoneImpex.Api.Services;
+ using NaturalStoneImpex.Api.Services.Segmentation;
+ 
+ namespace NaturalStoneImpex.Api.Tests;
+ 
+ public class FakeProductServiceForController : IProductService
+ {
+     public Task<PaginatedResponse<ProductListDto>> GetAllAsync(int? categoryId, string? search, int page, int pageSize, bool includeInactive)
+@@ -45,22 +46,22 @@ public class VisualizerControllerTests
+ {
+     // Default JsonSerializerOptions escape non-ASCII characters (Cyrillic -> \uXXXX),
+     // so Bulgarian text does not appear literally in the serialized string unless we
+     // opt into a relaxed encoder here (test-only; does not affect the API's real
+     // serialization behavior).
+     private static readonly JsonSerializerOptions Utf8Json = new()
+     {
+         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+     };
+ 
+-    private static VisualizerController CreateController() =>
+-        new(new FakeProductServiceForController(), new FakeSegmentationService())
++    private static VisualizerController CreateController(VisualizerOptions? options = null) =>
++        new(new FakeProductServiceForController(), new FakeSegmentationService(), Options.Create(options ?? new VisualizerOptions()))
+         {
+             ControllerContext = new ControllerContext
+             {
+                 HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
+             }
+         };
+ 
+     [Fact]
+     public async Task Segment_without_photo_returns_bulgarian_error_shape()
+     {
+@@ -90,11 +91,51 @@ public class VisualizerControllerTests
+     }
+ 
+     [Fact]
+     public async Task Refine_without_body_returns_bulgarian_error_shape()
+     {
+         var controller = CreateController();
+         var result = await controller.Refine("sometoken", null);
+         var bad = Assert.IsType<BadRequestObjectResult>(result);
+         Assert.Contains("Моля, докоснете областта", JsonSerializer.Serialize(bad.Value, Utf8Json));
+     }
++
++    private static string Points(int count)
++    {
++        var points = Enumerable.Range(0, count).Select(i => new SegmentPointDto(i, i, 1));
++        return JsonSerializer.Serialize(points, PointsJson);
++    }
++
++    private static readonly JsonSerializerOptions PointsJson = new(JsonSerializerDefaults.Web);
++
++    [Fact]
++    public async Task Segment_with_more_than_50_points_returns_400()
++    {
++        var controller = CreateController();
++        var photo = new Microsoft.AspNetCore.Http.FormFile(new MemoryStream(new byte[] { 1 }), 0, 1, "photo", "p.jpg");
++        var result = await controller.Segment(photo, Points(51));
++        var bad = Assert.IsType<BadRequestObjectResult>(result);
++        Assert.Contains("Моля, докоснете областта", JsonSerializer.Serialize(bad.Value, Utf8Json));
++    }
++
++    [Fact]
++    public async Task Refine_with_more_than_50_points_returns_400()
++    {
++        var controller = CreateController();
++        var points = Enumerable.Range(0, 51).Select(i => new SegmentPointDto(i, i, 1)).ToList();
++        var result = await controller.Refine("sometoken", points);
++        var bad = Assert.IsType<BadRequestObjectResult>(result);
++        Assert.Contains("Моля, докоснете областта", JsonSerializer.Serialize(bad.Value, Utf8Json));
++    }
++
++    [Fact]
++    public async Task Segment_with_oversized_photo_length_returns_400()
++    {
++        var controller = CreateController(new VisualizerOptions { MaxUploadBytes = 10_485_760 });
++        // Small backing stream, but a declared length above MaxUploadBytes — the check is
++        // on IFormFile.Length, not on actually reading the (small) stream.
++        var photo = new Microsoft.AspNetCore.Http.FormFile(new MemoryStream(new byte[] { 1 }), 0, 11_000_000, "photo", "p.jpg");
++        var result = await controller.Segment(photo, Points(1));
++        var bad = Assert.IsType<BadRequestObjectResult>(result);
++        Assert.Contains("Моля, качете снимка във формат JPG или PNG до 10 MB.", JsonSerializer.Serialize(bad.Value, Utf8Json));
++    }
+ }

@@ -1,0 +1,370 @@
+# Review package: ee9b52e..83c931a
+
+## Commits
+83c931a feat(visualizer): admin product form texture and visualizer fields
+
+## Files changed
+ .../Pages/Admin/ProductForm.razor                  | 101 ++++++++++++++++++++-
+ .../Services/IProductService.cs                    |   1 +
+ .../Services/ProductService.cs                     |  27 ++++++
+ 3 files changed, 127 insertions(+), 2 deletions(-)
+
+## Diff
+diff --git a/src/NaturalStoneImpex.Client/Pages/Admin/ProductForm.razor b/src/NaturalStoneImpex.Client/Pages/Admin/ProductForm.razor
+index cab6370..2205877 100644
+--- a/src/NaturalStoneImpex.Client/Pages/Admin/ProductForm.razor
++++ b/src/NaturalStoneImpex.Client/Pages/Admin/ProductForm.razor
+@@ -140,20 +140,66 @@ else
+                             </div>
+                             <div class="col-md-6">
+                                 <label for="stockQuantity" class="form-label">Налично количество <span style="color: var(--nsi-danger);">*</span></label>
+                                 <InputNumber id="stockQuantity" class="form-control" @bind-Value="_formModel.StockQuantity"
+                                              disabled="@_isSaving" step="0.01" />
+                                 <ValidationMessage For="() => _formModel.StockQuantity" />
+                             </div>
+                         </div>
+                     </div>
+                 </div>
++
++                <!-- Section 4: Visualizer -->
++                <div class="card mb-4">
++                    <div class="card-header">
++                        <i class="bi bi-eye me-2" style="color: var(--nsi-accent);"></i>Визуализатор
++                    </div>
++                    <div class="card-body" style="padding: 1.5rem;">
++                        <div class="form-check form-switch mb-3">
++                            <input class="form-check-input" type="checkbox" id="viz-enabled"
++                                   @bind="_formModel.IsVisualizerEnabled" disabled="@_isSaving">
++                            <label class="form-check-label" for="viz-enabled">Достъпен във визуализатора</label>
++                        </div>
++                        <div class="mb-3">
++                            <label class="form-label" for="viz-width">Реална ширина на текстурата (м)</label>
++                            <InputNumber id="viz-width" class="form-control" @bind-Value="_formModel.TextureWidthMeters"
++                                         disabled="@_isSaving" step="0.01" min="0.1" max="100" />
++                            <ValidationMessage For="() => _formModel.TextureWidthMeters" />
++                        </div>
++                        @if (_isEditMode)
++                        {
++                            <div class="mb-0">
++                                <label class="form-label">Текстура за визуализатора (безшевна)</label>
++                                @if (!string.IsNullOrEmpty(_existingTexturePath))
++                                {
++                                    <div class="mb-2 text-center">
++                                        <img src="@_existingTexturePath" alt="Текуща текстура"
++                                             class="img-fluid" style="max-height: 150px; border-radius: var(--nsi-radius-sm);" />
++                                    </div>
++                                }
++                                <InputFile OnChange="OnTextureSelected" accept=".jpg,.jpeg,.png" disabled="@_isSaving" class="form-control" />
++                                <div class="form-text mt-2">
++                                    Снимайте продукта отгоре при равномерна светлина. За безшевна текстура използвайте
++                                    напр. GIMP: Filters → Map → Make Seamless.
++                                </div>
++                                @if (_textureError is not null)
++                                {
++                                    <div class="text-danger small mt-1">@_textureError</div>
++                                }
++                            </div>
++                        }
++                        else
++                        {
++                            <div class="form-text mb-0">Текстурата се качва след създаване на продукта (в режим на редакция).</div>
++                        }
++                    </div>
++                </div>
+             </div>
+ 
+             <!-- Right column: Image -->
+             <div class="col-lg-4">
+                 <div class="card" style="position: sticky; top: 1.5rem;">
+                     <div class="card-header">
+                         <i class="bi bi-image me-2" style="color: var(--nsi-accent);"></i>Снимка
+                     </div>
+                     <div class="card-body" style="padding: 1.5rem;">
+                         @if (_imagePreviewUrl is not null)
+@@ -213,20 +259,23 @@ else
+     private bool _isEditMode => ProductId.HasValue;
+     private bool _isLoadingData = true;
+     private bool _loadError;
+     private bool _isSaving;
+     private string? _errorMessage;
+     private string? _priceValidationError;
+     private string? _imageError;
+     private string? _existingImagePath;
+     private string? _imagePreviewUrl;
+     private IBrowserFile? _selectedImage;
++    private string? _textureError;
++    private string? _existingTexturePath;
++    private IBrowserFile? _selectedTexture;
+ 
+     private List<CategoryDto> _categories = new();
+     private readonly ProductFormModel _formModel = new();
+ 
+     protected override async Task OnInitializedAsync()
+     {
+         try
+         {
+             _categories = await CategoryService.GetAllAsync();
+ 
+@@ -240,21 +289,24 @@ else
+                 }
+ 
+                 _formModel.Name = product.Name;
+                 _formModel.Description = product.Description;
+                 _formModel.CategoryId = product.CategoryId;
+                 _formModel.PriceWithoutVat = product.PriceWithoutVat;
+                 _formModel.VatAmount = product.VatAmount;
+                 _formModel.PriceWithVat = product.PriceWithVat;
+                 _formModel.Unit = product.Unit;
+                 _formModel.StockQuantity = product.StockQuantity;
++                _formModel.IsVisualizerEnabled = product.IsVisualizerEnabled;
++                _formModel.TextureWidthMeters = product.TextureWidthMeters;
+                 _existingImagePath = product.ImagePath;
++                _existingTexturePath = product.TextureImagePath;
+             }
+         }
+         catch
+         {
+             _loadError = true;
+         }
+         finally
+         {
+             _isLoadingData = false;
+         }
+@@ -303,20 +355,44 @@ else
+         _selectedImage = file;
+ 
+         // Generate preview
+         var buffer = new byte[file.Size];
+         await file.OpenReadStream(5 * 1024 * 1024).ReadAsync(buffer);
+         var base64 = Convert.ToBase64String(buffer);
+         var contentType = extension == ".png" ? "image/png" : "image/jpeg";
+         _imagePreviewUrl = $"data:{contentType};base64,{base64}";
+     }
+ 
++    private void OnTextureSelected(InputFileChangeEventArgs e)
++    {
++        _textureError = null;
++        _selectedTexture = null;
++
++        var file = e.File;
++        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
++        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
++
++        if (!allowedExtensions.Contains(extension))
++        {
++            _textureError = "Позволени формати: .jpg, .png";
++            return;
++        }
++
++        if (file.Size > 5 * 1024 * 1024)
++        {
++            _textureError = "Файлът не може да е по-голям от 5 MB.";
++            return;
++        }
++
++        _selectedTexture = file;
++    }
++
+     private async Task HandleSave()
+     {
+         if (!ValidatePriceConsistency())
+             return;
+ 
+         _isSaving = true;
+         _errorMessage = null;
+ 
+         try
+         {
+@@ -326,21 +402,23 @@ else
+             {
+                 var updateRequest = new UpdateProductRequest
+                 {
+                     Name = _formModel.Name,
+                     Description = _formModel.Description,
+                     CategoryId = _formModel.CategoryId,
+                     PriceWithoutVat = _formModel.PriceWithoutVat,
+                     VatAmount = _formModel.VatAmount,
+                     PriceWithVat = _formModel.PriceWithVat,
+                     Unit = _formModel.Unit,
+-                    StockQuantity = _formModel.StockQuantity
++                    StockQuantity = _formModel.StockQuantity,
++                    IsVisualizerEnabled = _formModel.IsVisualizerEnabled,
++                    TextureWidthMeters = _formModel.TextureWidthMeters
+                 };
+ 
+                 var error = await ProductService.UpdateAsync(ProductId!.Value, updateRequest);
+                 if (error is not null)
+                 {
+                     _errorMessage = error;
+                     return;
+                 }
+ 
+                 productId = ProductId!.Value;
+@@ -349,21 +427,23 @@ else
+             {
+                 var createRequest = new CreateProductRequest
+                 {
+                     Name = _formModel.Name,
+                     Description = _formModel.Description,
+                     CategoryId = _formModel.CategoryId,
+                     PriceWithoutVat = _formModel.PriceWithoutVat,
+                     VatAmount = _formModel.VatAmount,
+                     PriceWithVat = _formModel.PriceWithVat,
+                     Unit = _formModel.Unit,
+-                    StockQuantity = _formModel.StockQuantity
++                    StockQuantity = _formModel.StockQuantity,
++                    IsVisualizerEnabled = _formModel.IsVisualizerEnabled,
++                    TextureWidthMeters = _formModel.TextureWidthMeters
+                 };
+ 
+                 var (newProductId, error) = await ProductService.CreateAsync(createRequest);
+                 if (error is not null)
+                 {
+                     _errorMessage = error;
+                     return;
+                 }
+ 
+                 productId = newProductId!.Value;
+@@ -374,20 +454,32 @@ else
+             {
+                 using var stream = _selectedImage.OpenReadStream(5 * 1024 * 1024);
+                 var imageError = await ProductService.UploadImageAsync(productId, stream, _selectedImage.Name);
+                 if (imageError is not null)
+                 {
+                     _errorMessage = imageError;
+                     return;
+                 }
+             }
+ 
++            // Upload texture if selected (edit mode only)
++            if (_isEditMode && _selectedTexture is not null)
++            {
++                using var textureStream = _selectedTexture.OpenReadStream(5 * 1024 * 1024);
++                var textureError = await ProductService.UploadTextureAsync(productId, textureStream, _selectedTexture.Name);
++                if (textureError is not null)
++                {
++                    _errorMessage = textureError;
++                    return;
++                }
++            }
++
+             Navigation.NavigateTo("/admin/products");
+         }
+         catch
+         {
+             _errorMessage = "Възникна грешка при свързване със сървъра.";
+         }
+         finally
+         {
+             _isSaving = false;
+         }
+@@ -418,12 +510,17 @@ else
+         public decimal VatAmount { get; set; }
+ 
+         [System.ComponentModel.DataAnnotations.Range(0.01, (double)decimal.MaxValue, ErrorMessage = "Цената с ДДС трябва да е по-голяма от 0.")]
+         public decimal PriceWithVat { get; set; }
+ 
+         [System.ComponentModel.DataAnnotations.Range(0, 1, ErrorMessage = "Невалидна мерна единица.")]
+         public int Unit { get; set; }
+ 
+         [System.ComponentModel.DataAnnotations.Range(0, (double)decimal.MaxValue, ErrorMessage = "Количеството трябва да е по-голямо или равно на 0.")]
+         public decimal StockQuantity { get; set; }
++
++        public bool IsVisualizerEnabled { get; set; }
++
++        [System.ComponentModel.DataAnnotations.Range(0.1, 100, ErrorMessage = "Ширината трябва да е между 0.1 и 100 м.")]
++        public decimal TextureWidthMeters { get; set; } = 1.00m;
+     }
+ }
+diff --git a/src/NaturalStoneImpex.Client/Services/IProductService.cs b/src/NaturalStoneImpex.Client/Services/IProductService.cs
+index 1711592..5ce21d8 100644
+--- a/src/NaturalStoneImpex.Client/Services/IProductService.cs
++++ b/src/NaturalStoneImpex.Client/Services/IProductService.cs
+@@ -3,12 +3,13 @@ using NaturalStoneImpex.Client.Models;
+ namespace NaturalStoneImpex.Client.Services;
+ 
+ public interface IProductService
+ {
+     Task<PaginatedResponse<ProductListDto>> GetAllAsync(int? categoryId = null, string? search = null, int page = 1, int pageSize = 20);
+     Task<ProductDto?> GetByIdAsync(int id);
+     Task<(int? ProductId, string? Error)> CreateAsync(CreateProductRequest request);
+     Task<string?> UpdateAsync(int id, UpdateProductRequest request);
+     Task<string?> DeleteAsync(int id);
+     Task<string?> UploadImageAsync(int id, Stream fileStream, string fileName);
++    Task<string?> UploadTextureAsync(int id, Stream fileStream, string fileName);
+     Task<List<ProductListDto>> GetLowStockAsync(decimal threshold = 10);
+ }
+diff --git a/src/NaturalStoneImpex.Client/Services/ProductService.cs b/src/NaturalStoneImpex.Client/Services/ProductService.cs
+index ed262c4..16667a0 100644
+--- a/src/NaturalStoneImpex.Client/Services/ProductService.cs
++++ b/src/NaturalStoneImpex.Client/Services/ProductService.cs
+@@ -44,21 +44,24 @@ public class ProductService : IProductService
+         }
+         return result ?? new PaginatedResponse<ProductListDto>();
+     }
+ 
+     public async Task<ProductDto?> GetByIdAsync(int id)
+     {
+         try
+         {
+             var product = await _httpClient.GetFromJsonAsync<ProductDto>($"api/products/{id}");
+             if (product != null)
++            {
+                 product.ImagePath = ResolveImageUrl(product.ImagePath);
++                product.TextureImagePath = ResolveImageUrl(product.TextureImagePath);
++            }
+             return product;
+         }
+         catch (HttpRequestException)
+         {
+             return null;
+         }
+     }
+ 
+     public async Task<(int? ProductId, string? Error)> CreateAsync(CreateProductRequest request)
+     {
+@@ -114,20 +117,44 @@ public class ProductService : IProductService
+         var response = await _httpClient.PostAsync($"api/products/{id}/image", content);
+ 
+         if (!response.IsSuccessStatusCode)
+         {
+             return await ExtractErrorAsync(response);
+         }
+ 
+         return null;
+     }
+ 
++    public async Task<string?> UploadTextureAsync(int id, Stream fileStream, string fileName)
++    {
++        using var content = new MultipartFormDataContent();
++        using var streamContent = new StreamContent(fileStream);
++        var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
++        var contentType = extension switch
++        {
++            ".jpg" or ".jpeg" => "image/jpeg",
++            ".png" => "image/png",
++            _ => "application/octet-stream"
++        };
++        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
++        content.Add(streamContent, "texture", fileName);
++
++        var response = await _httpClient.PostAsync($"api/products/{id}/texture", content);
++
++        if (!response.IsSuccessStatusCode)
++        {
++            return await ExtractErrorAsync(response);
++        }
++
++        return null;
++    }
++
+     public async Task<List<ProductListDto>> GetLowStockAsync(decimal threshold = 10)
+     {
+         var result = await _httpClient.GetFromJsonAsync<List<ProductListDto>>($"api/products/low-stock?threshold={threshold}");
+         if (result != null)
+         {
+             foreach (var item in result)
+                 item.ImagePath = ResolveImageUrl(item.ImagePath);
+         }
+         return result ?? new List<ProductListDto>();
+     }

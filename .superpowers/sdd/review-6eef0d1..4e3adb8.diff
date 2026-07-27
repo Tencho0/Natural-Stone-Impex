@@ -1,0 +1,222 @@
+# Review package: 6eef0d1..4e3adb8
+
+## Commits
+4e3adb8 feat(visualizer): segment endpoints with config and DI
+
+## Files changed
+ .../Controllers/VisualizerController.cs            | 65 +++++++++++++++++++++-
+ .../Models/DTOs/SegmentPointDto.cs                 |  4 ++
+ .../Models/DTOs/SegmentResponse.cs                 |  9 +++
+ src/NaturalStoneImpex.Api/Program.cs               | 16 ++++++
+ src/NaturalStoneImpex.Api/appsettings.json         | 13 ++++-
+ 5 files changed, 105 insertions(+), 2 deletions(-)
+
+## Diff
+diff --git a/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs b/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs
+index 36fd4ce..92c3c5c 100644
+--- a/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs
++++ b/src/NaturalStoneImpex.Api/Controllers/VisualizerController.cs
+@@ -1,23 +1,86 @@
++using System.Text.Json;
+ using Microsoft.AspNetCore.Mvc;
++using NaturalStoneImpex.Api.Models.DTOs;
+ using NaturalStoneImpex.Api.Services;
++using NaturalStoneImpex.Api.Services.Segmentation;
+ 
+ namespace NaturalStoneImpex.Api.Controllers;
+ 
+ [ApiController]
+ [Route("api/visualizer")]
+ public class VisualizerController : ControllerBase
+ {
++    private static readonly JsonSerializerOptions PointsJson = new(JsonSerializerDefaults.Web);
++
+     private readonly IProductService _productService;
++    private readonly ISegmentationService _segmentationService;
+ 
+-    public VisualizerController(IProductService productService)
++    public VisualizerController(IProductService productService, ISegmentationService segmentationService)
+     {
+         _productService = productService;
++        _segmentationService = segmentationService;
+     }
+ 
+     [HttpGet("products")]
+     public async Task<IActionResult> GetProducts()
+     {
+         var products = await _productService.GetVisualizerProductsAsync();
+         return Ok(products);
+     }
++
++    [HttpPost("segment")]
++    [RequestSizeLimit(12_000_000)]
++    public async Task<IActionResult> Segment(IFormFile photo, [FromForm] string points)
++    {
++        if (photo is null || photo.Length == 0)
++            return BadRequest(new { error = "Снимката е задължителна." });
++
++        var parsed = ParsePoints(points);
++        if (parsed is null || parsed.Count == 0)
++            return BadRequest(new { error = "Моля, докоснете областта, която искате да покриете." });
++
++        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
++        await using var stream = photo.OpenReadStream();
++        var outcome = await _segmentationService.SegmentNewAsync(stream, parsed, clientIp);
++        return ToActionResult(outcome);
++    }
++
++    [HttpPost("segment/{sessionToken}")]
++    public async Task<IActionResult> Refine(string sessionToken, [FromBody] List<SegmentPointDto> points)
++    {
++        if (points is null || points.Count == 0)
++            return BadRequest(new { error = "Моля, докоснете областта, която искате да покриете." });
++
++        var outcome = await _segmentationService.RefineAsync(sessionToken,
++            points.Select(p => new SamPoint((float)p.X, (float)p.Y, p.Label)).ToList());
++        return ToActionResult(outcome);
++    }
++
++    private static List<SamPoint>? ParsePoints(string? json)
++    {
++        if (string.IsNullOrWhiteSpace(json)) return null;
++        try
++        {
++            var dtos = JsonSerializer.Deserialize<List<SegmentPointDto>>(json, PointsJson);
++            return dtos?.Select(p => new SamPoint((float)p.X, (float)p.Y, p.Label)).ToList();
++        }
++        catch (JsonException)
++        {
++            return null;
++        }
++    }
++
++    private IActionResult ToActionResult(SegmentOutcome outcome)
++    {
++        if (outcome.StatusCode != 200 || outcome.Result is null)
++            return StatusCode(outcome.StatusCode, new { error = outcome.Error });
++
++        return Ok(new SegmentResponse
++        {
++            SessionToken = outcome.Result.SessionToken,
++            MaskPng = outcome.Result.MaskPng,
++            Width = outcome.Result.Width,
++            Height = outcome.Result.Height
++        });
++    }
+ }
+diff --git a/src/NaturalStoneImpex.Api/Models/DTOs/SegmentPointDto.cs b/src/NaturalStoneImpex.Api/Models/DTOs/SegmentPointDto.cs
+new file mode 100644
+index 0000000..7b789f6
+--- /dev/null
++++ b/src/NaturalStoneImpex.Api/Models/DTOs/SegmentPointDto.cs
+@@ -0,0 +1,4 @@
++namespace NaturalStoneImpex.Api.Models.DTOs;
++
++/// <summary>A tap point in original-photo pixel coordinates. Label: 1 = add, 0 = remove.</summary>
++public record SegmentPointDto(double X, double Y, int Label);
+diff --git a/src/NaturalStoneImpex.Api/Models/DTOs/SegmentResponse.cs b/src/NaturalStoneImpex.Api/Models/DTOs/SegmentResponse.cs
+new file mode 100644
+index 0000000..2692cb7
+--- /dev/null
++++ b/src/NaturalStoneImpex.Api/Models/DTOs/SegmentResponse.cs
+@@ -0,0 +1,9 @@
++namespace NaturalStoneImpex.Api.Models.DTOs;
++
++public record SegmentResponse
++{
++    public string SessionToken { get; init; } = string.Empty;
++    public string MaskPng { get; init; } = string.Empty; // base64 grayscale PNG, white = selected
++    public int Width { get; init; }
++    public int Height { get; init; }
++}
+diff --git a/src/NaturalStoneImpex.Api/Program.cs b/src/NaturalStoneImpex.Api/Program.cs
+index 9d64dbb..b0b7184 100644
+--- a/src/NaturalStoneImpex.Api/Program.cs
++++ b/src/NaturalStoneImpex.Api/Program.cs
+@@ -1,20 +1,21 @@
+ using System.Text;
+ using Microsoft.AspNetCore.Authentication.JwtBearer;
+ using Microsoft.AspNetCore.Identity;
+ using Microsoft.EntityFrameworkCore;
+ using Microsoft.IdentityModel.Tokens;
+ using NaturalStoneImpex.Api.Data;
+ using NaturalStoneImpex.Api.Data.Seed;
+ using NaturalStoneImpex.Api.Middleware;
+ using NaturalStoneImpex.Api.Models.Entities;
+ using NaturalStoneImpex.Api.Services;
++using NaturalStoneImpex.Api.Services.Segmentation;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ 
+ // EF Core
+ builder.Services.AddDbContext<AppDbContext>(options =>
+     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+ 
+ // CORS
+ var clientUrl = builder.Configuration["ClientUrl"] ?? "https://localhost:5002";
+ builder.Services.AddCors(options =>
+@@ -52,20 +53,35 @@ builder.Services.AddAuthentication(options =>
+     };
+ });
+ 
+ builder.Services.AddAuthorization();
+ builder.Services.AddScoped<IPasswordHasher<AdminUser>, PasswordHasher<AdminUser>>();
+ builder.Services.AddScoped<IAuthService, AuthService>();
+ builder.Services.AddScoped<ICategoryService, CategoryService>();
+ builder.Services.AddScoped<IProductService, ProductService>();
+ builder.Services.AddScoped<IOrderService, OrderService>();
+ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
++
++// Visualizer (see docs/visualizer-specification.md)
++builder.Services.Configure<VisualizerOptions>(builder.Configuration.GetSection("Visualizer"));
++builder.Services.AddMemoryCache(options => options.SizeLimit = 16); // embeddings are ~4 MB each
++builder.Services.AddSingleton<EncodeGate>();
++builder.Services.AddSingleton<ISamModel>(sp =>
++{
++    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<VisualizerOptions>>().Value;
++    var env = sp.GetRequiredService<IWebHostEnvironment>();
++    return new SamOnnxModel(
++        Path.Combine(env.ContentRootPath, options.EncoderPath),
++        Path.Combine(env.ContentRootPath, options.DecoderPath));
++});
++builder.Services.AddScoped<ISegmentationService, SegmentationService>();
++
+ builder.Services.AddControllers();
+ builder.Services.AddEndpointsApiExplorer();
+ builder.Services.AddSwaggerGen();
+ 
+ var app = builder.Build();
+ 
+ // Apply pending migrations and seed data
+ using (var scope = app.Services.CreateScope())
+ {
+     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+diff --git a/src/NaturalStoneImpex.Api/appsettings.json b/src/NaturalStoneImpex.Api/appsettings.json
+index 31f9c60..019257a 100644
+--- a/src/NaturalStoneImpex.Api/appsettings.json
++++ b/src/NaturalStoneImpex.Api/appsettings.json
+@@ -9,12 +9,23 @@
+   "ConnectionStrings": {
+     //"DefaultConnection": "Server=(localdb)\\NaturalStoneImpex;Database=NaturalStoneImpex;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+     "DefaultConnection": "Server=DESKTOP-CLBDC34\\SQLEXPRESS;Database=NaturalStoneImpex;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+   },
+   "JwtSettings": {
+     "SecretKey": "NaturalStoneImpex-Dev-Secret-Key-2026-ChangeInProduction!",
+     "Issuer": "NaturalStoneImpex.Api",
+     "Audience": "NaturalStoneImpex.Client",
+     "ExpirationHours": 8
+   },
+-  "ClientUrl": "https://localhost:5002"
++  "ClientUrl": "https://localhost:5002",
++  "Visualizer": {
++    "Enabled": true,
++    "EncoderPath": "MLModels/mobilesam-encoder.onnx",
++    "DecoderPath": "MLModels/mobilesam-decoder.onnx",
++    "MaxUploadBytes": 10485760,
++    "MaxImageDimension": 2048,
++    "MaxConcurrentEncodes": 2,
++    "EmbeddingCacheMinutes": 15,
++    "PerIpDailyLimit": 20,
++    "GlobalDailyLimit": 500
++  }
+ }

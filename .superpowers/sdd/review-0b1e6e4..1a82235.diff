@@ -1,0 +1,297 @@
+# Review package: 0b1e6e4..1a82235
+
+## Commits
+1a82235 feat(visualizer): public page with upload and tap-to-segment flow
+
+## Files changed
+ .../Pages/Public/Visualizer.razor                  | 257 +++++++++++++++++++++
+ src/NaturalStoneImpex.Client/wwwroot/css/app.css   |   8 +
+ 2 files changed, 265 insertions(+)
+
+## Diff
+diff --git a/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor b/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor
+new file mode 100644
+index 0000000..3ab987e
+--- /dev/null
++++ b/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor
+@@ -0,0 +1,257 @@
++@page "/visualizer"
++@using Microsoft.AspNetCore.Components.Forms
++@using NaturalStoneImpex.Client.Models
++@using NaturalStoneImpex.Client.Services
++@inject IVisualizerService VisualizerService
++@inject NavigationManager Navigation
++@inject IJSRuntime JS
++@implements IAsyncDisposable
++
++<PageTitle>Визуализатор — Natural Stone Impex</PageTitle>
++
++<h1 class="mb-2">Визуализатор</h1>
++<p class="text-muted">Качете снимка на вашия двор или алея и вижте как ще изглежда с нашите настилки.</p>
++
++@if (_products is null)
++{
++    <div class="text-center my-5">
++        <div class="spinner-border" role="status"><span class="visually-hidden">Зареждане…</span></div>
++    </div>
++}
++else if (_products.Count == 0)
++{
++    <div class="alert alert-info">Визуализаторът не е наличен в момента.</div>
++}
++else if (!_photoLoaded)
++{
++    <div class="card mx-auto" style="max-width: 640px;">
++        <div class="card-body">
++            <h5 class="card-title">Качване на снимка</h5>
++            <p class="card-text">
++                Снимайте площта така, че да се вижда цялата повърхност, която искате да покриете.
++                Избягвайте хора в кадъра.
++            </p>
++            <div class="form-check mb-3">
++                <input class="form-check-input" type="checkbox" id="viz-consent" @bind="_consent">
++                <label class="form-check-label" for="viz-consent">
++                    Съгласен/на съм снимката да бъде обработена на сървъра на магазина за целите на
++                    визуализацията. Снимката се изтрива автоматично след обработката.
++                </label>
++            </div>
++            <InputFile OnChange="OnPhotoSelectedAsync" accept="image/*" capture="environment"
++                       class="form-control" disabled="@(!_consent || _busy)" />
++            @if (_error is not null)
++            {
++                <div class="alert alert-danger mt-3 mb-0">@_error</div>
++            }
++        </div>
++    </div>
++}
++else
++{
++    <div class="mb-2">
++        @if (!_hasMask)
++        {
++            <div class="alert alert-primary py-2">Докоснете областта, която искате да покриете с настилка.</div>
++        }
++    </div>
++
++    <div class="position-relative">
++        <div id="viz-stage"></div>
++        @if (_busy)
++        {
++            <div class="viz-overlay d-flex align-items-center justify-content-center">
++                <div class="text-center text-white">
++                    <div class="spinner-border mb-2" role="status"></div>
++                    <div>Разпознаваме областта…</div>
++                </div>
++            </div>
++        }
++    </div>
++
++    <p class="text-muted small mt-2 mb-1">
++        Визуализацията е ориентировъчна. Реалният продукт може да се различава по цвят и вид,
++        а размерите са приблизителни.
++    </p>
++
++    @if (_error is not null)
++    {
++        <div class="alert alert-danger mt-2">@_error</div>
++    }
++
++    <button class="btn btn-outline-secondary mt-2" @onclick="ResetAsync" disabled="@_busy">Нова снимка</button>
++}
++
++@code {
++    private List<VisualizerProductDto>? _products;
++    private VisualizerProductDto? _selected;
++    private bool _consent;
++    private bool _photoLoaded;
++    private byte[]? _photoBytes;
++    private string? _sessionToken;
++    private readonly List<SegmentPoint> _points = new();
++    private bool _hasMask;
++    private bool _busy;
++    private string? _error;
++    private bool _stageInitialized;
++    private DotNetObjectReference<Visualizer>? _selfRef;
++
++    protected override async Task OnInitializedAsync()
++    {
++        _products = await VisualizerService.GetProductsAsync();
++
++        var productId = ParseProductIdFromQuery(Navigation.Uri);
++        if (productId is int id)
++            _selected = _products.FirstOrDefault(p => p.Id == id);
++        _selected ??= _products.FirstOrDefault();
++    }
++
++    // Manual query-string parsing: Microsoft.AspNetCore.WebUtilities.QueryHelpers is not
++    // available as a compile-time reference in the Blazor WASM client (it only ships as an
++    // internal "tools/" asset of the WebAssembly.DevServer package, not a referenceable lib).
++    private static int? ParseProductIdFromQuery(string uri)
++    {
++        var queryStart = uri.IndexOf('?');
++        if (queryStart < 0) return null;
++        var query = uri[(queryStart + 1)..];
++        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
++        {
++            var kv = pair.Split('=', 2);
++            if (kv.Length == 2 && kv[0] == "productId" &&
++                int.TryParse(Uri.UnescapeDataString(kv[1]), out var id))
++                return id;
++        }
++        return null;
++    }
++
++    private async Task OnPhotoSelectedAsync(InputFileChangeEventArgs e)
++    {
++        _error = null;
++        _busy = true;
++        try
++        {
++            // Downscale client-side: mobile photos are 8-12 MP; the server needs at most 2048 px.
++            var resized = await e.File.RequestImageFileAsync("image/jpeg", 2048, 2048);
++            await using var stream = resized.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024);
++            using var ms = new MemoryStream();
++            await stream.CopyToAsync(ms);
++            _photoBytes = ms.ToArray();
++            _photoLoaded = true;
++            StateHasChanged(); // render the stage div before JS init
++            await InitStageAsync();
++        }
++        catch (Exception)
++        {
++            _error = "Моля, качете снимка във формат JPG или PNG до 10 MB.";
++            _photoLoaded = false;
++        }
++        finally
++        {
++            _busy = false;
++        }
++    }
++
++    private async Task InitStageAsync()
++    {
++        _selfRef ??= DotNetObjectReference.Create(this);
++        await JS.InvokeAsync<object>("nsiVisualizer.init", "viz-stage", _selfRef, (object?)null);
++        _stageInitialized = true;
++        var dataUrl = "data:image/jpeg;base64," + Convert.ToBase64String(_photoBytes!);
++        await JS.InvokeAsync<object>("nsiVisualizer.loadPhotoFromDataUrl", dataUrl);
++        await JS.InvokeVoidAsync("nsiVisualizer.setMode", "tap-add");
++        await JS.InvokeVoidAsync("nsiVisualizer.setMaskVisible", true);
++    }
++
++    [JSInvokable]
++    public async Task OnCanvasTapAsync(double x, double y, int label)
++    {
++        if (_busy || _photoBytes is null) return;
++        _busy = true;
++        _error = null;
++        StateHasChanged();
++        try
++        {
++            _points.Add(new SegmentPoint(x, y, label));
++            SegmentResponse? result;
++            string? error;
++
++            if (_sessionToken is null)
++            {
++                (result, error) = await VisualizerService.SegmentAsync(_photoBytes, _points);
++            }
++            else
++            {
++                bool expired;
++                (result, error, expired) = await VisualizerService.RefineAsync(_sessionToken, _points);
++                if (expired)
++                {
++                    // Embedding cache expired — transparently re-upload the kept photo bytes.
++                    (result, error) = await VisualizerService.SegmentAsync(_photoBytes, _points);
++                }
++            }
++
++            if (result is null)
++            {
++                _points.RemoveAt(_points.Count - 1);
++                _error = error ?? "Областта не можа да бъде разпозната автоматично. Можете да я маркирате ръчно с четката.";
++                return;
++            }
++
++            _sessionToken = result.SessionToken;
++            await JS.InvokeAsync<object>("nsiVisualizer.setMaskPng", result.MaskPng);
++
++            if (!_hasMask)
++            {
++                _hasMask = true;
++                var corners = await JS.InvokeAsync<double[]>("nsiVisualizer.defaultCornersFromMask");
++                await JS.InvokeVoidAsync("nsiVisualizer.setCorners", (object)corners);
++            }
++
++            await ApplySelectedProductAsync();
++        }
++        finally
++        {
++            _busy = false;
++            StateHasChanged();
++        }
++    }
++
++    [JSInvokable]
++    public Task OnMaskEditedAsync()
++    {
++        _hasMask = true;
++        StateHasChanged();
++        return Task.CompletedTask;
++    }
++
++    private async Task ApplySelectedProductAsync()
++    {
++        if (_selected is null || !_hasMask) return;
++        await JS.InvokeAsync<object>("nsiVisualizer.setProductTexture",
++            _selected.TexturePath, (double)_selected.TextureWidthMeters);
++        await JS.InvokeVoidAsync("nsiVisualizer.render");
++    }
++
++    private async Task ResetAsync()
++    {
++        if (_stageInitialized)
++            await JS.InvokeVoidAsync("nsiVisualizer.dispose");
++        _stageInitialized = false;
++        _photoLoaded = false;
++        _photoBytes = null;
++        _sessionToken = null;
++        _points.Clear();
++        _hasMask = false;
++        _error = null;
++    }
++
++    public async ValueTask DisposeAsync()
++    {
++        if (_stageInitialized)
++        {
++            try { await JS.InvokeVoidAsync("nsiVisualizer.dispose"); }
++            catch (JSDisconnectedException) { }
++        }
++        _selfRef?.Dispose();
++    }
++}
+diff --git a/src/NaturalStoneImpex.Client/wwwroot/css/app.css b/src/NaturalStoneImpex.Client/wwwroot/css/app.css
+index 6164bc3..9b623f6 100644
+--- a/src/NaturalStoneImpex.Client/wwwroot/css/app.css
++++ b/src/NaturalStoneImpex.Client/wwwroot/css/app.css
+@@ -68,10 +68,18 @@
+     inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
+ }
+ 
+     .loading-progress-text:after {
+         content: var(--blazor-load-percentage-text, "Loading");
+     }
+ 
+ code {
+     color: #c02d76;
+ }
++
++/* Product visualizer */
++.viz-overlay {
++    position: absolute;
++    inset: 0;
++    background: rgba(0, 0, 0, 0.45);
++    z-index: 10;
++}

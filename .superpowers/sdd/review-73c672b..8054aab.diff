@@ -1,0 +1,554 @@
+# Review package: 73c672b..8054aab
+
+## Commits
+8054aab fix(visualizer): invariant-culture markup, stale corner/drag state, handle overlay hit-testing
+0393eb2 feat(visualizer): product panel, mask tools, perspective handles, compare and actions
+
+## Files changed
+ .../Components/VisualizerProductPanel.razor        |  50 ++++
+ .../Pages/Public/Visualizer.razor                  | 262 +++++++++++++++++++--
+ src/NaturalStoneImpex.Client/wwwroot/css/app.css   |  38 +++
+ .../wwwroot/js/visualizer.js                       |   5 +
+ 4 files changed, 329 insertions(+), 26 deletions(-)
+
+## Diff
+diff --git a/src/NaturalStoneImpex.Client/Components/VisualizerProductPanel.razor b/src/NaturalStoneImpex.Client/Components/VisualizerProductPanel.razor
+new file mode 100644
+index 0000000..6c665b5
+--- /dev/null
++++ b/src/NaturalStoneImpex.Client/Components/VisualizerProductPanel.razor
+@@ -0,0 +1,50 @@
++@using NaturalStoneImpex.Client.Models
++
++<div class="card">
++    <div class="card-header">Изберете настилка</div>
++    <div class="card-body p-2">
++        <input class="form-control form-control-sm mb-2" placeholder="Търсене…"
++               value="@_search" @oninput="e => _search = e.Value?.ToString() ?? string.Empty" />
++        <select class="form-select form-select-sm mb-2" @bind="_categoryId">
++            <option value="0">Всички категории</option>
++            @foreach (var category in Products.Select(p => new { p.CategoryId, p.CategoryName }).Distinct())
++            {
++                <option value="@category.CategoryId">@category.CategoryName</option>
++            }
++        </select>
++        <div class="viz-product-list list-group">
++            @foreach (var product in Filtered)
++            {
++                <button type="button"
++                        class="list-group-item list-group-item-action d-flex align-items-center gap-2 @(product.Id == SelectedId ? "active" : "")"
++                        disabled="@Disabled"
++                        @onclick="() => OnSelect.InvokeAsync(product)">
++                    <img src="@(product.ImagePath ?? product.TexturePath)" alt="@product.Name"
++                         class="viz-product-thumb" />
++                    <span class="flex-grow-1 text-start">@product.Name</span>
++                    <span class="text-nowrap">@product.PriceWithVat.ToString("F2") € / @product.UnitDisplay</span>
++                </button>
++            }
++            @if (!Filtered.Any())
++            {
++                <div class="text-muted small p-2">Няма продукти, отговарящи на търсенето.</div>
++            }
++        </div>
++    </div>
++</div>
++
++@code {
++    [Parameter] public List<VisualizerProductDto> Products { get; set; } = new();
++    [Parameter] public int? SelectedId { get; set; }
++    [Parameter] public bool Disabled { get; set; }
++    [Parameter] public EventCallback<VisualizerProductDto> OnSelect { get; set; }
++
++    private string _search = string.Empty;
++    private int _categoryId;
++
++    private IEnumerable<VisualizerProductDto> Filtered =>
++        Products.Where(p =>
++            (_categoryId == 0 || p.CategoryId == _categoryId) &&
++            (string.IsNullOrWhiteSpace(_search) ||
++             p.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)));
++}
+diff --git a/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor b/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor
+index 09bad93..40cf088 100644
+--- a/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor
++++ b/src/NaturalStoneImpex.Client/Pages/Public/Visualizer.razor
+@@ -1,17 +1,18 @@
+ @page "/visualizer"
+ @using Microsoft.AspNetCore.Components.Forms
+ @using NaturalStoneImpex.Client.Models
+ @using NaturalStoneImpex.Client.Services
+ @inject IVisualizerService VisualizerService
+ @inject NavigationManager Navigation
+ @inject IJSRuntime JS
++@inject CartService CartService
+ @implements IAsyncDisposable
+ 
+ <PageTitle>Визуализатор — Natural Stone Impex</PageTitle>
+ 
+ <h1 class="mb-2">Визуализатор</h1>
+ <p class="text-muted">Качете снимка на вашия двор или алея и вижте как ще изглежда с нашите настилки.</p>
+ 
+ @if (_products is null)
+ {
+     <div class="text-center my-5">
+@@ -42,67 +43,156 @@ else if (!_photoLoaded)
+                        class="form-control" disabled="@(!_consent || _busy)" />
+             @if (_error is not null)
+             {
+                 <div class="alert alert-danger mt-3 mb-0">@_error</div>
+             }
+         </div>
+     </div>
+ }
+ else
+ {
+-    <div class="mb-2">
+-        @if (!_hasMask)
+-        {
+-            <div class="alert alert-primary py-2">Докоснете областта, която искате да покриете с настилка.</div>
+-        }
+-    </div>
++    <div class="row g-3">
++        <div class="col-lg-8">
++            @if (!_hasMask)
++            {
++                <div class="alert alert-primary py-2">Докоснете областта, която искате да покриете с настилка.</div>
++            }
+ 
+-    <div class="position-relative">
+-        <div id="viz-stage"></div>
+-        @if (_busy)
+-        {
+-            <div class="viz-overlay d-flex align-items-center justify-content-center">
+-                <div class="text-center text-white">
+-                    <div class="spinner-border mb-2" role="status"></div>
+-                    <div>Разпознаваме областта…</div>
++            <div class="btn-toolbar gap-2 mb-2" role="toolbar" aria-label="Инструменти">
++                <div class="btn-group btn-group-sm" role="group">
++                    <button class="btn @(ModeButton("tap-add"))" @onclick='() => SetModeAsync("tap-add")' disabled="@_busy">Добави област</button>
++                    <button class="btn @(ModeButton("tap-remove"))" @onclick='() => SetModeAsync("tap-remove")' disabled="@(_busy || !_hasMask)">Премахни</button>
++                    <button class="btn @(ModeButton("brush"))" @onclick='() => SetModeAsync("brush")' disabled="@_busy">Четка</button>
++                    <button class="btn @(ModeButton("erase"))" @onclick='() => SetModeAsync("erase")' disabled="@(_busy || !_hasMask)">Гума</button>
+                 </div>
++                <button class="btn btn-sm btn-outline-danger" @onclick="ClearMaskAsync" disabled="@(_busy || !_hasMask)">Изчисти</button>
++                <button class="btn btn-sm @(_showHandles ? "btn-secondary" : "btn-outline-secondary")"
++                        @onclick="ToggleHandlesAsync" disabled="@(_busy || !_hasMask)">Перспектива</button>
++                @if (_mode is "brush" or "erase")
++                {
++                    <div class="d-flex align-items-center gap-1">
++                        <label class="small text-nowrap" for="viz-brush">Размер на четката</label>
++                        <input id="viz-brush" type="range" min="10" max="120" step="5" value="@_brushSize"
++                               @oninput="OnBrushSizeChanged" />
++                    </div>
++                }
+             </div>
+-        }
+-    </div>
+ 
+-    <p class="text-muted small mt-2 mb-1">
+-        Визуализацията е ориентировъчна. Реалният продукт може да се различава по цвят и вид,
+-        а размерите са приблизителни.
+-    </p>
++            <div class="position-relative" @onpointermove="OnHandleMove" @onpointerup="OnHandleUp" @onpointerleave="OnHandleUp">
++                <div id="viz-stage"></div>
++                @if (_showHandles && _photoW > 0)
++                {
++                    <svg class="viz-handles" viewBox="0 0 @_photoW @_photoH" preserveAspectRatio="none">
++                        <polygon points="@HandlePolygon" class="viz-grid-outline" />
++                        <line x1="@Inv(_corners[0])" y1="@Inv(_corners[1])" x2="@Inv(_corners[6])" y2="@Inv(_corners[7])" class="viz-grid-line" />
++                        <line x1="@Inv(_corners[2])" y1="@Inv(_corners[3])" x2="@Inv(_corners[4])" y2="@Inv(_corners[5])" class="viz-grid-line" />
++                        @for (var i = 0; i < 4; i++)
++                        {
++                            var index = i;
++                            <circle cx="@Inv(_corners[index * 2])" cy="@Inv(_corners[index * 2 + 1])" r="@Inv(_photoW * 0.02)"
++                                    class="viz-handle" @onpointerdown="e => OnHandleDown(e, index)"
++                                    @onpointerdown:preventDefault @onpointerdown:stopPropagation />
++                        }
++                    </svg>
++                }
++                @if (_busy)
++                {
++                    <div class="viz-overlay d-flex align-items-center justify-content-center">
++                        <div class="text-center text-white">
++                            <div class="spinner-border mb-2" role="status"></div>
++                            <div>Разпознаваме областта…</div>
++                        </div>
++                    </div>
++                }
++            </div>
+ 
+-    @if (_error is not null)
+-    {
+-        <div class="alert alert-danger mt-2">@_error</div>
+-    }
++            @if (_hasMask)
++            {
++                <div class="row g-2 mt-1">
++                    <div class="col-sm-4">
++                        <label class="form-label small mb-0" for="viz-scale">Размер на камъка</label>
++                        <input id="viz-scale" type="range" class="form-range" min="0.3" max="3" step="0.05"
++                               value="@Inv(_scale)" @oninput="OnScaleChanged" />
++                    </div>
++                    <div class="col-sm-4">
++                        <label class="form-label small mb-0" for="viz-rot">Завъртане</label>
++                        <input id="viz-rot" type="range" class="form-range" min="0" max="90" step="1"
++                               value="@Inv(_rotation)" @oninput="OnRotationChanged" />
++                    </div>
++                    <div class="col-sm-4">
++                        <label class="form-label small mb-0" for="viz-cmp">Преди / След</label>
++                        <input id="viz-cmp" type="range" class="form-range" min="0" max="100" step="1"
++                               value="@Inv(_compare)" @oninput="OnCompareChanged" />
++                    </div>
++                </div>
++
++                <div class="d-flex flex-wrap gap-2 mt-2">
++                    <button class="btn btn-outline-primary" @onclick="DownloadAsync" disabled="@_busy">Изтегли изображението</button>
++                    <button class="btn btn-success" @onclick="AddToCart" disabled="@(_busy || _selected is null)">Добави в количката</button>
++                    @if (_selected is not null)
++                    {
++                        <a class="btn btn-outline-secondary" href="/products/@_selected.Id">Виж продукта</a>
++                    }
++                </div>
++                @if (_cartMessage is not null)
++                {
++                    <div class="alert alert-success py-2 mt-2">@_cartMessage</div>
++                }
++            }
++
++            <p class="text-muted small mt-2 mb-1">
++                Визуализацията е ориентировъчна. Реалният продукт може да се различава по цвят и вид,
++                а размерите са приблизителни.
++            </p>
++
++            @if (_error is not null)
++            {
++                <div class="alert alert-danger mt-2">@_error</div>
++            }
+ 
+-    <button class="btn btn-outline-secondary mt-2" @onclick="ResetAsync" disabled="@_busy">Нова снимка</button>
++            <button class="btn btn-outline-secondary mt-2" @onclick="ResetAsync" disabled="@_busy">Нова снимка</button>
++        </div>
++
++        <div class="col-lg-4">
++            <VisualizerProductPanel Products="_products"
++                                    SelectedId="_selected?.Id"
++                                    Disabled="@(_busy || !_hasMask)"
++                                    OnSelect="OnProductSelectedAsync" />
++        </div>
++    </div>
+ }
+ 
+ @code {
+     private List<VisualizerProductDto>? _products;
+     private VisualizerProductDto? _selected;
+     private bool _consent;
+     private bool _photoLoaded;
+     private byte[]? _photoBytes;
+     private string? _sessionToken;
+     private readonly List<SegmentPoint> _points = new();
+     private bool _hasMask;
+     private bool _busy;
+     private string? _error;
+     private bool _stageInitialized;
+     private DotNetObjectReference<Visualizer>? _selfRef;
+ 
++    private string _mode = "tap-add";
++    private int _brushSize = 40;
++    private bool _showHandles;
++    private double[] _corners = new double[8];
++    private int _photoW, _photoH;
++    private int _dragIndex = -1;
++    private double _scale = 1.0;
++    private double _rotation;
++    private double _compare;
++    private string? _cartMessage;
++
+     protected override async Task OnInitializedAsync()
+     {
+         _products = await VisualizerService.GetProductsAsync();
+ 
+         var productId = ParseProductIdFromQuery(Navigation.Uri);
+         if (productId is int id)
+             _selected = _products.FirstOrDefault(p => p.Id == id);
+         _selected ??= _products.FirstOrDefault();
+     }
+ 
+@@ -162,21 +252,23 @@ else
+             _busy = false;
+         }
+     }
+ 
+     private async Task InitStageAsync()
+     {
+         _selfRef ??= DotNetObjectReference.Create(this);
+         await JS.InvokeAsync<object>("nsiVisualizer.init", "viz-stage", _selfRef, (object?)null);
+         _stageInitialized = true;
+         var dataUrl = "data:image/jpeg;base64," + Convert.ToBase64String(_photoBytes!);
+-        await JS.InvokeAsync<object>("nsiVisualizer.loadPhotoFromDataUrl", dataUrl);
++        var size = await JS.InvokeAsync<PhotoSize>("nsiVisualizer.loadPhotoFromDataUrl", dataUrl);
++        _photoW = size.Width;
++        _photoH = size.Height;
+         await JS.InvokeVoidAsync("nsiVisualizer.setMode", "tap-add");
+         await JS.InvokeVoidAsync("nsiVisualizer.setMaskVisible", true);
+     }
+ 
+     [JSInvokable]
+     public async Task OnCanvasTapAsync(double x, double y, int label)
+     {
+         if (_busy || _photoBytes is null) return;
+         _busy = true;
+         _error = null;
+@@ -209,20 +301,21 @@ else
+                 return;
+             }
+ 
+             _sessionToken = result.SessionToken;
+             await JS.InvokeAsync<object>("nsiVisualizer.setMaskPng", result.MaskPng);
+ 
+             if (!_hasMask)
+             {
+                 _hasMask = true;
+                 var corners = await JS.InvokeAsync<double[]>("nsiVisualizer.defaultCornersFromMask");
++                _corners = corners; // mirror JS state so the handle overlay shows correct geometry
+                 await JS.InvokeVoidAsync("nsiVisualizer.setCorners", (object)corners);
+             }
+ 
+             await ApplySelectedProductAsync();
+         }
+         catch (JSException)
+         {
+             _error = "Възникна грешка при показването на визуализацията. Моля, опитайте отново.";
+         }
+         finally
+@@ -241,31 +334,148 @@ else
+     }
+ 
+     private async Task ApplySelectedProductAsync()
+     {
+         if (_selected is null || !_hasMask) return;
+         await JS.InvokeAsync<object>("nsiVisualizer.setProductTexture",
+             _selected.TexturePath, (double)_selected.TextureWidthMeters);
+         await JS.InvokeVoidAsync("nsiVisualizer.render");
+     }
+ 
++    private string ModeButton(string mode) =>
++        _mode == mode ? "btn-primary" : "btn-outline-primary";
++
++    // Blazor WASM adopts the browser locale; under bg-BG an interpolated double renders
++    // as "843,27" — SVG treats the comma as a coordinate separator (corrupting the
++    // polygon/line/circle geometry) and range-input value attributes require dot decimals.
++    // Route every fractional value in markup through this helper instead of changing the
++    // global culture, which would alter price formatting site-wide.
++    private static string Inv(double v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
++
++    private string HandlePolygon =>
++        $"{Inv(_corners[0])},{Inv(_corners[1])} {Inv(_corners[2])},{Inv(_corners[3])} {Inv(_corners[4])},{Inv(_corners[5])} {Inv(_corners[6])},{Inv(_corners[7])}";
++
++    private async Task SetModeAsync(string mode)
++    {
++        _mode = mode;
++        await JS.InvokeVoidAsync("nsiVisualizer.setMode", mode);
++    }
++
++    private async Task OnBrushSizeChanged(ChangeEventArgs e)
++    {
++        _brushSize = int.Parse(e.Value?.ToString() ?? "40");
++        await JS.InvokeVoidAsync("nsiVisualizer.setBrushSize", _brushSize);
++    }
++
++    private async Task ClearMaskAsync()
++    {
++        await JS.InvokeVoidAsync("nsiVisualizer.clearMask");
++        _points.Clear();
++        _hasMask = false;
++        _showHandles = false;
++        _corners = new double[8]; // stale corners must not survive into the next segmentation
++        await SetModeAsync("tap-add");
++    }
++
++    private async Task ToggleHandlesAsync()
++    {
++        _showHandles = !_showHandles;
++        if (_showHandles)
++        {
++            var corners = await JS.InvokeAsync<double[]>("nsiVisualizer.defaultCornersFromMask");
++            if (_corners[2] == 0 && _corners[5] == 0) _corners = corners; // keep user-adjusted values
++        }
++    }
++
++    private void OnHandleDown(PointerEventArgs e, int index) => _dragIndex = index;
++
++    private async Task OnHandleMove(PointerEventArgs e)
++    {
++        if (_dragIndex < 0) return;
++        var rect = await JS.InvokeAsync<StageRect>("nsiVisualizer.getStageRect");
++        _corners[_dragIndex * 2] = Math.Clamp((e.ClientX - rect.Left) / rect.Width * _photoW, 0, _photoW);
++        _corners[_dragIndex * 2 + 1] = Math.Clamp((e.ClientY - rect.Top) / rect.Height * _photoH, 0, _photoH);
++        await JS.InvokeVoidAsync("nsiVisualizer.setCorners", (object)_corners);
++        await JS.InvokeVoidAsync("nsiVisualizer.render");
++    }
++
++    private void OnHandleUp(PointerEventArgs e) => _dragIndex = -1;
++
++    private async Task OnScaleChanged(ChangeEventArgs e)
++    {
++        _scale = double.Parse(e.Value?.ToString() ?? "1", System.Globalization.CultureInfo.InvariantCulture);
++        await JS.InvokeVoidAsync("nsiVisualizer.setScale", _scale);
++        await JS.InvokeVoidAsync("nsiVisualizer.render");
++    }
++
++    private async Task OnRotationChanged(ChangeEventArgs e)
++    {
++        _rotation = double.Parse(e.Value?.ToString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
++        await JS.InvokeVoidAsync("nsiVisualizer.setRotation", _rotation);
++        await JS.InvokeVoidAsync("nsiVisualizer.render");
++    }
++
++    private async Task OnCompareChanged(ChangeEventArgs e)
++    {
++        _compare = double.Parse(e.Value?.ToString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
++        await JS.InvokeVoidAsync("nsiVisualizer.setCompareRatio", _compare);
++    }
++
++    private async Task OnProductSelectedAsync(VisualizerProductDto product)
++    {
++        _selected = product;
++        _cartMessage = null;
++        await ApplySelectedProductAsync();
++    }
++
++    private async Task DownloadAsync() =>
++        await JS.InvokeVoidAsync("nsiVisualizer.downloadResult", "vizualizacia.jpg");
++
++    private void AddToCart()
++    {
++        if (_selected is null) return;
++        CartService.AddItem(new CartItem
++        {
++            ProductId = _selected.Id,
++            ProductName = _selected.Name,
++            UnitPriceWithVat = _selected.PriceWithVat,
++            VatAmount = _selected.VatAmount,
++            UnitPriceWithoutVat = _selected.PriceWithoutVat,
++            Unit = _selected.Unit,
++            UnitDisplay = _selected.UnitDisplay,
++            Quantity = 1,
++            ImagePath = _selected.ImagePath
++        });
++        _cartMessage = "Продуктът е добавен в количката.";
++    }
++
++    private record StageRect(double Left, double Top, double Width, double Height);
++    private record PhotoSize(int Width, int Height);
++
+     private async Task ResetAsync()
+     {
+         if (_stageInitialized)
+             await JS.InvokeVoidAsync("nsiVisualizer.dispose");
+         _stageInitialized = false;
+         _photoLoaded = false;
+         _photoBytes = null;
+         _sessionToken = null;
+         _points.Clear();
+         _hasMask = false;
+         _error = null;
++        _mode = "tap-add";
++        _showHandles = false;
++        _corners = new double[8];
++        _scale = 1.0;
++        _rotation = 0;
++        _compare = 0;
++        _cartMessage = null;
+     }
+ 
+     public async ValueTask DisposeAsync()
+     {
+         if (_stageInitialized)
+         {
+             try { await JS.InvokeVoidAsync("nsiVisualizer.dispose"); }
+             catch (JSDisconnectedException) { }
+         }
+         _selfRef?.Dispose();
+diff --git a/src/NaturalStoneImpex.Client/wwwroot/css/app.css b/src/NaturalStoneImpex.Client/wwwroot/css/app.css
+index 9b623f6..3d2809c 100644
+--- a/src/NaturalStoneImpex.Client/wwwroot/css/app.css
++++ b/src/NaturalStoneImpex.Client/wwwroot/css/app.css
+@@ -76,10 +76,48 @@ code {
+     color: #c02d76;
+ }
+ 
+ /* Product visualizer */
+ .viz-overlay {
+     position: absolute;
+     inset: 0;
+     background: rgba(0, 0, 0, 0.45);
+     z-index: 10;
+ }
++.viz-handles {
++    position: absolute;
++    inset: 0;
++    width: 100%;
++    height: 100%;
++    /* Let taps/brush strokes under the quad reach the edit canvas; only the
++       .viz-handle circles (pointer-events: all) remain draggable. */
++    pointer-events: none;
++}
++.viz-grid-outline {
++    fill: rgba(13, 110, 253, 0.08);
++    stroke: rgba(13, 110, 253, 0.9);
++    stroke-width: 2;
++    vector-effect: non-scaling-stroke;
++}
++.viz-grid-line {
++    stroke: rgba(13, 110, 253, 0.5);
++    stroke-width: 1;
++    vector-effect: non-scaling-stroke;
++}
++.viz-handle {
++    fill: #0d6efd;
++    stroke: #fff;
++    stroke-width: 2;
++    vector-effect: non-scaling-stroke;
++    cursor: grab;
++    pointer-events: all;
++}
++.viz-product-list {
++    max-height: 480px;
++    overflow-y: auto;
++}
++.viz-product-thumb {
++    width: 48px;
++    height: 48px;
++    object-fit: cover;
++    border-radius: 4px;
++}
+diff --git a/src/NaturalStoneImpex.Client/wwwroot/js/visualizer.js b/src/NaturalStoneImpex.Client/wwwroot/js/visualizer.js
+index f64215b..319ad4e 100644
+--- a/src/NaturalStoneImpex.Client/wwwroot/js/visualizer.js
++++ b/src/NaturalStoneImpex.Client/wwwroot/js/visualizer.js
+@@ -369,20 +369,25 @@ window.nsiVisualizer = (function () {
+       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, photoTexture);
+       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tileTexture);
+       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, maskTexture);
+       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+     },
+ 
+     setCompareRatio: function (percent) {
+       glCanvas.style.clipPath = 'inset(0 0 0 ' + percent + '%)';
+     },
+ 
++    getStageRect: function () {
++      var r = photoImg.getBoundingClientRect();
++      return { left: r.left, top: r.top, width: r.width, height: r.height };
++    },
++
+     exportResultDataUrl: function () {
+       var out = document.createElement('canvas');
+       out.width = photoW; out.height = photoH;
+       var ctx = out.getContext('2d');
+       ctx.drawImage(photoImg, 0, 0, photoW, photoH);
+       ctx.drawImage(glCanvas, 0, 0, photoW, photoH);
+       return out.toDataURL('image/jpeg', 0.92);
+     },
+ 
+     downloadResult: function (filename) {

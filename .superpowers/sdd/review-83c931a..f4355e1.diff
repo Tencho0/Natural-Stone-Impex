@@ -1,0 +1,317 @@
+# Review package: 83c931a..f4355e1
+
+## Commits
+f4355e1 feat(visualizer): retention job, docs and E2E checklist
+
+## Files changed
+ Claude.md                                          |  3 +
+ docs/api-endpoints.md                              | 17 ++++
+ docs/database-schema.md                            | 95 ++++++++++++++++------
+ src/NaturalStoneImpex.Api/Program.cs               |  1 +
+ .../VisualizationRequestCleanupService.cs          | 40 +++++++++
+ 5 files changed, 130 insertions(+), 26 deletions(-)
+
+## Diff
+diff --git a/Claude.md b/Claude.md
+index c2197e0..f7166ce 100644
+--- a/Claude.md
++++ b/Claude.md
+@@ -33,20 +33,23 @@ dotnet run --project src/NaturalStoneImpex.Client
+ dotnet ef migrations add <MigrationName> --project src/NaturalStoneImpex.Api
+ 
+ # Apply migrations
+ dotnet ef database update --project src/NaturalStoneImpex.Api
+ 
+ # Build entire solution
+ dotnet build
+ 
+ # Run tests
+ dotnet test
++
++# Download visualizer ONNX models (one-time, required for the visualizer feature)
++powershell -File scripts/download-visualizer-models.ps1
+ ```
+ 
+ ## Conventions
+ 
+ ### Language & Localization
+ - **All UI text must be in Bulgarian.** Every label, button, message, placeholder, validation error, and tooltip must be in Bulgarian.
+ - No i18n framework — hardcoded Bulgarian strings are fine for V1.
+ - Date format: `DD.MM.YYYY` (e.g., `18.02.2026`)
+ - Currency: Euro — display as `XX.XX €` (symbol after the number, space before €)
+ 
+diff --git a/docs/api-endpoints.md b/docs/api-endpoints.md
+index d6b9b61..b96c077 100644
+--- a/docs/api-endpoints.md
++++ b/docs/api-endpoints.md
+@@ -986,20 +986,37 @@ Creates a new invoice and **automatically increments stock** for each item.
+ 
+ **Response 400:**
+ ```json
+ {
+   "error": "Продукт с ID 99 не е намерен."
+ }
+ ```
+ 
+ ---
+ 
++## 7. Visualizer (Визуализатор)
++
++| Method | Endpoint                                | Description                                        | Auth  |
++|--------|-----------------------------------------|----------------------------------------------------|-------|
++| GET    | /api/visualizer/products                | Visualizer-enabled products with texture info      | No    |
++| POST   | /api/visualizer/segment                 | Segment uploaded photo (multipart: photo + points) | No    |
++| POST   | /api/visualizer/segment/{sessionToken}  | Refine mask with additional points (JSON body)     | No    |
++| POST   | /api/products/{id}/texture              | Upload product texture image                       | Admin |
++
++`POST /api/visualizer/segment` responses: `200 { sessionToken, maskPng, width, height }`,
++`400` invalid photo/points, `429` daily quota reached, `503` visualizer disabled or busy.
++`POST /api/visualizer/segment/{sessionToken}` additionally returns `404` when the server-side
++embedding cache has expired (client re-uploads the photo). Photos are processed in memory and
++never stored; quotas are enforced per hashed IP per day (see `Visualizer` section in appsettings).
++
++---
++
+ ## HTTP Status Code Summary
+ 
+ | Code | Meaning                          | Used For                                  |
+ |------|----------------------------------|-------------------------------------------|
+ | 200  | OK                               | Successful GET, PUT                       |
+ | 201  | Created                          | Successful POST (create)                  |
+ | 204  | No Content                       | Successful DELETE                         |
+ | 400  | Bad Request                      | Validation errors, business rule violations|
+ | 401  | Unauthorized                     | Missing or invalid JWT token              |
+ | 404  | Not Found                        | Entity not found by ID                    |
+diff --git a/docs/database-schema.md b/docs/database-schema.md
+index eb4139a..926adc9 100644
+--- a/docs/database-schema.md
++++ b/docs/database-schema.md
+@@ -136,53 +136,59 @@ entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+ | Пясък и чакъл     |
+ | Плочки            |
+ | Инструменти       |
+ 
+ ---
+ 
+ ### Product
+ 
+ Products in the shop catalog. Soft-deleted via `IsActive` flag.
+ 
+-| Column          | Type           | Constraints                       | Notes                              |
+-|-----------------|----------------|-----------------------------------|------------------------------------|
+-| Id              | int            | PK, Identity                      |                                    |
+-| Name            | nvarchar(200)  | Required                          |                                    |
+-| Description     | nvarchar(2000) | Nullable                          | Optional product description       |
+-| CategoryId      | int            | FK → Category.Id, Required        |                                    |
+-| PriceWithoutVat | decimal(18,2)  | Required, > 0                     | Price excluding ДДС in EUR         |
+-| VatAmount       | decimal(18,2)  | Required, ≥ 0                     | ДДС amount in EUR                  |
+-| PriceWithVat    | decimal(18,2)  | Required, > 0                     | Price including ДДС in EUR         |
+-| Unit            | int            | Required                          | Enum: 0 = Kg, 1 = Sqm             |
+-| StockQuantity   | decimal(18,2)  | Required, Default: 0, ≥ 0        | Current stock level                |
+-| ImagePath       | nvarchar(500)  | Nullable                          | Relative path to uploaded image    |
+-| IsActive        | bit            | Required, Default: true           | false = soft-deleted               |
+-| CreatedAt       | datetime2      | Required, Default: UTC now        |                                    |
+-| UpdatedAt       | datetime2      | Required, Default: UTC now        |                                    |
++| Column                | Type           | Constraints                       | Notes                              |
++|-----------------------|----------------|-----------------------------------|------------------------------------|
++| Id                    | int            | PK, Identity                      |                                    |
++| Name                  | nvarchar(200)  | Required                          |                                    |
++| Description           | nvarchar(2000) | Nullable                          | Optional product description       |
++| CategoryId            | int            | FK → Category.Id, Required        |                                    |
++| PriceWithoutVat       | decimal(18,2)  | Required, > 0                     | Price excluding ДДС in EUR         |
++| VatAmount             | decimal(18,2)  | Required, ≥ 0                     | ДДС amount in EUR                  |
++| PriceWithVat          | decimal(18,2)  | Required, > 0                     | Price including ДДС in EUR         |
++| Unit                  | int            | Required                          | Enum: 0 = Kg, 1 = Sqm             |
++| StockQuantity         | decimal(18,2)  | Required, Default: 0, ≥ 0        | Current stock level                |
++| ImagePath             | nvarchar(500)  | Nullable                          | Relative path to uploaded image    |
++| IsActive              | bit            | Required, Default: true           | false = soft-deleted               |
++| IsVisualizerEnabled   | bit            | Required, Default: false          | Whether product can be visualized  |
++| TextureImagePath      | nvarchar(500)  | Nullable                          | Path to uploaded texture image     |
++| TextureWidthMeters    | decimal(18,2)  | Required, Default: 1.00           | Real-world width of texture in m   |
++| CreatedAt             | datetime2      | Required, Default: UTC now        |                                    |
++| UpdatedAt             | datetime2      | Required, Default: UTC now        |                                    |
+ 
+ **EF Core Configuration:**
+ ```csharp
+ entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+ entity.Property(e => e.Description).HasMaxLength(2000);
+ entity.Property(e => e.PriceWithoutVat).HasPrecision(18, 2);
+ entity.Property(e => e.VatAmount).HasPrecision(18, 2);
+ entity.Property(e => e.PriceWithVat).HasPrecision(18, 2);
+ entity.Property(e => e.StockQuantity).HasPrecision(18, 2);
+ entity.Property(e => e.ImagePath).HasMaxLength(500);
++entity.Property(e => e.TextureImagePath).HasMaxLength(500);
++entity.Property(e => e.TextureWidthMeters).HasPrecision(18, 2).HasDefaultValue(1.00m);
+ 
+ entity.HasOne(e => e.Category)
+       .WithMany(c => c.Products)
+       .HasForeignKey(e => e.CategoryId)
+       .OnDelete(DeleteBehavior.Restrict); // Prevent cascade delete
+ 
+ entity.HasIndex(e => new { e.Name, e.CategoryId }).IsUnique();
+ entity.HasIndex(e => e.IsActive); // For filtering active products
++entity.HasIndex(e => e.IsVisualizerEnabled); // For visualizer product listings
+ ```
+ 
+ **Validation Rule:** `PriceWithVat == PriceWithoutVat + VatAmount` — enforced in the service layer, not the database.
+ 
+ **Seed Data:**
+ | Name               | Category        | PriceWithoutVat | VatAmount | PriceWithVat | Unit | StockQuantity |
+ |--------------------|-----------------|-----------------|-----------|--------------|------|---------------|
+ | Гранит сив         | Натурален камък | 25.00           | 5.00      | 30.00        | Sqm  | 150.00        |
+ | Мрамор бял         | Натурален камък | 40.00           | 8.00      | 48.00        | Sqm  | 80.00         |
+ | Цимент 25кг        | Цимент          | 5.00            | 1.00      | 6.00         | Kg   | 500.00        |
+@@ -386,33 +392,70 @@ foreach (var item in request.Items)
+ {
+     var product = await _context.Products.FindAsync(item.ProductId);
+     product.StockQuantity += item.Quantity;
+     product.UpdatedAt = DateTime.UtcNow;
+ }
+ await _context.SaveChangesAsync();
+ ```
+ 
+ ---
+ 
++### VisualizationRequests
++
++Quota tracking for the visualizer feature. Each row represents one segmentation request. Rows are pruned after 90 days to maintain table hygiene (see `VisualizationRequestCleanupService`).
++
++| Column   | Type           | Constraints                | Notes                              |
++|----------|----------------|----------------------------|------------------------------------|
++| Id       | int            | PK, Identity               |                                    |
++| IpHash   | nvarchar(64)   | Required                   | SHA256(IPv4/IPv6 address)          |
++| Status   | int            | Required, Default: 0       | Enum: 0 = Success, 1 = Invalid, 2 = Error |
++| DurationMs | int         | Nullable                   | Processing duration in milliseconds |
++| CreatedAt| datetime2      | Required, Default: UTC now | When the request was processed     |
++
++**EF Core Configuration:**
++```csharp
++entity.Property(e => e.IpHash).HasMaxLength(64).IsRequired();
++
++entity.HasIndex(e => new { e.IpHash, e.CreatedAt }); // For quota enforcement (daily per IP)
++entity.HasIndex(e => e.CreatedAt); // For cleanup job (delete rows > 90 days)
++```
++
++**Quota Logic (Service Layer):**
++```csharp
++// At request time:
++var ipHash = SHA256(clientIpAddress).ToHexString();
++var today = DateTime.UtcNow.Date;
++var todayCount = await _context.VisualizationRequests
++    .Where(r => r.IpHash == ipHash && r.CreatedAt >= today)
++    .CountAsync();
++if (todayCount >= PerIpDailyLimit)
++    return StatusCode(429, new { error = "Дневния лимит е достигнат." });
++```
++
++---
++
+ ## Indexes Summary
+ 
+-| Table             | Index                              | Type   | Purpose                    |
+-|-------------------|------------------------------------|--------|----------------------------|
+-| AdminUser         | Username                           | Unique | Login lookup               |
+-| Category          | Name                               | Unique | Prevent duplicate names    |
+-| Product           | (Name, CategoryId)                 | Unique | Prevent duplicates per category |
+-| Product           | IsActive                           | Index  | Filter active products     |
+-| Order             | OrderNumber                        | Unique | Order lookup               |
+-| Order             | Status                             | Index  | Filter by status           |
+-| Order             | CreatedAt                          | Index  | Sort by date               |
+-| OrderCustomerInfo | OrderId                            | Unique | One-to-one enforcement     |
+-| Invoice           | EntryDate                          | Index  | Sort by date               |
++| Table               | Index                              | Type   | Purpose                    |
++|---------------------|------------------------------------|--------|----------------------------|
++| AdminUser           | Username                           | Unique | Login lookup               |
++| Category            | Name                               | Unique | Prevent duplicate names    |
++| Product             | (Name, CategoryId)                 | Unique | Prevent duplicates per category |
++| Product             | IsActive                           | Index  | Filter active products     |
++| Product             | IsVisualizerEnabled                | Index  | List visualizer-enabled products |
++| Order               | OrderNumber                        | Unique | Order lookup               |
++| Order               | Status                             | Index  | Filter by status           |
++| Order               | CreatedAt                          | Index  | Sort by date               |
++| OrderCustomerInfo   | OrderId                            | Unique | One-to-one enforcement     |
++| Invoice             | EntryDate                          | Index  | Sort by date               |
++| VisualizationRequests | (IpHash, CreatedAt)               | Index  | Quota enforcement (daily per IP) |
++| VisualizationRequests | CreatedAt                         | Index  | Cleanup job (prune > 90 days) |
+ 
+ ---
+ 
+ ## Cascade Delete Rules
+ 
+ | Parent → Child                  | On Delete       | Reason                                           |
+ |---------------------------------|-----------------|--------------------------------------------------|
+ | Category → Product              | Restrict        | Cannot delete category with products             |
+ | Product → OrderItem             | Restrict        | Cannot delete product with order history          |
+ | Product → InvoiceItem           | Restrict        | Cannot delete product with invoice history        |
+diff --git a/src/NaturalStoneImpex.Api/Program.cs b/src/NaturalStoneImpex.Api/Program.cs
+index b0b7184..eb3903b 100644
+--- a/src/NaturalStoneImpex.Api/Program.cs
++++ b/src/NaturalStoneImpex.Api/Program.cs
+@@ -67,20 +67,21 @@ builder.Services.AddMemoryCache(options => options.SizeLimit = 16); // embedding
+ builder.Services.AddSingleton<EncodeGate>();
+ builder.Services.AddSingleton<ISamModel>(sp =>
+ {
+     var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<VisualizerOptions>>().Value;
+     var env = sp.GetRequiredService<IWebHostEnvironment>();
+     return new SamOnnxModel(
+         Path.Combine(env.ContentRootPath, options.EncoderPath),
+         Path.Combine(env.ContentRootPath, options.DecoderPath));
+ });
+ builder.Services.AddScoped<ISegmentationService, SegmentationService>();
++builder.Services.AddHostedService<VisualizationRequestCleanupService>();
+ 
+ builder.Services.AddControllers();
+ builder.Services.AddEndpointsApiExplorer();
+ builder.Services.AddSwaggerGen();
+ 
+ var app = builder.Build();
+ 
+ // Apply pending migrations and seed data
+ using (var scope = app.Services.CreateScope())
+ {
+diff --git a/src/NaturalStoneImpex.Api/Services/Segmentation/VisualizationRequestCleanupService.cs b/src/NaturalStoneImpex.Api/Services/Segmentation/VisualizationRequestCleanupService.cs
+new file mode 100644
+index 0000000..e56d233
+--- /dev/null
++++ b/src/NaturalStoneImpex.Api/Services/Segmentation/VisualizationRequestCleanupService.cs
+@@ -0,0 +1,40 @@
++using Microsoft.EntityFrameworkCore;
++using NaturalStoneImpex.Api.Data;
++
++namespace NaturalStoneImpex.Api.Services.Segmentation;
++
++public class VisualizationRequestCleanupService : BackgroundService
++{
++    private readonly IServiceScopeFactory _scopeFactory;
++    private readonly ILogger<VisualizationRequestCleanupService> _logger;
++
++    public VisualizationRequestCleanupService(IServiceScopeFactory scopeFactory,
++        ILogger<VisualizationRequestCleanupService> logger)
++    {
++        _scopeFactory = scopeFactory;
++        _logger = logger;
++    }
++
++    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
++    {
++        while (!stoppingToken.IsCancellationRequested)
++        {
++            try
++            {
++                using var scope = _scopeFactory.CreateScope();
++                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
++                var cutoff = DateTime.UtcNow.AddDays(-90);
++                var removed = await db.VisualizationRequests
++                    .Where(r => r.CreatedAt < cutoff)
++                    .ExecuteDeleteAsync(stoppingToken);
++                if (removed > 0)
++                    _logger.LogInformation("Pruned {Count} visualization request rows", removed);
++            }
++            catch (Exception ex) when (ex is not OperationCanceledException)
++            {
++                _logger.LogError(ex, "Visualization request cleanup failed");
++            }
++            await Task.Delay(TimeSpan.FromHours(24), stoppingToken);
++        }
++    }
++}

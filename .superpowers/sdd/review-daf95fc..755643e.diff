@@ -1,0 +1,393 @@
+# Review package: daf95fc..755643e
+
+## Commits
+755643e fix(visualizer): commit active brush stroke on tool change
+d954ac8 feat(visualizer): mask editing tools and canvas-2d fallback renderer
+
+## Files changed
+ .../wwwroot/js/visualizer.js                       | 178 +++++++++++++++++++++
+ tests/manual/visualizer-harness.html               | 124 +++++++++++---
+ 2 files changed, 276 insertions(+), 26 deletions(-)
+
+## Diff
+diff --git a/src/NaturalStoneImpex.Client/wwwroot/js/visualizer.js b/src/NaturalStoneImpex.Client/wwwroot/js/visualizer.js
+index 67bb63e..f64215b 100644
+--- a/src/NaturalStoneImpex.Client/wwwroot/js/visualizer.js
++++ b/src/NaturalStoneImpex.Client/wwwroot/js/visualizer.js
+@@ -206,20 +206,23 @@ window.nsiVisualizer = (function () {
+ 
+   // Reset all non-GL module state so a fresh init() starts from a clean slate.
+   // Without this, render()'s guard (!maskPresent || !tileSource || !pxToGround)
+   // could pass on stale data from a previous session after dispose()/re-init.
+   function resetState() {
+     photoW = 0; photoH = 0;
+     maskCanvas = null; blurredMask = null; maskPresent = false;
+     corners = null; groundToPx = null; pxToGround = null;
+     tileSource = null; tileMeters = 1.0; scaleFactor = 1.0; rotationRad = 0;
+     lumMean = 0.5;
++    // Interaction layer (Task 8): a fresh init() must not carry over an active
++    // drawing mode or a mid-stroke flag from a previous session's mask editing.
++    mode = null; stroking = false; strokeMoved = false;
+   }
+ 
+   // Release the WebGL context (if any) and drop GPU resource handles.
+   // Browsers cap live WebGL contexts (~16); repeated init() without an explicit
+   // loseContext() would leak them until getContext('webgl') starts returning null.
+   function releaseGl() {
+     if (gl) {
+       var lose = gl.getExtension('WEBGL_lose_context');
+       if (lose) lose.loseContext();
+     }
+@@ -409,12 +412,187 @@ window.nsiVisualizer = (function () {
+         get tile() { return { source: tileSource, meters: tileMeters, scale: scaleFactor, rot: rotationRad }; },
+         get lumMean() { return lumMean; },
+         get blurredMask() { return blurredMask; },
+         setMaskPresent: function (v) { maskPresent = v; },
+         rebuildMaskDerived: rebuildMaskDerived,
+         GROUND_W: GROUND_W, GROUND_H: GROUND_H
+       };
+     }
+   };
+ 
++  // ---------- interaction layer ----------
++
++  var mode = null, brushSize = 40, stroking = false, strokeMoved = false;
++
++  function eventToPhotoPx(evt) {
++    var rect = photoImg.getBoundingClientRect();
++    return {
++      x: (evt.clientX - rect.left) / rect.width * photoW,
++      y: (evt.clientY - rect.top) / rect.height * photoH
++    };
++  }
++
++  function paintAt(x, y) {
++    var ctx = maskCanvas.getContext('2d');
++    ctx.globalCompositeOperation = mode === 'erase' ? 'destination-out' : 'source-over';
++    ctx.fillStyle = '#fff';
++    ctx.beginPath();
++    ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
++    ctx.fill();
++    ctx.globalCompositeOperation = 'source-over';
++    maskPresent = true;
++    drawMaskTint();
++  }
++
++  // Commit an in-progress brush/erase stroke: rebuild derived mask data,
++  // re-render, and notify .NET. Safe to call when no stroke is active.
++  function finalizeStroke() {
++    if (!stroking) return;
++    stroking = false;
++    rebuildMaskDerived();
++    api.render();
++    if (dotNetRef) dotNetRef.invokeMethodAsync('OnMaskEditedAsync');
++  }
++
++  function onPointerDown(evt) {
++    if (!mode || !photoW) return;
++    evt.preventDefault();
++    if (mode === 'brush' || mode === 'erase') {
++      stroking = true;
++      // Synthetic PointerEvents (test harness) and inactive pointer ids throw
++      // NotFoundError here; the stroke must not depend on capture succeeding.
++      try { editCanvas.setPointerCapture(evt.pointerId); } catch (e) { /* ignore */ }
++      var p = eventToPhotoPx(evt);
++      paintAt(p.x, p.y);
++    }
++    strokeMoved = false;
++  }
++
++  function onPointerMove(evt) {
++    // Paint only while a stroke is live AND the current tool still paints —
++    // a mid-stroke setMode() switch must not keep painting with stale semantics.
++    if (!stroking || (mode !== 'brush' && mode !== 'erase')) return;
++    strokeMoved = true;
++    var p = eventToPhotoPx(evt);
++    paintAt(p.x, p.y);
++  }
++
++  function onPointerUp(evt) {
++    // A live stroke always gets committed, even if the tool changed mid-stroke.
++    if (stroking) { finalizeStroke(); return; }
++    if (!mode || !photoW) return;
++    var p = eventToPhotoPx(evt);
++    if (mode === 'tap-add' || mode === 'tap-remove') {
++      if (dotNetRef)
++        dotNetRef.invokeMethodAsync('OnCanvasTapAsync', p.x, p.y, mode === 'tap-add' ? 1 : 0);
++    }
++  }
++
++  api.setMode = function (m) {
++    finalizeStroke(); // switching tools mid-stroke commits the live stroke first
++    mode = m;
++    editCanvas.style.cursor = (m === 'brush' || m === 'erase') ? 'crosshair'
++      : (m ? 'pointer' : 'default');
++  };
++  api.setBrushSize = function (px) { brushSize = px; };
++  api._wireEvents = function () {
++    editCanvas.addEventListener('pointerdown', onPointerDown);
++    editCanvas.addEventListener('pointermove', onPointerMove);
++    editCanvas.addEventListener('pointerup', onPointerUp);
++  };
++  api._test.strokeForTest = function (x, y) { // deterministic brush for the harness
++    paintAt(x, y);
++    rebuildMaskDerived();
++  };
++
++  // ---------- canvas-2D fallback renderer ----------
++
++  // Affine-draw img triangle (sx, sy)[3] onto ctx triangle (dx, dy)[3].
++  function drawTriangle(ctx, img, s, d) {
++    ctx.save();
++    ctx.beginPath();
++    ctx.moveTo(d[0], d[1]); ctx.lineTo(d[2], d[3]); ctx.lineTo(d[4], d[5]);
++    ctx.closePath();
++    ctx.clip();
++    var denom = s[0] * (s[5] - s[3]) - s[2] * s[5] + s[4] * s[3] + (s[2] - s[4]) * s[1];
++    var m11 = -(s[1] * (d[4] - d[2]) - s[3] * d[4] + s[5] * d[2] + (s[3] - s[5]) * d[0]) / denom;
++    var m12 = (s[3] * d[5] + s[1] * (d[3] - d[5]) - s[5] * d[3] + (s[5] - s[3]) * d[1]) / denom;
++    var m21 = (s[0] * (d[4] - d[2]) - s[2] * d[4] + s[4] * d[2] + (s[2] - s[4]) * d[0]) / denom;
++    var m22 = -(s[2] * d[5] + s[0] * (d[3] - d[5]) - s[4] * d[3] + (s[4] - s[2]) * d[1]) / denom;
++    var dx = (s[0] * (s[5] * d[2] - s[3] * d[4]) + s[1] * (s[2] * d[4] - s[4] * d[2]) + (s[3] * s[4] - s[2] * s[5]) * d[0]) / denom;
++    var dy = (s[0] * (s[5] * d[3] - s[3] * d[5]) + s[1] * (s[2] * d[5] - s[4] * d[3]) + (s[3] * s[4] - s[2] * s[5]) * d[1]) / denom;
++    ctx.transform(m11, m12, m21, m22, dx, dy);
++    ctx.drawImage(img, 0, 0);
++    ctx.restore();
++  }
++
++  api._renderFallback = function () {
++    var ctx = glCanvas.getContext('2d');
++    if (!ctx) return;
++    ctx.clearRect(0, 0, photoW, photoH);
++
++    // Big ground-space texture canvas: whole quad area, tiled + rotated pattern.
++    var metersPerTile = tileMeters * scaleFactor;
++    var ppm = Math.min(1024 / metersPerTile, 2048 / GROUND_W); // cap resolution
++    var big = document.createElement('canvas');
++    big.width = Math.round(GROUND_W * ppm);
++    big.height = Math.round(GROUND_H * ppm);
++    var bctx = big.getContext('2d');
++    var tilePx = Math.max(8, Math.round(metersPerTile * ppm));
++    var tileScaled = document.createElement('canvas');
++    tileScaled.width = tilePx; tileScaled.height = tilePx;
++    tileScaled.getContext('2d').drawImage(tileSource, 0, 0, tilePx, tilePx);
++    bctx.save();
++    bctx.translate(big.width / 2, big.height / 2);
++    bctx.rotate(rotationRad);
++    bctx.fillStyle = bctx.createPattern(tileScaled, 'repeat');
++    var diag = Math.hypot(big.width, big.height);
++    bctx.fillRect(-diag, -diag, diag * 2, diag * 2);
++    bctx.restore();
++
++    // Warp big canvas onto the photo through the homography, cell by cell (2 triangles each).
++    var pavedLayer = document.createElement('canvas');
++    pavedLayer.width = photoW; pavedLayer.height = photoH;
++    var pctx = pavedLayer.getContext('2d');
++    var cells = 12;
++    for (var gy = 0; gy < cells; gy++) {
++      for (var gx = 0; gx < cells; gx++) {
++        var gx0 = gx / cells * GROUND_W, gx1 = (gx + 1) / cells * GROUND_W;
++        var gy0 = gy / cells * GROUND_H, gy1 = (gy + 1) / cells * GROUND_H;
++        var p00 = applyH(groundToPx, gx0, gy0), p10 = applyH(groundToPx, gx1, gy0);
++        var p11 = applyH(groundToPx, gx1, gy1), p01 = applyH(groundToPx, gx0, gy1);
++        var sx0 = gx0 * ppm, sx1 = gx1 * ppm, sy0 = gy0 * ppm, sy1 = gy1 * ppm;
++        drawTriangle(pctx, big, [sx0, sy0, sx1, sy0, sx1, sy1],
++          [p00[0], p00[1], p10[0], p10[1], p11[0], p11[1]]);
++        drawTriangle(pctx, big, [sx0, sy0, sx1, sy1, sx0, sy1],
++          [p00[0], p00[1], p11[0], p11[1], p01[0], p01[1]]);
++      }
++    }
++
++    // Luminance transfer (approximate): multiply by brightened grayscale photo.
++    // Note: drawing the (fully opaque) photo here forces the destination alpha to 1
++    // across the WHOLE canvas per Porter-Duff compositing rules (alpha_out = alpha_src
++    // + alpha_dst * (1 - alpha_src) = 1 when alpha_src = 1), regardless of blend mode
++    // or the pre-existing per-pixel alpha from the triangle warp above. So a plain
++    // 'destination-in' with blurredMask would NOT clip anything here anyway: the mask
++    // canvas is an opaque black/white raster (its red channel *is* the selection
++    // signal, same convention as the WebGL shader's u_mask.r read) — not an image with
++    // real per-pixel alpha — so compositing against its (uniformly opaque) alpha is a
++    // no-op. Clip explicitly below using the mask's red channel as the alpha multiplier.
++    pctx.globalCompositeOperation = 'multiply';
++    pctx.filter = 'grayscale(1) brightness(' + (1 / Math.max(lumMean, 0.2)).toFixed(2) + ')';
++    pctx.drawImage(photoImg, 0, 0, photoW, photoH);
++    pctx.filter = 'none';
++    pctx.globalCompositeOperation = 'source-over';
++
++    // Clip to the (feathered) mask: use its red channel as the alpha multiplier.
++    var maskPixels = blurredMask.getContext('2d').getImageData(0, 0, photoW, photoH);
++    var pavedPixels = pctx.getImageData(0, 0, photoW, photoH);
++    var md = maskPixels.data, pd = pavedPixels.data;
++    for (var i = 0; i < pd.length; i += 4) pd[i + 3] = pd[i + 3] * md[i] / 255;
++    pctx.putImageData(pavedPixels, 0, 0);
++
++    ctx.drawImage(pavedLayer, 0, 0);
++  };
++
+   return api;
+ })();
+diff --git a/tests/manual/visualizer-harness.html b/tests/manual/visualizer-harness.html
+index 6c34e1f..8f05b12 100644
+--- a/tests/manual/visualizer-harness.html
++++ b/tests/manual/visualizer-harness.html
+@@ -96,62 +96,134 @@
+     for (let i = 0; i <= 2; i++) {
+       tctx.beginPath(); tctx.moveTo(0, i * 128); tctx.lineTo(256, i * 128); tctx.stroke();
+       tctx.beginPath(); tctx.moveTo(i * 128, 0); tctx.lineTo(i * 128, 256); tctx.stroke();
+     }
+     await viz.setProductTexture(tile.toDataURL("image/png"), 1.0);
+     viz.render();
+ 
+     const dataUrl = viz.exportResultDataUrl();
+     assert(dataUrl.startsWith("data:image/jpeg"), "export produces jpeg data url");
+ 
++    // --- interaction layer ---
++    assert(typeof viz.setMode === "function", "setMode exists");
++    assert(typeof viz.setBrushSize === "function", "setBrushSize exists");
++    // brush stroke programmatically: paint a square patch and verify the mask grew
++    const internals = viz._internal();
++    const before = internals.maskCanvas.getContext("2d")
++      .getImageData(60, 420, 1, 1).data[0];
++    viz.setMode("brush");
++    viz.setBrushSize(60);
++    viz._test.strokeForTest(60, 420);
++    const after = internals.maskCanvas.getContext("2d")
++      .getImageData(60, 420, 1, 1).data[0];
++    assert(before < 128 && after > 128, "brush paints the mask");
++    viz.setMode(null);
++
+     // --- pixel-level render assertions (headless-safe substitute for eyeballing) ---
+-    // Only meaningful on the WebGL path (canvas-2d fallback is Task 8's job).
+-    if (mode.webgl) {
++    // Same three checks on both render paths: WebGL (readPixels, bottom-left origin)
++    // and canvas-2D fallback (getImageData, top-left origin, glCanvas reused as 2D).
++    {
+       const internal = viz._internal();
+       const rCanvas = internal.glCanvas;
+-      const rgl = rCanvas.getContext("webgl");
+       const W = internal.size.w, H = internal.size.h;
+-
+-      // Read an averaged block of pixels so we are robust against landing on a
+-      // grid line vs. fill color of the procedural stone tile. Coordinates are
+-      // in top-left "photo pixel" space; WebGL readPixels is bottom-left origin,
+-      // so flip Y.
+-      const readBlock = (cx, cy, half) => {
+-        const x0 = Math.max(0, cx - half);
+-        const y0 = Math.max(0, (H - 1 - cy) - half);
+-        const w = Math.min(2 * half + 1, W - x0);
+-        const hgt = Math.min(2 * half + 1, H - y0);
+-        const buf = new Uint8Array(w * hgt * 4);
+-        rgl.readPixels(x0, y0, w, hgt, rgl.RGBA, rgl.UNSIGNED_BYTE, buf);
+-        let r = 0, g = 0, b = 0, a = 0;
+-        const n = w * hgt;
+-        for (let i = 0; i < n; i++) { r += buf[i*4]; g += buf[i*4+1]; b += buf[i*4+2]; a += buf[i*4+3]; }
+-        return { r: r/n, g: g/n, b: b/n, a: a/n };
+-      };
+       const lum = (px) => 0.299*px.r + 0.587*px.g + 0.114*px.b;
++      const tag = mode.webgl ? "" : "fallback: ";
++      var readBlock;
++
++      if (mode.webgl) {
++        const rgl = rCanvas.getContext("webgl");
++        // Read an averaged block of pixels so we are robust against landing on a
++        // grid line vs. fill color of the procedural stone tile. Coordinates are
++        // in top-left "photo pixel" space; WebGL readPixels is bottom-left origin,
++        // so flip Y.
++        readBlock = (cx, cy, half) => {
++          const x0 = Math.max(0, cx - half);
++          const y0 = Math.max(0, (H - 1 - cy) - half);
++          const w = Math.min(2 * half + 1, W - x0);
++          const hgt = Math.min(2 * half + 1, H - y0);
++          const buf = new Uint8Array(w * hgt * 4);
++          rgl.readPixels(x0, y0, w, hgt, rgl.RGBA, rgl.UNSIGNED_BYTE, buf);
++          let r = 0, g = 0, b = 0, a = 0;
++          const n = w * hgt;
++          for (let i = 0; i < n; i++) { r += buf[i*4]; g += buf[i*4+1]; b += buf[i*4+2]; a += buf[i*4+3]; }
++          return { r: r/n, g: g/n, b: b/n, a: a/n };
++        };
++      } else {
++        // Fallback path: glCanvas was used as a 2D canvas by _renderFallback(), so
++        // read it back with getImageData. Already top-left origin — no Y flip needed.
++        const rctx = rCanvas.getContext("2d");
++        readBlock = (cx, cy, half) => {
++          const x0 = Math.max(0, cx - half);
++          const y0 = Math.max(0, cy - half);
++          const w = Math.min(2 * half + 1, W - x0);
++          const hgt = Math.min(2 * half + 1, H - y0);
++          const data = rctx.getImageData(x0, y0, w, hgt).data;
++          let r = 0, g = 0, b = 0, a = 0;
++          const n = w * hgt;
++          for (let i = 0; i < n; i++) { r += data[i*4]; g += data[i*4+1]; b += data[i*4+2]; a += data[i*4+3]; }
++          return { r: r/n, g: g/n, b: b/n, a: a/n };
++        };
++      }
+ 
+       // (a) well inside the masked trapezoid, in the lit (non-shadow) region:
+       // texture must be drawn (alpha > 0) and must not just be the flat driveway gray.
+       const litPx = readBlock(600, 800, 25);
+-      assert(litPx.a > 0, "lit masked pixel has alpha > 0 (texture drawn)");
++      assert(litPx.a > 0, tag + "lit masked pixel has alpha > 0 (texture drawn)");
+       const isFlatGray = near(litPx.r, 138, 6) && near(litPx.g, 138, 6) && near(litPx.b, 134, 6);
+-      assert(!isFlatGray, "lit masked pixel differs from flat driveway gray (stone texture actually drawn)");
++      assert(!isFlatGray, tag + "lit masked pixel differs from flat driveway gray (stone texture actually drawn)");
+ 
+-      // (b) well outside the mask (sky region): alpha must be 0.
++      // (b) well outside the mask (sky region): alpha must be 0 (allow a hair of
++      // fallback feathering tolerance since the mask is blurred before clipping).
+       const outsidePx = readBlock(50, 50, 5);
+-      assert(outsidePx.a === 0, "pixel outside mask has alpha 0");
++      assert(mode.webgl ? outsidePx.a === 0 : outsidePx.a < 2, tag + "pixel outside mask has alpha ~0");
+ 
+       // (c) inside the mask AND inside the dark shadow band: must be darker than
+       // the lit masked pixel above (luminance transfer working).
+       const shadowPx = readBlock(600, 660, 25);
+-      assert(shadowPx.a > 0, "shadow-band masked pixel has alpha > 0");
+-      assert(lum(shadowPx) < lum(litPx), "shadow band pixel is darker than lit masked pixel (luminance transfer)");
++      assert(shadowPx.a > 0, tag + "shadow-band masked pixel has alpha > 0");
++      assert(lum(shadowPx) < lum(litPx), tag + "shadow band pixel is darker than lit masked pixel (luminance transfer)");
++    }
++
++    // --- mid-stroke tool switch (regression) ---
++    // setMode(null) while a pointer is down must COMMIT the live stroke (paint at
++    // the first point sticks) and stop further painting (second point untouched).
++    // Uses synthetic PointerEvents on the edit canvas; photo-px -> client coords
++    // via the photo element's bounding rect (photo is 1200x900 natural).
++    try {
++      const strokeInternals = viz._internal();
++      const editC = strokeInternals.editCanvas;
++      const photoRect = strokeInternals.photoImg.getBoundingClientRect();
++      const firePointer = (type, px, py) => {
++        editC.dispatchEvent(new PointerEvent(type, {
++          pointerId: 7, bubbles: true, cancelable: true,
++          clientX: photoRect.left + px / 1200 * photoRect.width,
++          clientY: photoRect.top + py / 900 * photoRect.height
++        }));
++      };
++      const maskPx = (x, y) => strokeInternals.maskCanvas.getContext("2d")
++        .getImageData(x, y, 1, 1).data[0];
++      // Both points lie OUTSIDE the mask trapezoid (430,400 760,400 1050,880 180,880):
++      // left edge at y=800 is x~222 (brush r=30 spans [70,130]); right edge at
++      // y=500 is x~820 (brush spans [1070,1130]).
++      assert(maskPx(100, 800) < 128, "mid-stroke: first point starts unselected");
++      assert(maskPx(1100, 500) < 128, "mid-stroke: second point starts unselected");
++      viz.setMode("brush");
++      viz.setBrushSize(60);
++      firePointer("pointerdown", 100, 800);
++      firePointer("pointermove", 100, 800);
++      viz.setMode(null);                     // tool switch mid-stroke: commits stroke
++      firePointer("pointermove", 1100, 500); // must NOT paint after the switch
++      firePointer("pointerup", 1100, 500);
++      assert(maskPx(100, 800) > 128, "mid-stroke: stroke committed on tool switch (first point painted)");
++      assert(maskPx(1100, 500) < 128, "mid-stroke: no stray painting after tool switch (second point clean)");
++    } catch (e) {
++      failures.push("mid-stroke tool switch threw: " + e.message);
+     }
+ 
+     // --- dispose / re-init lifecycle ---
+     // After dispose() + init(), all engine state must be reset: no stale mask,
+     // and render() must be a safe no-op (guards on reset state), not a throw.
+     // Runs last: it leaves the stage re-initialized without a photo, which is
+     // fine because all visual/pixel assertions above have already completed.
+     viz.dispose();
+     viz.init("stage", null, { forceFallback: false });
+     assert(viz.hasMask() === false, "hasMask() is false after dispose + re-init");

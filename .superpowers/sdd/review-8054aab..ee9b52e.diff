@@ -1,0 +1,131 @@
+# Review package: 8054aab..ee9b52e
+
+## Commits
+ee9b52e fix(visualizer): show product-detail visualizer link on mobile
+f56b1b9 feat(visualizer): navigation, product detail and home entry points
+
+## Files changed
+ src/NaturalStoneImpex.Client/Layout/MainLayout.razor      |  5 +++++
+ src/NaturalStoneImpex.Client/Pages/Public/Home.razor      | 15 +++++++++++++++
+ .../Pages/Public/ProductDetail.razor                      | 14 ++++++++++++++
+ 3 files changed, 34 insertions(+)
+
+## Diff
+diff --git a/src/NaturalStoneImpex.Client/Layout/MainLayout.razor b/src/NaturalStoneImpex.Client/Layout/MainLayout.razor
+index 7e58a85..0ee3cfd 100644
+--- a/src/NaturalStoneImpex.Client/Layout/MainLayout.razor
++++ b/src/NaturalStoneImpex.Client/Layout/MainLayout.razor
+@@ -21,20 +21,25 @@
+                 <li class="nav-item">
+                     <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                         Начална страница
+                     </NavLink>
+                 </li>
+                 <li class="nav-item">
+                     <NavLink class="nav-link" href="/catalog">
+                         Каталог
+                     </NavLink>
+                 </li>
++                <li class="nav-item">
++                    <NavLink class="nav-link" href="/visualizer">
++                        Визуализатор
++                    </NavLink>
++                </li>
+                 <li class="nav-item">
+                     <NavLink class="nav-link" href="/contacts">
+                         Контакти
+                     </NavLink>
+                 </li>
+             </ul>
+             <ul class="navbar-nav d-none d-lg-flex">
+                 <li class="nav-item">
+                     <CartIcon />
+                 </li>
+diff --git a/src/NaturalStoneImpex.Client/Pages/Public/Home.razor b/src/NaturalStoneImpex.Client/Pages/Public/Home.razor
+index 892789b..31c7896 100644
+--- a/src/NaturalStoneImpex.Client/Pages/Public/Home.razor
++++ b/src/NaturalStoneImpex.Client/Pages/Public/Home.razor
+@@ -9,20 +9,35 @@
+     <div class="container position-relative">
+         <div class="hero-content">
+             <h1 class="hero-title animate-fade-in-up">Natural Stone Impex</h1>
+             <h4 class="hero-subtitle animate-fade-in-up animate-stagger-2">Качествени строителни материали</h4>
+             <p class="hero-description animate-fade-in-up animate-stagger-3">Натурален камък, цимент, плочки и още</p>
+             <a href="/catalog" class="btn btn-nsi-accent btn-lg hero-cta animate-fade-in-up animate-stagger-4">Разгледайте каталога</a>
+         </div>
+     </div>
+ </section>
+ 
++@* Visualizer Promo Section *@
++<section class="my-4">
++    <div class="card bg-light">
++        <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
++            <div>
++                <h5 class="card-title mb-1">Вижте настилката във вашия двор</h5>
++                <p class="card-text mb-0">
++                    Качете снимка на вашата алея или двор и разгледайте как ще изглежда с нашите естествени камъни.
++                </p>
++            </div>
++            <a class="btn btn-primary" href="/visualizer">Опитай визуализатора</a>
++        </div>
++    </div>
++</section>
++
+ @* Features Section *@
+ <section class="section-white">
+     <div class="container">
+         <div class="section-heading">
+             <h3>Защо да изберете нас</h3>
+             <div class="heading-accent"></div>
+         </div>
+         <div class="row g-4">
+             <div class="col-12 col-md-4">
+                 <div class="card feature-card h-100 text-center border-0 animate-fade-in-up animate-stagger-1">
+diff --git a/src/NaturalStoneImpex.Client/Pages/Public/ProductDetail.razor b/src/NaturalStoneImpex.Client/Pages/Public/ProductDetail.razor
+index 7987484..a50e06b 100644
+--- a/src/NaturalStoneImpex.Client/Pages/Public/ProductDetail.razor
++++ b/src/NaturalStoneImpex.Client/Pages/Public/ProductDetail.razor
+@@ -95,29 +95,43 @@ else
+                 <input type="number" class="form-control pd-qty-input mb-3"
+                        min="0.01" step="0.01"
+                        @bind="_quantity"
+                        disabled="@(_product.StockQuantity <= 0)" />
+ 
+                 <button class="btn btn-nsi-accent btn-lg pd-add-btn"
+                         disabled="@(_product.StockQuantity <= 0)"
+                         @onclick="AddToCart">
+                     <i class="bi bi-cart-plus me-2"></i>Добави в количката
+                 </button>
++
++                @if (_product.IsVisualizerEnabled)
++                {
++                    <a class="btn btn-outline-primary mt-2" href="/visualizer?productId=@_product.Id">
++                        Виж как ще изглежда при вас
++                    </a>
++                }
+             </div>
+ 
+             @* Quantity input visible on mobile (above sticky bar) *@
+             <div class="pd-order-section d-md-none">
+                 <label class="form-label fw-semibold">Количество (@_product.UnitDisplay)</label>
+                 <input type="number" class="form-control pd-qty-input"
+                        min="0.01" step="0.01"
+                        @bind="_quantity"
+                        disabled="@(_product.StockQuantity <= 0)" />
++
++                @if (_product.IsVisualizerEnabled)
++                {
++                    <a class="btn btn-outline-primary w-100 mt-2" href="/visualizer?productId=@_product.Id">
++                        Виж как ще изглежда при вас
++                    </a>
++                }
+             </div>
+ 
+             <a href="/catalog" class="pd-back-link d-none d-md-inline-flex">
+                 <i class="bi bi-arrow-left me-1"></i> Обратно към каталога
+             </a>
+         </div>
+     </div>
+ 
+     @* Mobile sticky CTA bar *@
+     <div class="pd-sticky-bar d-md-none">
