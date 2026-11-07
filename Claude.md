@@ -14,7 +14,7 @@ Inventory and order management system for a Bulgarian building materials shop ca
 ## Tech Stack
 
 - **Frontend**: Blazor WebAssembly (Standalone) + Bootstrap 5
-- **Backend**: ASP.NET Core 8 Web API
+- **Backend**: ASP.NET Core 10 Web API (.NET 10 LTS, all projects target `net10.0`)
 - **Database**: SQL Server + Entity Framework Core (Code First)
 - **Auth**: JWT Bearer tokens (single admin user, seeded via DbSeeder)
 - **Images**: Local file storage (`wwwroot/uploads/products/`)

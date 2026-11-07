@@ -18,7 +18,7 @@
 | Layer       | Technology                                      |
 |-------------|--------------------------------------------------|
 | Frontend    | Blazor WebAssembly (Standalone) + Bootstrap 5    |
-| Backend     | ASP.NET Core 8 Web API                           |
+| Backend     | ASP.NET Core 10 Web API                          |
 | Database    | SQL Server + Entity Framework Core (Code First)  |
 | Auth        | JWT Bearer tokens (single admin user)            |
 | Images      | Local file storage (wwwroot/uploads on API)      |

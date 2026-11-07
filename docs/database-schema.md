@@ -2,7 +2,7 @@
 
 ## Overview
 
-Database: **SQL Server** via **Entity Framework Core 8** (Code First approach).
+Database: **SQL Server** via **Entity Framework Core 10** (Code First approach).
 
 All tables use `int` primary keys with identity (auto-increment). All monetary values use `decimal(18,2)`. All quantity values use `decimal(18,2)` to support fractional units (e.g., 2.5 кг, 3.75 м²).
 

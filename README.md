@@ -5,7 +5,7 @@ materials shop: a public storefront (catalog, cart, orders, product visualizer) 
 (products, categories, orders, invoices). All UI text is in Bulgarian.
 
 - **Client:** Blazor WebAssembly + Bootstrap 5 — `src/NaturalStoneImpex.Client`
-- **API:** ASP.NET Core 8, EF Core, SQL Server, JWT — `src/NaturalStoneImpex.Api`
+- **API:** ASP.NET Core 10, EF Core 10, SQL Server, JWT — `src/NaturalStoneImpex.Api`
 - **Tests:** xUnit — `tests/NaturalStoneImpex.Api.Tests`; manual visualizer harness — `tests/manual`
 
 Requirements, conventions and the task breakdown are in [`CLAUDE.md`](Claude.md) and [`docs/`](docs).

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Natural Stone Impex</title>
     <base href="/" />
+    <link rel="preload" id="webassembly" />
     <link href="lib/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -14,6 +15,7 @@
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="css/site.css" />
     <link href="NaturalStoneImpex.Client.styles.css" rel="stylesheet" />
+    <script type="importmap"></script>
 </head>
 
 <body>
@@ -37,7 +39,7 @@
     <script src="js/modals.js"></script>
     <script src="js/print.js"></script>
     <script src="js/visualizer.js"></script>
-    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>
 
 </html>
