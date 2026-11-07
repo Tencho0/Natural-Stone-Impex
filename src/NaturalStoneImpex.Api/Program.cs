@@ -6,6 +6,7 @@ using NaturalStoneImpex.Api.Auth;
 using NaturalStoneImpex.Api.Components;
 using NaturalStoneImpex.Api.Data;
 using NaturalStoneImpex.Api.Data.Seed;
+using NaturalStoneImpex.Api.Endpoints;
 using NaturalStoneImpex.Api.Middleware;
 using NaturalStoneImpex.Api.Models.Entities;
 using NaturalStoneImpex.Api.Services;
@@ -92,6 +93,9 @@ builder.Services.AddSingleton<ISamModel>(sp =>
 builder.Services.AddScoped<ISegmentationService, SegmentationService>();
 builder.Services.AddHostedService<VisualizationRequestCleanupService>();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<NaturalStoneImpex.Api.Storefront.ICartStore, NaturalStoneImpex.Api.Storefront.CartStore>();
+
 builder.Services.AddControllers();
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
@@ -131,6 +135,7 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(NaturalStoneImpex.Client._Imports).Assembly);
 
 app.MapControllers();
+app.MapCartEndpoints();
 
 // Health check endpoint
 app.MapGet("/api/health", () => Results.Ok(new

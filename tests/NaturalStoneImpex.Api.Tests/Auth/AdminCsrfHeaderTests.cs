@@ -42,4 +42,9 @@ public class AdminCsrfHeaderTests
     public void Anonymous_cart_item_subpath_delete_requires_header()
         => Assert.False(AdminCsrfHeaderMiddleware.IsAllowed(
             "DELETE", "/api/cart/items/5", null, new HeaderDictionary()));
+
+    [Fact]
+    public void Anonymous_post_to_lookalike_path_is_not_matched_by_cart_rule()
+        => Assert.True(AdminCsrfHeaderMiddleware.IsAllowed(
+            "POST", "/api/cart/itemsX", null, new HeaderDictionary()));
 }
