@@ -419,3 +419,8 @@ FodyWeavers.xsd
 
 # Visualizer ONNX models (downloaded via scripts/download-visualizer-models.ps1)
 src/NaturalStoneImpex.Api/MLModels/*.onnx
+
+# Runtime uploads (product photos copied by the seeder, admin uploads, visualizer textures)
+src/NaturalStoneImpex.Api/wwwroot/uploads/**
+!src/NaturalStoneImpex.Api/wwwroot/uploads/**/
+!src/NaturalStoneImpex.Api/wwwroot/uploads/**/.gitkeep
