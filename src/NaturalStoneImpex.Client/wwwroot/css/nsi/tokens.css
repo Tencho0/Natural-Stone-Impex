@@ -1,0 +1,108 @@
+/*
+ * Design tokens, direction "Образец".
+ * Bootstrap is themed through its --bs-* variables at the bottom of :root.
+ */
+
+/*
+ * Fallback faces, metric-matched to the web fonts to limit layout shift while they load.
+ * Method (Playwright, Chromium, lang="bg"): a Cyrillic paragraph was rendered at 200px in the web
+ * font and in Arial. size-adjust = web width / Arial width on one nowrap line; ascent and descent come
+ * from the baseline offset of an inline-block probe, divided by size-adjust. With the overrides applied,
+ * the fallback matched the web font within 0.1% in width and exactly in line height.
+ * Measured: Wix Madefor Text 108.5 / 92.9 / 23.2, Geologica 112.5 / 86.8 / 24.5
+ * (size-adjust / ascent / descent, in percent).
+ */
+@font-face {
+  font-family: "Geologica Fallback";
+  src: local("Arial");
+  size-adjust: 112.5%;
+  ascent-override: 86.8%;
+  descent-override: 24.5%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Wix Madefor Text Fallback";
+  src: local("Arial");
+  size-adjust: 108.5%;
+  ascent-override: 92.9%;
+  descent-override: 23.2%;
+  line-gap-override: 0%;
+}
+
+:root {
+  /* Colour */
+  --paper: #E8E9E6;
+  --surface: #F4F5F3;
+  --ink: #1C2023;
+  --stone: #5A6165;
+  --rule: #C7CBCA;
+  --accent: #2F4A5C;
+  --accent-hover: #253C4B;
+  --on-accent: #F4F5F3;
+  --ok: #3D6B4A;
+  --warn: #8A6418;
+  --danger: #A1352B;
+
+  /* Type */
+  --font-display: "Geologica", "Geologica Fallback", Arial, sans-serif;
+  --font-text: "Wix Madefor Text", "Wix Madefor Text Fallback", Arial, sans-serif;
+  --text-13: 0.8125rem;
+  --text-14: 0.875rem;
+  --text-15: 0.9375rem;
+  --text-16: 1rem;
+  --text-18: 1.125rem;
+  --text-22: 1.375rem;
+  --text-26: 1.625rem;
+  --text-34: 2.125rem;
+  --text-48: 3rem;
+  --text-hero: 2.125rem;
+  --leading-body: 1.55;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+  --space-9: 56px;
+  --space-10: 72px;
+
+  /* Layout */
+  --container-max: 1200px;
+  --gutter: 20px;
+  --target-min: 44px;
+
+  /* Shape and depth */
+  --radius: 2px;
+  --shadow-menu: 0 4px 16px rgba(28, 32, 35, 0.12);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-press: 120ms;
+  --dur-hover: 160ms;
+  --dur-menu: 240ms;
+
+  /* Bootstrap mapping */
+  --bs-body-bg: var(--paper);
+  --bs-body-color: var(--ink);
+  --bs-body-font-family: var(--font-text);
+  --bs-border-color: var(--rule);
+  --bs-link-color: var(--ink);
+  --bs-link-hover-color: var(--accent);
+  --bs-primary: var(--accent);
+  --bs-border-radius: 2px;
+  --bs-border-radius-sm: 2px;
+  --bs-border-radius-lg: 2px;
+  --bs-focus-ring-color: rgba(47, 74, 92, 0.4);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 32px;
+    --text-hero: 3rem;
+  }
+}
