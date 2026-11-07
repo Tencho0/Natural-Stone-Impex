@@ -7,18 +7,10 @@ namespace NaturalStoneImpex.Client.Services;
 public class ProductService : IProductService
 {
     private readonly HttpClient _httpClient;
-    private readonly string _apiBaseUrl;
 
     public ProductService(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _apiBaseUrl = httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
-    }
-
-    private string? ResolveImageUrl(string? imagePath)
-    {
-        if (string.IsNullOrEmpty(imagePath)) return imagePath;
-        return $"{_apiBaseUrl}{imagePath}";
     }
 
     public async Task<PaginatedResponse<ProductListDto>> GetAllAsync(int? categoryId = null, string? search = null, int page = 1, int pageSize = 20)
@@ -37,11 +29,6 @@ public class ProductService : IProductService
 
         var url = $"api/products?{string.Join("&", queryParams)}";
         var result = await _httpClient.GetFromJsonAsync<PaginatedResponse<ProductListDto>>(url);
-        if (result != null)
-        {
-            foreach (var item in result.Items)
-                item.ImagePath = ResolveImageUrl(item.ImagePath);
-        }
         return result ?? new PaginatedResponse<ProductListDto>();
     }
 
@@ -49,13 +36,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _httpClient.GetFromJsonAsync<ProductDto>($"api/products/{id}");
-            if (product != null)
-            {
-                product.ImagePath = ResolveImageUrl(product.ImagePath);
-                product.TextureImagePath = ResolveImageUrl(product.TextureImagePath);
-            }
-            return product;
+            return await _httpClient.GetFromJsonAsync<ProductDto>($"api/products/{id}");
         }
         catch (HttpRequestException)
         {
@@ -151,11 +132,6 @@ public class ProductService : IProductService
     public async Task<List<ProductListDto>> GetLowStockAsync(decimal threshold = 10)
     {
         var result = await _httpClient.GetFromJsonAsync<List<ProductListDto>>($"api/products/low-stock?threshold={threshold}");
-        if (result != null)
-        {
-            foreach (var item in result)
-                item.ImagePath = ResolveImageUrl(item.ImagePath);
-        }
         return result ?? new List<ProductListDto>();
     }
 

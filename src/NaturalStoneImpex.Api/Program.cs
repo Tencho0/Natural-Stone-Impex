@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using NaturalStoneImpex.Api.Components;
 using NaturalStoneImpex.Api.Data;
 using NaturalStoneImpex.Api.Data.Seed;
 using NaturalStoneImpex.Api.Middleware;
@@ -15,19 +16,6 @@ var builder = WebApplication.CreateBuilder(args);
 // EF Core
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// CORS
-var clientUrl = builder.Configuration["ClientUrl"] ?? "https://localhost:5002";
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("BlazorClient", policy =>
-    {
-        policy.WithOrigins(clientUrl)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-    });
-});
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -77,6 +65,8 @@ builder.Services.AddScoped<ISegmentationService, SegmentationService>();
 builder.Services.AddHostedService<VisualizationRequestCleanupService>();
 
 builder.Services.AddControllers();
+builder.Services.AddRazorComponents()
+    .AddInteractiveWebAssemblyComponents();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -90,8 +80,9 @@ using (var scope = app.Services.CreateScope())
     await DbSeeder.SeedAsync(db, app.Environment.WebRootPath);
 }
 
-// Exception handling middleware
-app.UseMiddleware<ExceptionHandlingMiddleware>();
+// Exception handling middleware (API only; HTML pages get their own error handling later)
+app.UseWhen(ctx => ctx.Request.Path.StartsWithSegments("/api"),
+    b => b.UseMiddleware<ExceptionHandlingMiddleware>());
 
 if (app.Environment.IsDevelopment())
 {
@@ -100,16 +91,15 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles(new StaticFileOptions
-{
-    // Product/texture images are public; allow the Blazor client (different port)
-    // to load them into WebGL without tainting the canvas.
-    OnPrepareResponse = ctx =>
-        ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*")
-});
-app.UseCors("BlazorClient");
+app.UseStaticFiles(); // runtime uploads (/uploads)
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveWebAssemblyRenderMode()
+    .AddAdditionalAssemblies(typeof(NaturalStoneImpex.Client._Imports).Assembly);
 
 app.MapControllers();
 

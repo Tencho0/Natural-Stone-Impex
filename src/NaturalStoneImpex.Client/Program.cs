@@ -1,13 +1,9 @@
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using NaturalStoneImpex.Client;
 using NaturalStoneImpex.Client.Auth;
 using NaturalStoneImpex.Client.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
-builder.RootComponents.Add<App>("#app");
-builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddSingleton<CustomAuthStateProvider>();
 builder.Services.AddSingleton<AuthenticationStateProvider>(sp =>
@@ -17,7 +13,7 @@ builder.Services.AddTransient<AuthTokenHandler>();
 
 builder.Services.AddHttpClient("NaturalStoneImpex.Api", client =>
 {
-    client.BaseAddress = new Uri("https://localhost:5001/");
+    client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
 }).AddHttpMessageHandler<AuthTokenHandler>();
 
 builder.Services.AddScoped(sp =>

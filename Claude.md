@@ -13,7 +13,8 @@ Inventory and order management system for a Bulgarian building materials shop ca
 
 ## Tech Stack
 
-- **Frontend**: Blazor WebAssembly (Standalone) + Bootstrap 5
+- **Host**: one Blazor Web App. `NaturalStoneImpex.Api` hosts the API controllers and the Razor components (`Components/App.razor`); `NaturalStoneImpex.Client` is its WebAssembly project. One process, one origin, no CORS.
+- **Frontend**: storefront pages are static SSR in `Api/Components` (they opt out with `@attribute [ExcludeFromInteractiveRouting]`); admin pages route as interactive WebAssembly from `NaturalStoneImpex.Client`; the visualizer is a WebAssembly island. Bootstrap 5.
 - **Backend**: ASP.NET Core 10 Web API (.NET 10 LTS, all projects target `net10.0`)
 - **Database**: SQL Server + Entity Framework Core (Code First)
 - **Auth**: JWT Bearer tokens (single admin user, seeded via DbSeeder)
@@ -23,11 +24,8 @@ Inventory and order management system for a Bulgarian building materials shop ca
 ## Commands
 
 ```bash
-# Run API (from repo root)
+# Run the app: API, storefront and admin on https://localhost:5001 (from repo root)
 dotnet run --project src/NaturalStoneImpex.Api
-
-# Run Blazor client (from repo root)
-dotnet run --project src/NaturalStoneImpex.Client
 
 # Add EF Core migration
 dotnet ef migrations add <MigrationName> --project src/NaturalStoneImpex.Api
@@ -86,7 +84,7 @@ powershell -File scripts/download-visualizer-models.ps1
 
 ### Blazor Client
 - Service interfaces (`IProductService`, `IOrderService`, etc.) with implementations in `Services/`
-- `HttpClient` configured with API base URL and automatic Bearer token attachment
+- `HttpClient` uses the host's base address (same origin as the API) with automatic Bearer token attachment
 - `CustomAuthStateProvider` manages JWT auth state
 - Cart state managed by `CartService` (singleton — persists within browser tab session)
 - Use `EditForm` with `DataAnnotationsValidator` for all forms
@@ -117,29 +115,41 @@ powershell -File scripts/download-visualizer-models.ps1
 
 ```
 src/
-├── NaturalStoneImpex.Api/
+├── NaturalStoneImpex.Api/    # The Blazor Web App host (run this project)
+│   ├── Program.cs            # Host wiring: API, Razor components, static assets
+│   ├── Auth/                 # Auth schemes, ReturnUrl validation, CSRF header rule
+│   ├── Components/
+│   │   ├── App.razor         # Root HTML document; picks the render mode per page
+│   │   ├── _Imports.razor
+│   │   ├── Layout/           # Storefront MainLayout, LoginLayout
+│   │   ├── Shared/           # Storefront components (SeoHead, ProductCard, Pagination, ...)
+│   │   └── Pages/            # Static SSR storefront pages; Pages/Admin/Login.razor
 │   ├── Controllers/          # API endpoints (thin, delegate to services)
+│   ├── Endpoints/            # Minimal API endpoints (cart, sitemap/robots)
+│   ├── Storefront/           # Pure storefront classes (cart cookie, calculators, view models)
 │   ├── Data/
 │   │   ├── AppDbContext.cs   # EF Core context with all DbSets
 │   │   └── Seed/DbSeeder.cs # Seeds admin user and sample data
-│   ├── Middleware/           # Exception handling, etc.
+│   ├── Middleware/           # Exception handling (scoped to /api), etc.
 │   ├── Migrations/           # EF Core migrations (auto-generated)
 │   ├── Models/
 │   │   ├── Entities/         # EF Core entity classes
 │   │   └── DTOs/             # Request/response DTOs
 │   ├── Services/             # Business logic layer
-│   └── wwwroot/uploads/      # Product images (gitignored)
+│   └── wwwroot/uploads/      # Runtime uploads only: product images (gitignored)
 │
-└── NaturalStoneImpex.Client/
-    ├── Auth/                 # CustomAuthStateProvider
-    ├── Components/           # Shared Blazor components (ProductCard, Pagination, etc.)
-    ├── Layout/               # MainLayout (public), AdminLayout (admin)
+└── NaturalStoneImpex.Client/ # The Web App's WebAssembly project (not run on its own)
+    ├── Routes.razor          # Router (interactive routing for admin pages)
+    ├── Auth/                 # Client auth state provider and HTTP handlers
+    ├── Components/           # Shared Blazor components, VisualizerApp island
+    ├── Formatting/           # PriceFormat, shared by server and WebAssembly
+    ├── Layout/               # AdminLayout (and the public MainLayout until the storefront moves)
     ├── Models/               # Client-side DTOs / view models
     ├── Pages/
-    │   ├── Public/           # Home, Catalog, ProductDetail, Cart, Checkout, Contacts
-    │   └── Admin/            # Login, Dashboard, Products, Categories, Orders, Invoices, Receipt
+    │   ├── Public/           # Storefront pages until they move to Api/Components/Pages
+    │   └── Admin/            # Dashboard, Products, Categories, Orders, Invoices, Receipt
     ├── Services/             # API client services (IProductService, etc.)
-    └── wwwroot/              # Static assets, index.html, CSS
+    └── wwwroot/              # All static assets (CSS, fonts, JS, Bootstrap), served at the site root
 ```
 
 ## Working With This Codebase

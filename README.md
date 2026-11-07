@@ -4,8 +4,11 @@ Inventory and order management for **Natural Stone Impex**, a Bulgarian natural-
 materials shop: a public storefront (catalog, cart, orders, product visualizer) and an admin panel
 (products, categories, orders, invoices). All UI text is in Bulgarian.
 
-- **Client:** Blazor WebAssembly + Bootstrap 5 — `src/NaturalStoneImpex.Client`
-- **API:** ASP.NET Core 10, EF Core 10, SQL Server, JWT — `src/NaturalStoneImpex.Api`
+- **Host:** one ASP.NET Core 10 Blazor Web App — `src/NaturalStoneImpex.Api`. It serves the API
+  (EF Core 10, SQL Server, JWT), the storefront as static SSR Razor components (`Components/`) and
+  all static assets, on one origin.
+- **WebAssembly project:** `src/NaturalStoneImpex.Client` — admin pages (interactive WebAssembly
+  routing), the visualizer island and their API client services. It is not run on its own.
 - **Tests:** xUnit — `tests/NaturalStoneImpex.Api.Tests`; manual visualizer harness — `tests/manual`
 
 Requirements, conventions and the task breakdown are in [`CLAUDE.md`](Claude.md) and [`docs/`](docs).
@@ -16,12 +19,12 @@ Requirements, conventions and the task breakdown are in [`CLAUDE.md`](Claude.md)
 # one-time: download the segmentation models used by the visualizer
 powershell -File scripts/download-visualizer-models.ps1
 
-dotnet run --project src/NaturalStoneImpex.Api      # https://localhost:5001
-dotnet run --project src/NaturalStoneImpex.Client   # https://localhost:5002
+dotnet run --project src/NaturalStoneImpex.Api      # everything on https://localhost:5001
 dotnet test
 ```
 
 The database is migrated and seeded on API start-up (admin user `admin` / `Admin123!` in development).
+Swagger is at `/swagger` in development.
 
 ## Product visualizer
 
