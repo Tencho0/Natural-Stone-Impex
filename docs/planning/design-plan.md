@@ -1,3 +1,5 @@
+> Superseded on 07.11.2026 by docs/superpowers/specs/2026-11-07-storefront-redesign-ssr-design.md. Do not follow.
+
 # Design Modernization Plan — Natural Stone Impex
 
 ## Context

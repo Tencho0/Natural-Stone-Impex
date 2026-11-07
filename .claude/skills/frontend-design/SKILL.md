@@ -1,81 +1,93 @@
 ---
 name: frontend-design
-description: Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build or restyle web components, pages, or layouts. Generates creative, polished code that avoids generic AI aesthetics. Tailored for Blazor WebAssembly + Bootstrap 5.
+description: Design rules for Natural Stone Impex (Direction A 'Образец'). Use for any UI work in this repo.
 ---
 
-This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.
+# Natural Stone Impex design rules (Direction A "Образец")
 
-The user provides frontend requirements: a component, page, application, or interface to build or restyle. They may include context about the purpose, audience, or technical constraints.
+Full spec: `docs/superpowers/specs/2026-11-07-storefront-redesign-ssr-design.md` (sections 5.2, 6, 7.10). If this file and the spec disagree, the spec wins.
 
-## Project Context — Natural Stone Impex
+## Design read and dials
 
-This is a **Bulgarian building materials shop** — a real business storefront selling natural stone, cement, tiles. The audience is Bulgarian builders, contractors, and homeowners.
+The site reads as a materials library: each stone is a labelled sample on a cool mineral ground. Photography carries the warmth. The interface stays quiet and precise.
 
-- **Tech stack**: Blazor WebAssembly (Standalone) + Bootstrap 5 + custom CSS
-- **Aesthetic direction**: **Organic/natural + luxury/refined** — earthy, solid, trustworthy, premium but approachable. Think high-end stone supplier, not generic e-commerce.
-- **Color palette**: Warm stone/earth tones — bronze primary (#8B7355), gold accent (#D4A853), charcoal dark (#2C2C2C), warm off-white (#F8F6F3)
-- **All UI text is in Bulgarian** — do not change any text content
-- **Mobile-first design** — write CSS for mobile by default, use `min-width` media queries to enhance for larger screens
-- **Data structure is frozen** — do not add, remove, or rename any fields, forms, DTOs, or API calls
+- Variance 6, motion 2.
+- Density 4 on the storefront, 7 in the admin.
 
-## Design Thinking
+## Tokens
 
-Before coding, understand the context and commit to a clear aesthetic direction:
-- **Purpose**: What problem does this interface solve? Who uses it?
-- **Tone**: For this project, the tone is **organic/natural + luxury/refined** — the warmth of natural stone, the trust of a professional supplier, the clarity of a well-organized catalog. Not experimental or wild — intentional and polished.
-- **Constraints**: Blazor WebAssembly, Bootstrap 5 base, no npm/webpack, CSS-only animations, mobile-first.
-- **Differentiation**: What makes this feel like a **stone supplier** and not a generic Bootstrap template?
+```
+--paper        #E8E9E6   page ground
+--surface      #F4F5F3   inputs, raised panels, admin content
+--ink          #1C2023   text
+--stone        #5A6165   secondary text
+--rule         #C7CBCA   hairlines, input borders
+--accent       #2F4A5C   primary action, active state, cart count
+--accent-hover #253C4B
+--on-accent    #F4F5F3
+--ok #3D6B4A   --warn #8A6418   --danger #A1352B   (text, borders, small markers; never large fills)
+```
 
-**CRITICAL**: Execute the organic/natural luxury direction with precision. The key is intentionality — every color, font, shadow, and spacing choice should feel like it belongs to a premium building materials brand.
+- One accent. No gradients.
+- Bootstrap is themed through its `--bs-*` variables, so its utilities keep working.
+- Radius 2px everywhere. No pills.
+- Groups are separated by 1px `--rule` hairlines. No card shadows. One shadow token exists, for floating menus only.
+- Spacing scale (px): 4, 8, 12, 16, 20, 24, 32, 48, 56, 72.
+- Container max width 1200px. Gutter 20px on phones, 32px on desktop.
+- Interactive targets are at least 44px.
+- Type scale (px): 13, 14, 15 (body), 16, 18, 22, 26, 34, 48 (hero; 34 on phones). Body line-height 1.55. Text measure under 70 characters.
 
-Then implement working code (Blazor .razor + CSS) that is:
-- Production-grade and functional
-- Visually striking and memorable
-- Cohesive with the natural stone brand identity
-- Meticulously refined in every detail
-- **Mobile-first** — works beautifully on phones first, then enhances for desktop
+## Fonts
 
-## Frontend Aesthetics Guidelines
+- Headlines: Geologica 300, 400, 500. Tracking -0.02 to -0.03 em, `text-wrap: balance`.
+- Everything else: Wix Madefor Text 400, 500, 600.
+- Both faces have Bulgarian letterforms through `locl` (`BGR`). They only activate when the page declares `<html lang="bg">`, so every page must.
+- Self-hosted `woff2`, Latin + Cyrillic subset with `locl` kept, `font-display: swap`, metric-matched fallback `@font-face` rules. Nothing loads from Google or jsDelivr.
+- No monospace face. Prices, quantities, order numbers and table numbers use `font-variant-numeric: tabular-nums`.
+- Sentence case. No all-caps labels.
 
-Focus on:
+## Motion
 
-- **Typography**: Choose fonts that are beautiful, unique, and interesting. Avoid generic fonts like Arial, Inter, and Roboto; opt instead for distinctive choices that fit a premium natural materials brand. Pair a characterful serif/display font (for headings) with a refined sans-serif body font. Think: stone-carved solidity for headings, clean readability for body.
+- Easing `cubic-bezier(0.2, 0.7, 0.2, 1)`. Durations: 120ms press, 160ms hover and colour, 240ms menus.
+- Motion only answers an action: button press (1px down), cart count change, menu open, toast.
+- No entrance or scroll animations. `prefers-reduced-motion` turns transitions off.
 
-- **Color & Theme**: Commit to the warm earth/stone palette. Use CSS variables for consistency. The bronze primary with gold accent dominates — not timid, evenly-distributed pastels. Dark charcoal backgrounds create atmosphere. Warm off-white (#F8F6F3) replaces pure white for a softer feel.
+## Components
 
-- **Motion**: Use CSS-only animations (no JS animation libraries in Blazor context). Prioritize high-impact moments: one well-orchestrated page load with staggered `fadeInUp` reveals (using `animation-delay`) creates more delight than scattered micro-interactions. Hover states on cards should lift and shadow subtly. Buttons should have smooth `transform` + `box-shadow` transitions.
+- Photography: square crops in grids, 4:3 on the product page, `object-fit: cover`. Captions sit under the photo, never over it.
+- Header: wordmark "Natural Stone Impex" in Geologica 500. Links: Каталог, Визуализатор, Контакти, Количка with a count. The active link gets a 2px accent underline. Phones get a "Меню" toggle.
+- Product card: square photo; meta line (category left, unit right); name; price "20.45 €" with "за м², с ДДС"; a 40px square "+" button with `aria-label="Добави в количката"` that posts quantity 1. When priced 0, show "Цена при запитване" and an "Запитване" link to Contacts, with no add button. Stock does not change the card.
+- Buttons: primary has the accent fill, secondary a 1px ink outline, tertiary is an underlined link. Minimum height 44px.
+- Inputs: label above, helper text below, and an error replaces the helper in the same place. Minimum height 44px. Visible 2px accent focus ring.
+- Segmented switch: for "По размери / Знам м²", "Физическо лице / Фирма" and the delivery method.
+- Toast: one line ("Добавено в количката" plus a "Към количката" link), 4s, `role="status"`.
+- Skeletons: only where content loads after first paint (admin, visualizer). Show after 300ms, never for faster responses.
+- Icons: Bootstrap Icons, self-hosted, outline only, used sparingly.
+- Admin: same tokens at higher density, 14px body, `--surface` content on `--paper` chrome. A top bar replaces the dark sidebar: wordmark "NSI Администрация", links Табло, Продукти, Категории, Поръчки, Доставки, and Изход on the right. It scrolls horizontally on phones.
 
-- **Spatial Composition**: Generous negative space on desktop. Controlled density on mobile. Cards with rounded corners (12px). Sections with distinct backgrounds that create rhythm (warm → white → warm → dark). Use vertical spacing generously between sections.
+## Never
 
-- **Backgrounds & Visual Details**: Create atmosphere and depth. Use subtle gradients instead of flat solid colors. The hero section should have a dramatic gradient that evokes dark stone. Cards float with layered shadows. Use the `--nsi-light` off-white as page background for warmth. Add subtle border treatments and accent-colored dividers.
+- Gradient hero or gradient category tiles.
+- Icon circles.
+- Feature cards such as "Защо да изберете нас".
+- `heading-accent` bars.
+- Entrance animations, stagger classes, or hover lift on cards.
+- Pill badges for units.
+- A full-width coloured add-to-cart button on cards.
+- Inline `style="color: var(--nsi-...)"` in admin pages.
+- Web font or icon links to Google or jsDelivr.
 
-- **Touch & Mobile**: All interactive elements minimum 44×44px. Single-column layouts by default. Full-width buttons on mobile. Sticky action bars where appropriate (e.g., Add to Cart on product detail). Swipeable/scrollable where natural.
+## Copy rules
 
-## What NOT to Do
+- Sentence case, active voice. No exclamation marks, no filler.
+- Errors say what went wrong and what to do.
+- One label per intent across the site ("Добави в количката" everywhere).
+- Bulgarian copy may be edited where these rules require it.
+- Dates `DD.MM.YYYY`. Money `12.50 €` through `PriceFormat`.
 
-**NEVER** use:
-- Overused font families (Inter, Roboto, Arial, system-ui, sans-serif stack)
-- Cliched color schemes (purple gradients, blue-on-white generic SaaS look)
-- Predictable Bootstrap layouts with no customization (default card, default navbar, default table)
-- Cookie-cutter design that could belong to any store
-- Pure white (#FFFFFF) backgrounds everywhere — use the warm off-white
-- Flat, shadowless, textureless designs — add depth
-- Generic emoji for icons — use Bootstrap Icons consistently
+## Render modes
 
-**NEVER** modify:
-- Data models, DTOs, entities, or API endpoints
-- Form fields — same fields, same labels, same validation
-- C# business logic or services
-- Bulgarian text content
-
-## Implementation Notes for Blazor + Bootstrap 5
-
-- Custom CSS goes in `wwwroot/css/site.css`, loaded after Bootstrap in `index.html`
-- Use Bootstrap's grid system (`row`, `col-*`) but override colors/spacing with custom CSS
-- Use CSS custom properties (`var(--nsi-primary)`) for all brand colors
-- Blazor components use `class="..."` attributes — add custom CSS classes alongside Bootstrap ones
-- For responsive behavior: Bootstrap breakpoint classes (`col-md-4`, `d-lg-none`) + custom `@media (min-width: ...)` in CSS
-- Keep `@code {}` blocks unchanged — only modify the HTML markup and CSS classes
-- Use `<style>` scoped blocks in `.razor` files sparingly — prefer shared CSS in `site.css`
-
-**IMPORTANT**: Match implementation complexity to the aesthetic vision. This is a refined, professional design — it needs restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well, not from adding more effects.
+- Storefront (`/`, `/catalog`, `/products/{id}`, `/cart`, `/checkout`, `/order-confirmation/{OrderNumber}`, `/contacts`, `/not-found`): static SSR, in `Api/Components`, with `[ExcludeFromInteractiveRouting]`. No `dotnet.*.wasm` and no .NET assemblies are loaded on these pages.
+- Admin (`/admin/**`, including the receipt): Client pages with interactive WebAssembly routing, prerender off. `/admin/login` is a static SSR form.
+- Visualizer (`/visualizer`): a static SSR page with one island, `VisualizerApp`, using `InteractiveWebAssemblyRenderMode(prerender: false)`.
+- Links between storefront and admin use `data-enhance-nav="false"` or `forceLoad: true`.

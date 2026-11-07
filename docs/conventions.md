@@ -13,7 +13,7 @@
 - Do NOT edit or delete invoices after creation — they are immutable.
 - Do NOT decrement stock on order placement — only on order confirmation.
 - Do NOT add authentication to public endpoints (catalog, product detail, place order).
-- Do NOT create additional CSS files unless absolutely necessary — use Bootstrap 5 utility classes.
+- Do NOT write UI or styling code that contradicts the design rules. Follow `.claude/skills/frontend-design/SKILL.md` and `docs/superpowers/specs/2026-11-07-storefront-redesign-ssr-design.md` (tokens, fonts, components, copy rules, render modes).
 - Do NOT skip form validation — every form must validate inputs and show Bulgarian error messages.
 - Do NOT leave TODO comments or placeholder implementations — complete every feature fully.
 
