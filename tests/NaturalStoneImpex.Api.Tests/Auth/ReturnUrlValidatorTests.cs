@@ -15,6 +15,11 @@ public class ReturnUrlValidatorTests
     [InlineData("%2F%2Fevil.com", "/admin")]
     [InlineData("javascript:alert(1)", "/admin")]
     [InlineData("admin", "/admin")]
+    [InlineData("/%5Cevil.com", "/admin")]
+    [InlineData("/%2F%2Fevil.com", "/admin")]
+    [InlineData("/\t/evil.com", "/admin")]
+    [InlineData("/\r\n/evil.com", "/admin")]
+    [InlineData(" //evil.com", "/admin")]
     public void ToLocalOrDefault_accepts_only_local_paths(string? input, string expected)
         => Assert.Equal(expected, ReturnUrlValidator.ToLocalOrDefault(input));
 }

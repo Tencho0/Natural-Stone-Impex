@@ -7,7 +7,9 @@ namespace NaturalStoneImpex.Client.Auth;
 
 /// <summary>
 /// Asks the server who is signed in (GET api/auth/me, authenticated by the HttpOnly admin cookie).
-/// The answer is cached for the app's lifetime; call <see cref="NotifyChanged"/> to ask again.
+/// A definite answer (signed in, or 401/403) is cached for the app's lifetime; call
+/// <see cref="NotifyChanged"/> to ask again. A failed lookup (exception or other status) counts
+/// as anonymous but is not cached, so the next check retries.
 /// </summary>
 public class CookieAuthStateProvider : AuthenticationStateProvider
 {
@@ -15,40 +17,52 @@ public class CookieAuthStateProvider : AuthenticationStateProvider
         new(new ClaimsPrincipal(new ClaimsIdentity()));
 
     private readonly HttpClient _httpClient;
-    private Task<AuthenticationState>? _cached;
+    private Task<(AuthenticationState State, bool Cacheable)>? _lookup;
 
     public CookieAuthStateProvider(HttpClient httpClient)
     {
         _httpClient = httpClient;
     }
 
-    public override Task<AuthenticationState> GetAuthenticationStateAsync()
-        => _cached ??= FetchAsync();
+    public override async Task<AuthenticationState> GetAuthenticationStateAsync()
+    {
+        var lookup = _lookup ??= LookupAsync();
+        var (state, cacheable) = await lookup;
+
+        if (!cacheable && ReferenceEquals(_lookup, lookup))
+            _lookup = null;
+
+        return state;
+    }
 
     public void NotifyChanged()
     {
-        _cached = null;
+        _lookup = null;
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
-    private async Task<AuthenticationState> FetchAsync()
+    private async Task<(AuthenticationState, bool)> LookupAsync()
     {
         try
         {
             using var response = await _httpClient.GetAsync("api/auth/me");
+
+            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                return (Anonymous, true);
+
             if (response.StatusCode != HttpStatusCode.OK)
-                return Anonymous;
+                return (Anonymous, false);
 
             var me = await response.Content.ReadFromJsonAsync<MeResponse>();
             if (string.IsNullOrWhiteSpace(me?.Username))
-                return Anonymous;
+                return (Anonymous, false);
 
             var identity = new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, me.Username) }, "cookie");
-            return new AuthenticationState(new ClaimsPrincipal(identity));
+            return (new AuthenticationState(new ClaimsPrincipal(identity)), true);
         }
-        catch (HttpRequestException)
+        catch (Exception)
         {
-            return Anonymous;
+            return (Anonymous, false);
         }
     }
 

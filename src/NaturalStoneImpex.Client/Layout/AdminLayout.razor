@@ -76,9 +76,8 @@
             @* Secondary nav *@
             <ul class="nav flex-column sidebar-nav">
                 <li class="nav-item">
-                    @* The WASM router ignores data-enhance-nav, so force a full load into the storefront. *@
-                    <a class="nav-link sidebar-link-external" href="/" data-enhance-nav="false"
-                       @onclick="GoToSite" @onclick:preventDefault>
+                    @* The WASM router ignores data-enhance-nav; target="_top" makes it skip the link, so the browser does a full load. *@
+                    <a class="nav-link sidebar-link-external" href="/" target="_top" data-enhance-nav="false">
                         <i class="bi bi-arrow-left me-2"></i> Към сайта
                         <i class="bi bi-box-arrow-up-right sidebar-external-icon"></i>
                     </a>
@@ -129,8 +128,6 @@
     private void CloseSidebar() => _sidebarOpen = false;
 
     private Task HandleLogout() => AuthService.LogoutAsync();
-
-    private void GoToSite() => Navigation.NavigateTo("/", forceLoad: true);
 
     public void Dispose()
     {

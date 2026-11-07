@@ -15,7 +15,13 @@ public class AuthService : IAuthService
 
     public async Task LogoutAsync()
     {
-        await _httpClient.PostAsync("api/auth/logout", null);
-        _navigation.NavigateTo("/admin/login", forceLoad: true);
+        try
+        {
+            using var response = await _httpClient.PostAsync("api/auth/logout", null);
+        }
+        finally
+        {
+            _navigation.NavigateTo("/admin/login", forceLoad: true);
+        }
     }
 }

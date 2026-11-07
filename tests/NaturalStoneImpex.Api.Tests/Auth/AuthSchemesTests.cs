@@ -15,6 +15,15 @@ public class AuthSchemesTests
     }
 
     [Fact]
+    public void Selects_bearer_for_lowercase_scheme_name()
+    {
+        var ctx = new DefaultHttpContext();
+        ctx.Request.Headers.Authorization = "bearer x";
+
+        Assert.Equal(AuthSchemes.Bearer, AuthSchemes.Select(ctx));
+    }
+
+    [Fact]
     public void Selects_cookie_otherwise()
     {
         var ctx = new DefaultHttpContext();

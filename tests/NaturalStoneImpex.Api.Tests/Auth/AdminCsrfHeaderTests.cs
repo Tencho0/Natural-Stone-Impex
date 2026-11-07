@@ -29,4 +29,17 @@ public class AdminCsrfHeaderTests
     public void Anonymous_cart_items_post_requires_header()
         => Assert.False(AdminCsrfHeaderMiddleware.IsAllowed(
             "POST", "/api/cart/items", null, new HeaderDictionary()));
+
+    [Theory]
+    [InlineData("PUT")]
+    [InlineData("PATCH")]
+    [InlineData("DELETE")]
+    public void Cookie_authenticated_unsafe_methods_without_header_are_rejected(string method)
+        => Assert.False(AdminCsrfHeaderMiddleware.IsAllowed(
+            method, "/api/products/5", AuthSchemes.Cookie, new HeaderDictionary()));
+
+    [Fact]
+    public void Anonymous_cart_item_subpath_delete_requires_header()
+        => Assert.False(AdminCsrfHeaderMiddleware.IsAllowed(
+            "DELETE", "/api/cart/items/5", null, new HeaderDictionary()));
 }
