@@ -1,0 +1,147 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject ICartStore Cart
+@inject ILogger<MainLayout> Logger
+
+@* Storefront shell (static SSR). Everything here must render without the database:
+   the error and not-found pages use this layout too. *@
+
+@* <base href="/"> would turn a bare "#main" into "/#main", so the href carries the current path. *@
+<a class="skip-link" href="@_skipHref">Към съдържанието</a>
+
+<div class="site">
+    <header class="site-header">
+        <div class="wrap site-header__bar">
+            <a class="wordmark" href="/">Natural Stone Impex</a>
+
+            <nav class="site-nav" aria-label="Основна навигация">
+                <ul class="site-nav__links">
+                    @foreach (var link in Links)
+                    {
+                        <li>@NavLinkItem(link)</li>
+                    }
+                </ul>
+                <a href="/cart" class="site-nav__link site-nav__cart @ActiveClass("/cart")" aria-current="@AriaCurrent("/cart")">
+                    <i class="bi bi-bag site-nav__cart-icon" aria-hidden="true"></i>
+                    <span class="site-nav__cart-label">Количка</span>
+                    @if (_cartCount > 0)
+                    {
+                        <span class="cart-count num" aria-hidden="true">@_cartCount</span>
+                        <span class="visually-hidden">, @NavMatch.CartCountText(_cartCount)</span>
+                    }
+                </a>
+            </nav>
+
+            <details class="menu">
+                <summary class="menu__toggle">Меню</summary>
+                <nav class="menu__panel" aria-label="Меню">
+                    <ul class="menu__links">
+                        @foreach (var link in Links)
+                        {
+                            <li>@NavLinkItem(link)</li>
+                        }
+                    </ul>
+                </nav>
+            </details>
+        </div>
+    </header>
+
+    <main id="main" class="site-main" tabindex="-1">
+        @Body
+    </main>
+
+    <footer class="shop-footer">
+        <div class="wrap shop-footer__grid">
+            <div class="shop-footer__brand">
+                <p class="shop-footer__name">@ShopInfo.Name</p>
+                <p class="shop-footer__line">@ShopInfo.Address</p>
+            </div>
+            <div>
+                <p class="shop-footer__label">Телефон и имейл</p>
+                <p class="shop-footer__line num"><a class="link-quiet" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a></p>
+                <p class="shop-footer__line"><a class="link-quiet" href="mailto:@ShopInfo.Email">@ShopInfo.Email</a></p>
+            </div>
+            <div>
+                <p class="shop-footer__label">Работно време</p>
+                @foreach (var line in ShopInfo.Hours)
+                {
+                    <p class="shop-footer__line num">@line</p>
+                }
+            </div>
+        </div>
+        <div class="wrap">
+            <div class="shop-footer__base">
+                <p class="num">© @DateTime.Now.Year Natural Stone Impex</p>
+                <nav aria-label="Връзки в долната част">
+                    <ul class="shop-footer__links">
+                        <li><a class="link-quiet" href="/catalog">Каталог</a></li>
+                        <li><a class="link-quiet" href="/contacts">Контакти</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<Toast />
+
+<PageScript Src="js/storefront/menu.js" />
+<PageScript Src="js/storefront/toast.js" />
+
+@code {
+    private sealed record HeaderLink(string Href, string Text, bool FullLoad = false);
+
+    // The visualizer is a WebAssembly island, so it needs a full page load.
+    private static readonly HeaderLink[] Links =
+    [
+        new("/catalog", "Каталог"),
+        new("/visualizer", "Визуализатор", FullLoad: true),
+        new("/contacts", "Контакти")
+    ];
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private int _cartCount;
+    private string _path = "/";
+    private string _skipHref = "#main";
+
+    protected override void OnInitialized()
+    {
+        if (HttpContext is not null)
+        {
+            // The URL in the address bar, also on re-executed not-found and error pages.
+            var browserPath = NavMatch.BrowserPathAndQuery(HttpContext);
+            _skipHref = browserPath + "#main";
+            var pathBase = HttpContext.Request.PathBase.Value ?? string.Empty;
+            _path = browserPath.StartsWith(pathBase, StringComparison.Ordinal) ? browserPath[pathBase.Length..] : browserPath;
+        }
+        else
+        {
+            _path = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+            _skipHref = _path + "#main";
+        }
+
+        try
+        {
+            _cartCount = Cart.Count;
+        }
+        catch (Exception ex)
+        {
+            // The shell must still render (for example on the error page) if the cart cannot be read.
+            Logger.LogWarning(ex, "Cart count unavailable while rendering the storefront layout.");
+        }
+    }
+
+    private RenderFragment NavLinkItem(HeaderLink link) =>
+        @<a href="@link.Href" class="site-nav__link @ActiveClass(link.Href)" aria-current="@AriaCurrent(link.Href)"
+            data-enhance-nav="@(link.FullLoad ? "false" : null)">@link.Text</a>;
+
+    private string? ActiveClass(string href) => NavMatch.IsActive(_path, href) ? "is-active" : null;
+
+    private string? AriaCurrent(string href)
+    {
+        var path = _path.Split('?', '#')[0].TrimEnd('/');
+        return string.Equals(path, href, StringComparison.OrdinalIgnoreCase) ? "page" : null;
+    }
+}

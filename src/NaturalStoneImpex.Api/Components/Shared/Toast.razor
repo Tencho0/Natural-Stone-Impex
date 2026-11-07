@@ -1,0 +1,48 @@
+@inject ILogger<Toast> Logger
+
+@* One-line confirmation after a cart form post (Post/Redirect/Get). The region stays in the page so
+   screen readers announce content added by an enhanced navigation. It hides itself after 4 s in CSS. *@
+
+<div class="toast-region" role="status">
+    @if (_code is not null)
+    {
+        <p class="toast-line">
+            @switch (_code)
+            {
+                case Flash.Added:
+                    <span>Добавено в количката</span>
+                    <a class="toast-line__link" href="/cart">Към количката</a>
+                    break;
+                case Flash.Removed:
+                    <span>Премахнато от количката.</span>
+                    break;
+                case Flash.Full:
+                    <span>Количката е пълна. Максимум @CartCookie.MaxLines продукта.</span>
+                    break;
+            }
+        </p>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? _code;
+
+    protected override void OnInitialized()
+    {
+        // Taken once per request; Take deletes the cookie, which is only possible before the response starts.
+        if (HttpContext is null || HttpContext.Response.HasStarted)
+            return;
+
+        try
+        {
+            _code = Flash.Take(HttpContext);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Flash message could not be read.");
+        }
+    }
+}

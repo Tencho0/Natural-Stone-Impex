@@ -1,0 +1,349 @@
+/*
+ * Storefront components, direction "Образец". Loaded on static SSR pages only (App.razor).
+ * Tokens come from tokens.css. Radius 2px, hairlines, no shadows except --shadow-menu on floating menus.
+ */
+
+/* ---------- Buttons ---------- */
+
+/* Used as "btn btn-primary" / "btn btn-outline"; the Bootstrap variables are set too, so .btn:hover and
+   .btn:active cannot bring Bootstrap's own colours back. */
+.btn-primary,
+.btn-outline {
+  --bs-btn-padding-x: var(--space-5);
+  --bs-btn-padding-y: 10px;
+  --bs-btn-font-family: var(--font-text);
+  --bs-btn-font-size: var(--text-15);
+  --bs-btn-font-weight: 500;
+  --bs-btn-line-height: 1.4;
+  --bs-btn-border-width: 1px;
+  --bs-btn-border-radius: var(--radius);
+  --bs-btn-box-shadow: none;
+  --bs-btn-focus-box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: 10px var(--space-5);
+  font-family: var(--font-text);
+  font-size: var(--text-15);
+  font-weight: 500;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease),
+    transform var(--dur-press) var(--ease);
+}
+
+.btn-primary:active,
+.btn-outline:active {
+  transform: translateY(1px);
+}
+
+.btn-primary:focus-visible,
+.btn-outline:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.btn-primary {
+  --bs-btn-color: var(--on-accent);
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: var(--on-accent);
+  --bs-btn-hover-bg: var(--accent-hover);
+  --bs-btn-hover-border-color: var(--accent-hover);
+  --bs-btn-active-color: var(--on-accent);
+  --bs-btn-active-bg: var(--accent-hover);
+  --bs-btn-active-border-color: var(--accent-hover);
+  --bs-btn-disabled-color: var(--on-accent);
+  --bs-btn-disabled-bg: var(--stone);
+  --bs-btn-disabled-border-color: var(--stone);
+  color: var(--on-accent);
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-primary:hover {
+  color: var(--on-accent);
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-outline {
+  --bs-btn-color: var(--ink);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: var(--ink);
+  --bs-btn-hover-color: var(--accent);
+  --bs-btn-hover-bg: var(--surface);
+  --bs-btn-hover-border-color: var(--accent);
+  --bs-btn-active-color: var(--accent);
+  --bs-btn-active-bg: var(--surface);
+  --bs-btn-active-border-color: var(--accent);
+  color: var(--ink);
+  background-color: transparent;
+  border-color: var(--ink);
+}
+
+.btn-outline:hover {
+  color: var(--accent);
+  background-color: var(--surface);
+  border-color: var(--accent);
+}
+
+.btn-primary:disabled,
+.btn-outline:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Tertiary action: an underlined text link. */
+.link-quiet {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.2em;
+  transition:
+    color var(--dur-hover) var(--ease),
+    text-decoration-color var(--dur-hover) var(--ease);
+}
+
+.link-quiet:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+/* ---------- Inputs ---------- */
+
+/*
+ * <div class="field">
+ *   <label class="field-label" for="x">Площ, м²</label>
+ *   <input class="field-input" id="x" aria-describedby="x-note">
+ *   <p class="field-help" id="x-note">...</p>   or   <p class="field-error" id="x-note">...</p>
+ * </div>
+ * Help and error share one slot, so an error replaces the help text without moving the layout.
+ */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field-label {
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.field-input {
+  width: 100%;
+  min-height: var(--target-min);
+  padding: 10px var(--space-3);
+  font-family: var(--font-text);
+  font-size: var(--text-16); /* 16px stops iOS from zooming into the field */
+  line-height: 1.4;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  transition: border-color var(--dur-hover) var(--ease);
+}
+
+.field-input:hover {
+  border-color: var(--stone);
+}
+
+.field-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-color: var(--accent);
+}
+
+.field-input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.field-help,
+.field-error {
+  min-height: 1.5em;
+  margin: 0;
+  font-size: var(--text-13);
+  line-height: 1.5;
+}
+
+.field-help {
+  color: var(--stone);
+}
+
+.field-error {
+  color: var(--danger);
+}
+
+/* ---------- Segmented switch ---------- */
+
+/*
+ * <fieldset class="seg">
+ *   <legend class="visually-hidden">Как да изчислим количеството</legend>
+ *   <input class="seg-input" type="radio" name="mode" id="m1" checked><label class="seg-option" for="m1">По размери</label>
+ *   <input class="seg-input" type="radio" name="mode" id="m2"><label class="seg-option" for="m2">Знам м²</label>
+ * </fieldset>
+ */
+.seg {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.seg-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.seg-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--target-min) - 2px);
+  padding: 0 var(--space-4);
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--stone);
+  cursor: pointer;
+  border-radius: 1px;
+  transition:
+    background-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease);
+}
+
+.seg-option + .seg-input + .seg-option {
+  border-left: 1px solid var(--rule);
+}
+
+.seg-option:hover {
+  color: var(--ink);
+}
+
+.seg-input:checked + .seg-option {
+  color: var(--on-accent);
+  background: var(--accent);
+}
+
+.seg-input:focus-visible + .seg-option {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Hairline lists ---------- */
+
+.list-hairline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.list-hairline > li {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Label on the left, value on the right (cart totals, order details). */
+.list-hairline--pairs > li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.list-hairline--pairs > li > :last-child {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ---------- Toast ---------- */
+
+/* The region is always in the page (role="status"); the line inside it appears for 4 s, then hides. */
+.toast-region {
+  position: fixed;
+  /* Lines up with the container edge on wide screens. */
+  right: max(var(--gutter), calc((100% - var(--container-max)) / 2));
+  bottom: var(--space-5);
+  left: var(--gutter);
+  z-index: 1080;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.toast-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  max-width: 100%;
+  min-height: var(--target-min);
+  margin: 0;
+  padding: 10px var(--space-4);
+  font-size: var(--text-14);
+  color: var(--on-accent);
+  background: var(--ink);
+  border-radius: var(--radius);
+  pointer-events: auto;
+  animation: toast-life 4s var(--ease) forwards;
+}
+
+/* Stays while the pointer or keyboard focus is on it, so the link can be reached. */
+.toast-line:hover,
+.toast-line:focus-within {
+  animation-play-state: paused !important;
+}
+
+.toast-line__link {
+  color: var(--on-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.toast-line__link:hover {
+  color: var(--on-accent);
+  text-decoration-thickness: 2px;
+}
+
+/* Fades in over 160ms, holds, fades out over the last 240ms, then leaves the accessibility tree. */
+@keyframes toast-life {
+  0% { opacity: 0; visibility: visible; }
+  4% { opacity: 1; }
+  94% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+/* Reduced motion: no fade, but the line still goes away after 4 s. Beats the global "animation: none". */
+@keyframes toast-life-still {
+  0%, 100% { visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-line {
+    animation: toast-life-still 0s linear 4s forwards !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .toast-region {
+    left: auto;
+  }
+}

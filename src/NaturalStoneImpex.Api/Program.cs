@@ -112,9 +112,14 @@ using (var scope = app.Services.CreateScope())
     await DbSeeder.SeedAsync(db, app.Environment.WebRootPath);
 }
 
-// Exception handling middleware (API only; HTML pages get their own error handling later)
+// Errors: /api keeps its JSON middleware; everything else gets the designed error and not-found pages.
 app.UseWhen(ctx => ctx.Request.Path.StartsWithSegments("/api"),
     b => b.UseMiddleware<ExceptionHandlingMiddleware>());
+app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/api"), b =>
+{
+    b.UseExceptionHandler("/error", createScopeForErrors: true);
+    b.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+});
 
 if (app.Environment.IsDevelopment())
 {
@@ -124,6 +129,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles(); // runtime uploads (/uploads)
+// Explicit, and after the error branch: re-executing /error and /not-found must route the new path.
+// (The implicit UseRouting runs first in the pipeline, before the branch, so re-execution would find no endpoint.)
+app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<AdminCsrfHeaderMiddleware>();
 app.UseAuthorization();

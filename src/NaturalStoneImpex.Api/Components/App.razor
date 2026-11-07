@@ -4,7 +4,6 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Natural Stone Impex</title>
     <base href="/" />
     <ResourcePreloader />
     <link href="@Assets["lib/bootstrap/bootstrap.min.css"]" rel="stylesheet" />
@@ -14,7 +13,14 @@
     <link rel="stylesheet" href="@Assets["fonts/fonts.css"]" />
     <link rel="stylesheet" href="@Assets["css/nsi/tokens.css"]" />
     <link rel="stylesheet" href="@Assets["css/nsi/base.css"]" />
+    @if (PageRenderMode is null)
+    {
+        @* Static SSR pages only, so the storefront components do not restyle the WebAssembly pages. *@
+        <link rel="stylesheet" href="@Assets["css/nsi/components.css"]" />
+        <link rel="stylesheet" href="@Assets["css/nsi/storefront.css"]" />
+    }
     <ImportMap />
+    @* No static <title>: each page sets one through PageTitle (SeoHead on the storefront). *@
     <HeadOutlet @rendermode="PageRenderMode" />
 </head>
 
@@ -26,11 +32,20 @@
         <a href="" class="reload">Презареди</a>
         <a class="dismiss">🗙</a>
     </div>
-    <script src="@Assets["lib/bootstrap/bootstrap.bundle.min.js"]"></script>
-    <script src="@Assets["js/modals.js"]"></script>
-    <script src="@Assets["js/print.js"]"></script>
-    <script src="@Assets["js/visualizer.js"]"></script>
-    <script src="_framework/blazor.web.js"></script>
+    @if (PageRenderMode is not null)
+    {
+        @* WebAssembly pages (admin) only. Static SSR pages never load these. *@
+        <script src="@Assets["lib/bootstrap/bootstrap.bundle.min.js"]"></script>
+        <script src="@Assets["js/modals.js"]"></script>
+        <script src="@Assets["js/print.js"]"></script>
+    }
+    @if (IsVisualizer)
+    {
+        <script src="@Assets["js/visualizer.js"]"></script>
+    }
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="@Assets["js/storefront/focus.js"]"></script>
+    <script type="module" src="@Assets["js/storefront/page-script.js"]"></script>
 </body>
 
 </html>
@@ -41,4 +56,7 @@
 
     private IComponentRenderMode? PageRenderMode =>
         HttpContext.AcceptsInteractiveRouting() ? new InteractiveWebAssemblyRenderMode(prerender: false) : null;
+
+    private bool IsVisualizer =>
+        string.Equals(HttpContext.Request.Path.Value?.TrimEnd('/'), "/visualizer", StringComparison.OrdinalIgnoreCase);
 }

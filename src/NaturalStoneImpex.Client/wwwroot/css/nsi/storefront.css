@@ -1,0 +1,492 @@
+/*
+ * Storefront shell: page frame, header, phone menu, footer and the not-found / error state.
+ * Loaded on static SSR pages only (App.razor). Page-specific rules join this file in later tasks.
+ */
+
+/* ---------- Frame ---------- */
+
+.site {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.site-main {
+  flex: 1 0 auto;
+}
+
+/* Focus targets for the skip link and enhanced navigation; they are not controls, so no ring. */
+.site-main:focus,
+.site-main h1[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.wrap {
+  width: 100%;
+  max-width: calc(var(--container-max) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* ---------- Header ---------- */
+
+.site-header {
+  position: relative;
+  z-index: 1000;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-header__bar {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-3);
+  min-height: 56px;
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  margin-right: auto;
+  font-family: var(--font-display);
+  font-size: var(--text-15);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.wordmark:hover {
+  color: var(--ink);
+}
+
+.site-nav {
+  display: flex;
+  align-items: stretch;
+}
+
+.site-nav__links {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  height: 100%;
+  padding: 0 var(--space-3);
+  font-size: var(--text-15);
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+  transition: color var(--dur-hover) var(--ease);
+}
+
+.site-nav__link:hover {
+  color: var(--accent);
+}
+
+/* The active marker sits on the header's hairline. */
+.site-nav__link::after {
+  content: "";
+  position: absolute;
+  right: var(--space-3);
+  bottom: -1px;
+  left: var(--space-3);
+  height: 2px;
+  background: transparent;
+  transition: background-color var(--dur-hover) var(--ease);
+}
+
+.site-nav__link.is-active::after {
+  background: var(--accent);
+}
+
+/* On phones the cart sits flush between the wordmark and the menu toggle. */
+.site-nav__cart {
+  padding-inline: 0;
+}
+
+.site-nav__cart::after {
+  right: 0;
+  left: 0;
+}
+
+/* The word "Количка" shows from 420px; narrower phones get an outline bag, and the word stays for
+   screen readers, so the wordmark, the cart count and "Меню" fit on one line down to 320px. */
+.site-nav__cart-icon {
+  display: none;
+  font-size: var(--text-18);
+  line-height: 1;
+}
+
+@media (max-width: 419px) {
+  .site-nav__cart-icon {
+    display: inline-block;
+  }
+
+  .site-nav__cart-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 359px) {
+  .site-header__bar {
+    gap: var(--space-2);
+  }
+
+  .menu__toggle {
+    padding-left: var(--space-2);
+  }
+
+  .menu__toggle::after {
+    content: none;
+  }
+}
+
+.cart-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-size: var(--text-13);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--on-accent);
+  background: var(--accent);
+  border-radius: var(--radius);
+}
+
+/* ---------- Phone menu ---------- */
+
+.menu {
+  display: flex;
+}
+
+.menu__toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: 0 0 0 var(--space-3);
+  font-size: var(--text-15);
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+/* Hairline between the cart and the menu toggle. */
+.menu__toggle::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1px;
+  height: 20px;
+  background: var(--rule);
+  transform: translateY(-50%);
+}
+
+.menu__toggle::-webkit-details-marker {
+  display: none;
+}
+
+.menu__toggle::marker {
+  content: "";
+}
+
+/* A small chevron that turns when the menu opens. */
+.menu__toggle::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-top: -4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--dur-menu) var(--ease), margin var(--dur-menu) var(--ease);
+}
+
+.menu[open] .menu__toggle::after {
+  margin-top: 3px;
+  transform: rotate(225deg);
+}
+
+.menu__panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  box-shadow: var(--shadow-menu);
+}
+
+.menu[open] .menu__panel {
+  animation: menu-open var(--dur-menu) var(--ease);
+}
+
+@keyframes menu-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.menu__links {
+  margin: 0;
+  padding: 0 var(--gutter);
+  list-style: none;
+}
+
+.menu__links li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.menu__links .site-nav__link {
+  display: flex;
+  min-height: var(--space-9);
+  padding: 0;
+  font-size: var(--text-16);
+}
+
+.menu__links .site-nav__link::after {
+  content: none;
+}
+
+.menu__links .site-nav__link.is-active {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+
+@media (min-width: 768px) {
+  .site-header__bar {
+    gap: var(--space-6);
+    min-height: 64px;
+  }
+
+  .wordmark {
+    font-size: var(--text-18);
+  }
+
+  .site-nav__links {
+    display: flex;
+  }
+
+  /* A hairline divides the cart from the section links. */
+  .site-nav__cart {
+    margin-left: var(--space-3);
+    padding-left: var(--space-5);
+    padding-right: 0;
+  }
+
+  .site-nav__cart::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 1px;
+    height: 20px;
+    background: var(--rule);
+    transform: translateY(-50%);
+  }
+
+  .site-nav__cart::after {
+    left: var(--space-5);
+  }
+
+  .menu {
+    display: none;
+  }
+}
+
+/* ---------- Footer ---------- */
+
+/* Columns share a first baseline; every following line sits on a 44px row, so links meet the target size
+   and the columns keep one rhythm. */
+.shop-footer {
+  margin-top: var(--space-10);
+  padding-top: var(--space-8);
+  font-size: var(--text-14);
+  color: var(--ink);
+  border-top: 1px solid var(--rule);
+}
+
+.shop-footer p {
+  margin: 0;
+}
+
+.shop-footer__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6) var(--space-7);
+  align-items: baseline;
+}
+
+.shop-footer__name {
+  font-family: var(--font-display);
+  font-size: var(--text-18);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.shop-footer__label {
+  font-size: var(--text-13);
+  color: var(--stone);
+}
+
+.shop-footer__line {
+  display: flex;
+  align-items: center;
+  min-height: var(--target-min);
+}
+
+.shop-footer__line a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+}
+
+.shop-footer .shop-footer__base {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 var(--space-6);
+  margin-top: var(--space-7);
+  padding: var(--space-2) 0 var(--space-5);
+  font-size: var(--text-13);
+  color: var(--stone);
+  border-top: 1px solid var(--rule);
+}
+
+.shop-footer__links {
+  display: flex;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shop-footer__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  font-size: var(--text-14);
+}
+
+@media (min-width: 768px) {
+  .shop-footer__grid {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 3fr) minmax(0, 3fr);
+  }
+}
+
+/* ---------- Not found and error ---------- */
+
+.state {
+  display: grid;
+  gap: var(--space-6);
+  padding-top: var(--space-8);
+}
+
+.state__title {
+  max-width: 12ch;
+  color: var(--ink);
+  margin: 0;
+  font-size: var(--text-34);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.state__body {
+  max-width: 34rem;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
+}
+
+.state__text {
+  margin: 0;
+  font-size: var(--text-18);
+  line-height: 1.55;
+}
+
+.state__path {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.state__phone {
+  margin: var(--space-4) 0 var(--space-1);
+  font-family: var(--font-display);
+  font-size: var(--text-26);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.state__phone a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.18em;
+  transition: color var(--dur-hover) var(--ease), text-decoration-color var(--dur-hover) var(--ease);
+}
+
+.state__phone a:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+.state__hours {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-7);
+}
+
+@media (min-width: 768px) {
+  .state {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: var(--space-7);
+    padding-top: var(--space-10);
+  }
+
+  .state__title {
+    grid-column: 1 / span 7;
+    font-size: var(--text-48);
+  }
+
+  .state__body {
+    grid-column: 8 / -1;
+    margin-top: var(--space-2);
+  }
+}

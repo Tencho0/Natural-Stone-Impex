@@ -1,0 +1,42 @@
+@page "/not-found"
+@attribute [ExcludeFromInteractiveRouting]
+@layout MainLayout
+@using Microsoft.AspNetCore.Diagnostics
+
+@* Rendered for every unknown non-API URL through UseStatusCodePagesWithReExecute, which keeps the 404 status. *@
+
+<SeoHead Title="Страницата не е намерена"
+         Description="Търсената страница не съществува. Продължете към каталога с естествен камък и строителни материали."
+         CanonicalPath="/not-found"
+         NoIndex="true" />
+
+<section class="wrap state" aria-labelledby="state-title">
+    <h1 id="state-title" class="state__title">Тази страница не съществува.</h1>
+    <div class="state__body">
+        <p class="state__text">
+            @if (_requestedPath is not null)
+            {
+                <text>Адресът <span class="state__path">@_requestedPath</span> не води до страница в сайта. </text>
+            }
+            Може връзката да е остаряла или адресът да е въведен с грешка.
+        </p>
+        <div class="state__actions">
+            <a class="btn btn-primary" href="/catalog">Каталог</a>
+            <a class="btn btn-outline" href="/">Начало</a>
+        </div>
+    </div>
+</section>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? _requestedPath;
+
+    protected override void OnInitialized()
+    {
+        var path = HttpContext?.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalPath;
+        if (!string.IsNullOrEmpty(path) && path != "/")
+            _requestedPath = path.Length > 80 ? path[..80] + "…" : path;
+    }
+}

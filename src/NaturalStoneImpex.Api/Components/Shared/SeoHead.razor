@@ -1,0 +1,88 @@
+@inject NavigationManager Navigation
+
+@* The only HeadContent on a storefront page: HeadOutlet shows just the last HeadContent rendered,
+   so pages put everything for <head> through this component. *@
+
+<PageTitle>@_title</PageTitle>
+<HeadContent>
+    <meta name="description" content="@Description" />
+    @if (NoIndex)
+    {
+        <meta name="robots" content="noindex" />
+    }
+    else
+    {
+        <link rel="canonical" href="@_canonical" />
+    }
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="@SeoFormat.SiteName" />
+    <meta property="og:locale" content="bg_BG" />
+    <meta property="og:title" content="@_title" />
+    <meta property="og:description" content="@Description" />
+    <meta property="og:url" content="@_canonical" />
+    @if (_image is not null)
+    {
+        <meta property="og:image" content="@_image" />
+    }
+    @if (_jsonLd is not null)
+    {
+        <script type="application/ld+json">@((MarkupString)_jsonLd)</script>
+    }
+</HeadContent>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    /// <summary>Page name; rendered as "{Title} | Natural Stone Impex".</summary>
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>Local path (and query, if it matters) of the canonical URL, e.g. "/catalog?category=2".</summary>
+    [Parameter, EditorRequired]
+    public string CanonicalPath { get; set; } = "/";
+
+    /// <summary>Local image path or absolute http(s) URL for og:image.</summary>
+    [Parameter]
+    public string? ImagePath { get; set; }
+
+    /// <summary>Structured data: an object to serialize, or a JSON string.</summary>
+    [Parameter]
+    public object? JsonLd { get; set; }
+
+    /// <summary>For pages that must stay out of search results (not found, error).</summary>
+    [Parameter]
+    public bool NoIndex { get; set; }
+
+    private string _title = SeoFormat.SiteName;
+    private string _canonical = "/";
+    private string? _image;
+    private string? _jsonLd;
+
+    protected override void OnParametersSet()
+    {
+        // The request's scheme and host only build these absolute URLs; nothing else trusts them.
+        string scheme, host, pathBase;
+        if (HttpContext is not null)
+        {
+            scheme = HttpContext.Request.Scheme;
+            host = HttpContext.Request.Host.ToUriComponent();
+            pathBase = HttpContext.Request.PathBase.ToUriComponent();
+        }
+        else
+        {
+            var baseUri = new Uri(Navigation.BaseUri);
+            scheme = baseUri.Scheme;
+            host = baseUri.Authority;
+            pathBase = baseUri.AbsolutePath;
+        }
+
+        _title = SeoFormat.Title(Title);
+        _canonical = SeoFormat.AbsoluteUrl(scheme, host, pathBase, CanonicalPath);
+        _image = string.IsNullOrWhiteSpace(ImagePath) ? null : SeoFormat.ImageUrl(scheme, host, pathBase, ImagePath);
+        _jsonLd = JsonLd is null ? null : SeoFormat.JsonLd(JsonLd);
+    }
+}
