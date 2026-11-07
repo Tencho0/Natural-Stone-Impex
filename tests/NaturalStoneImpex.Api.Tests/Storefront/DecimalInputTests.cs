@@ -29,4 +29,24 @@ public class DecimalInputTests
     {
         Assert.False(DecimalInput.TryParse(text, out _));
     }
+
+    [Theory]
+    [InlineData("4,", 4)]
+    [InlineData(",5", 0.5)]
+    // "4 5" is intentionally 45: spaces are stripped as thousands separators.
+    [InlineData("4 5", 45)]
+    public void Pins_lenient_forms(string text, double expected)
+    {
+        Assert.True(DecimalInput.TryParse(text, out var value));
+        Assert.Equal((decimal)expected, value);
+    }
+
+    [Theory]
+    [InlineData("1e3")]
+    [InlineData("+5")]
+    [InlineData("1234567890123456789012345678901234567890")]
+    public void Rejects_exponent_sign_and_overflow(string text)
+    {
+        Assert.False(DecimalInput.TryParse(text, out _));
+    }
 }

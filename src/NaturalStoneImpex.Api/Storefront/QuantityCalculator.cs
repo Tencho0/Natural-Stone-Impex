@@ -19,19 +19,19 @@ public static class QuantityCalculator
         switch (input.Mode)
         {
             case QuantityMode.Dimensions:
-                if (!TryPositive(input.Length, out var length))
-                    return Fail("Length", "Въведете дължина в метри.");
-                if (!TryPositive(input.Width, out var width))
-                    return Fail("Width", "Въведете ширина в метри.");
+                if (!TryInput(input.Length, "Length", "Въведете дължина в метри.", out var length, out var bad))
+                    return bad!;
+                if (!TryInput(input.Width, "Width", "Въведете ширина в метри.", out var width, out bad))
+                    return bad!;
                 raw = length * width;
                 break;
             case QuantityMode.Area:
-                if (!TryPositive(input.Area, out raw))
-                    return Fail("Area", "Въведете площ в м².");
+                if (!TryInput(input.Area, "Area", "Въведете площ в м².", out raw, out var bad2))
+                    return bad2!;
                 break;
             default:
-                if (!TryPositive(input.Kilograms, out raw))
-                    return Fail("Kilograms", "Въведете количество в кг.");
+                if (!TryInput(input.Kilograms, "Kilograms", "Въведете количество в кг.", out raw, out var bad3))
+                    return bad3!;
                 appliesWaste = false;
                 break;
         }
@@ -46,8 +46,22 @@ public static class QuantityCalculator
         return new QuantityResult(true, quantity, null, null);
     }
 
-    private static bool TryPositive(string? text, out decimal value) =>
-        DecimalInput.TryParse(text, out value) && value > 0;
+    // Every single input is capped before any arithmetic, so the products below cannot overflow decimal.
+    private static bool TryInput(string? text, string field, string missingError, out decimal value, out QuantityResult? failure)
+    {
+        failure = null;
+        if (!DecimalInput.TryParse(text, out value) || value <= 0)
+        {
+            failure = Fail(field, missingError);
+            return false;
+        }
+        if (value > MaxQuantity)
+        {
+            failure = Fail(field, "Количеството е твърде голямо.");
+            return false;
+        }
+        return true;
+    }
 
     private static string FieldFor(QuantityMode mode) => mode switch
     {

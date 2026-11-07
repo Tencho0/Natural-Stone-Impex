@@ -69,4 +69,29 @@ public class QuantityCalculatorTests
         Assert.False(r.IsValid);
         Assert.Equal("Количеството е твърде голямо.", r.Error);
     }
+
+    [Fact]
+    public void Huge_length_is_rejected_without_exception()
+    {
+        var r = QuantityCalculator.Calculate(Dims("79228162514264337593543950335", "9", true));
+        Assert.False(r.IsValid);
+        Assert.Equal("Length", r.ErrorField);
+        Assert.Equal("Количеството е твърде голямо.", r.Error);
+    }
+
+    [Fact]
+    public void Huge_area_is_rejected_without_exception()
+    {
+        var r = QuantityCalculator.Calculate(Area("79228162514264337593543950335", true));
+        Assert.False(r.IsValid);
+        Assert.Equal("Area", r.ErrorField);
+    }
+
+    [Fact]
+    public void Dimensions_product_above_max_is_invalid()
+    {
+        var r = QuantityCalculator.Calculate(Dims("200", "100", true));
+        Assert.False(r.IsValid);
+        Assert.Equal("Количеството е твърде голямо.", r.Error);
+    }
 }
