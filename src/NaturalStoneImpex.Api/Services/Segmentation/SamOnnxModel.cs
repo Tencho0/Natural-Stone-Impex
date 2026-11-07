@@ -30,14 +30,18 @@ namespace NaturalStoneImpex.Api.Services.Segmentation;
 ///   matches the decoder's expected embedding input directly.
 /// - Decoder inputs/outputs match the standard 6-input SAM contract exactly
 ///   (image_embeddings, point_coords, point_labels, mask_input, has_mask_input,
-///   orig_im_size -&gt; masks/iou_predictions/low_res_masks), so Decode() below is
-///   unchanged from the brief's reference code. Point coordinates are still scaled by
-///   the same long-side-1024 ratio used for the image (SAM's standard convention),
+///   orig_im_size -&gt; masks/iou_predictions/low_res_masks). Point coordinates are scaled
+///   by the same long-side-1024 ratio used for the image (SAM's standard convention),
 ///   since the decoder has no visibility into the original photo's pixel grid.
-/// - The exported "masks" output is already upscaled to the original photo resolution
-///   by this decoder (it consumes orig_im_size directly), so the low-res-mask bilinear
-///   upscale path in Decode() is untested against this specific export but is kept as a
-///   defensive fallback for other SAM ONNX exports that only return 256x256 logits.
+/// - Decode() deliberately IGNORES the decoder's full-resolution "masks" output and
+///   upsamples "low_res_masks" itself. In this export the in-graph postprocess that turns
+///   the low-res logits into "masks" (using orig_im_size) is geometrically misregistered:
+///   it stretches Y by roughly 1.5x(H/W), and X as well for portrait photos. E.g. an object
+///   at y 60-80% of a 1920x1080 photo came back at y 51-68%, and at y 90-100% on a
+///   1024x1024 photo. "low_res_masks" ([1,1,256,256] logits over the padded 1024x1024
+///   frame, photo content in its top-left W*scale x H*scale region) is correctly
+///   registered for every aspect ratio — see UpsampleLowResLogits and the registration
+///   tests in SamOnnxModelTests.
 ///
 /// InferenceSession.Run is thread-safe; register this class as a singleton.
 /// </summary>
@@ -133,45 +137,57 @@ public class SamOnnxModel : ISamModel, IDisposable
             .ToList();
 
         using var results = _decoder.Run(inputs);
-        var masks = results.First(r => r.Name is "masks" or "low_res_masks");
-        var tensor = (DenseTensor<float>)masks.AsTensor<float>();
-        var dims = tensor.Dimensions.ToArray();
-        var h = dims[^2];
-        var w = dims[^1];
-
-        if (h == embedding.OrigHeight && w == embedding.OrigWidth)
-        {
-            var mask = new float[h, w];
-            for (var y = 0; y < h; y++)
-                for (var x = 0; x < w; x++)
-                    mask[y, x] = tensor[0, 0, y, x];
-            return mask;
-        }
-
-        // Export returned low-res (e.g., 256x256) logits — upscale bilinearly to photo size.
-        return BilinearResize(tensor, h, w, embedding.OrigHeight, embedding.OrigWidth,
-            embedding.Scale, embedding.OrigWidth, embedding.OrigHeight);
+        // Never read "masks" — it is misregistered in this export (see class remarks).
+        var lowRes = (DenseTensor<float>)results.First(r => r.Name == "low_res_masks").AsTensor<float>();
+        var lowSize = lowRes.Dimensions[^1];
+        // Single-mask export: the first lowSize^2 values are the [0, 0] mask.
+        return UpsampleLowResLogits(lowRes.Buffer.Span[..(lowSize * lowSize)], lowSize,
+            embedding.OrigWidth, embedding.OrigHeight, embedding.Scale);
     }
 
-    private static float[,] BilinearResize(DenseTensor<float> src, int srcH, int srcW,
-        int dstH, int dstW, float scale, int origW, int origH)
+    /// <summary>
+    /// Bilinearly upsamples SAM's square low-res mask logits to the original photo grid.
+    /// The low-res grid (lowSize x lowSize, normally 256) covers the padded 1024x1024 encoder
+    /// frame; the photo occupies its top-left (origW*scale) x (origH*scale) region, where
+    /// scale = 1024 / max(origW, origH). Sampling is pixel-centre aligned, matching SAM's own
+    /// upscale → crop → resize postprocess (bilinear, align_corners=false).
+    /// </summary>
+    /// <param name="low">Row-major lowSize*lowSize logits of a single mask.</param>
+    /// <returns>Logits [origH, origW]; values &gt; 0 are selected.</returns>
+    public static float[,] UpsampleLowResLogits(ReadOnlySpan<float> low, int lowSize,
+        int origW, int origH, float scale)
     {
-        // Low-res SAM masks correspond to the 1024x1024 padded frame; only the
-        // (origW*scale) x (origH*scale) top-left region is valid.
-        var validW = origW * scale / 1024f * srcW;
-        var validH = origH * scale / 1024f * srcH;
-        var result = new float[dstH, dstW];
-        for (var y = 0; y < dstH; y++)
+        if (low.Length < lowSize * lowSize)
+            throw new ArgumentException("Low-res buffer is smaller than lowSize^2.", nameof(low));
+
+        var k = lowSize / (float)InputSize * scale; // original px -> low-res px
+        var maxCoord = lowSize - 1.001f;           // keeps index + 1 in range
+
+        // Horizontal sample positions are the same for every row — compute them once.
+        var x0s = new int[origW];
+        var fxs = new float[origW];
+        for (var x = 0; x < origW; x++)
         {
-            var sy = Math.Clamp(y / (float)dstH * validH, 0, srcH - 1.001f);
-            int y0 = (int)sy; var fy = sy - y0;
-            for (var x = 0; x < dstW; x++)
+            var sx = Math.Clamp((x + 0.5f) * k - 0.5f, 0f, maxCoord);
+            x0s[x] = (int)sx;
+            fxs[x] = sx - x0s[x];
+        }
+
+        var result = new float[origH, origW];
+        for (var y = 0; y < origH; y++)
+        {
+            var sy = Math.Clamp((y + 0.5f) * k - 0.5f, 0f, maxCoord);
+            var y0 = (int)sy;
+            var fy = sy - y0;
+            var top = low.Slice(y0 * lowSize, lowSize);
+            var bottom = low.Slice((y0 + 1) * lowSize, lowSize);
+            for (var x = 0; x < origW; x++)
             {
-                var sx = Math.Clamp(x / (float)dstW * validW, 0, srcW - 1.001f);
-                int x0 = (int)sx; var fx = sx - x0;
-                var top = src[0, 0, y0, x0] * (1 - fx) + src[0, 0, y0, x0 + 1] * fx;
-                var bottom = src[0, 0, y0 + 1, x0] * (1 - fx) + src[0, 0, y0 + 1, x0 + 1] * fx;
-                result[y, x] = top * (1 - fy) + bottom * fy;
+                var x0 = x0s[x];
+                var fx = fxs[x];
+                var t = top[x0] + (top[x0 + 1] - top[x0]) * fx;
+                var b = bottom[x0] + (bottom[x0 + 1] - bottom[x0]) * fx;
+                result[y, x] = t + (b - t) * fy;
             }
         }
         return result;

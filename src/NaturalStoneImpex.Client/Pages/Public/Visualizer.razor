@@ -52,10 +52,7 @@ else
 {
     <div class="row g-3">
         <div class="col-lg-8">
-            @if (!_hasMask)
-            {
-                <div class="alert alert-primary py-2">Докоснете областта, която искате да покриете с настилка.</div>
-            }
+            <div class="alert @(_hasMask ? "alert-light border" : "alert-primary") py-2 small mb-2">@ModeHint</div>
 
             <div class="btn-toolbar gap-2 mb-2" role="toolbar" aria-label="Инструменти">
                 <div class="btn-group btn-group-sm" role="group">
@@ -67,6 +64,11 @@ else
                 <button class="btn btn-sm btn-outline-danger" @onclick="ClearMaskAsync" disabled="@(_busy || !_hasMask)">Изчисти</button>
                 <button class="btn btn-sm @(_showHandles ? "btn-secondary" : "btn-outline-secondary")"
                         @onclick="ToggleHandlesAsync" disabled="@(_busy || !_hasMask)">Перспектива</button>
+                @if (_showHandles)
+                {
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ResetPerspectiveAsync"
+                            disabled="@(_busy || !_perspectiveManual)">Автоматична перспектива</button>
+                }
                 @if (_mode is "brush" or "erase")
                 {
                     <div class="d-flex align-items-center gap-1">
@@ -181,6 +183,7 @@ else
     private string _mode = "tap-add";
     private int _brushSize = 40;
     private bool _showHandles;
+    private bool _perspectiveManual;
     private double[] _corners = new double[8];
     private int _photoW, _photoH;
     private int _dragIndex = -1;
@@ -273,7 +276,7 @@ else
         _photoW = size.Width;
         _photoH = size.Height;
         await JS.InvokeVoidAsync("nsiVisualizer.setMode", "tap-add");
-        await JS.InvokeVoidAsync("nsiVisualizer.setMaskVisible", true);
+        await JS.InvokeVoidAsync("nsiVisualizer.setMaskVisible", false);
     }
 
     [JSInvokable]
@@ -314,14 +317,8 @@ else
             _sessionToken = result.SessionToken;
             await JS.InvokeAsync<object>("nsiVisualizer.setMaskPng", result.MaskPng);
 
-            if (!_hasMask)
-            {
-                _hasMask = true;
-                var corners = await JS.InvokeAsync<double[]>("nsiVisualizer.defaultCornersFromMask");
-                _corners = corners; // mirror JS state so the handle overlay shows correct geometry
-                await JS.InvokeVoidAsync("nsiVisualizer.setCorners", (object)corners);
-            }
-
+            _hasMask = true;
+            await UpdateAutoPerspectiveAsync();
             await ApplySelectedProductAsync();
         }
         catch (JSException)
@@ -336,18 +333,68 @@ else
     }
 
     [JSInvokable]
-    public Task OnMaskEditedAsync()
+    public async Task OnMaskEditedAsync(bool hasMask)
     {
-        _hasMask = true;
-        StateHasChanged();
-        return Task.CompletedTask;
+        try
+        {
+            if (hasMask)
+            {
+                _hasMask = true;
+                await UpdateAutoPerspectiveAsync();
+                await ApplySelectedProductAsync();
+            }
+            else
+            {
+                // Everything was erased: same state as «Изчисти».
+                await ResetSelectionStateAsync();
+            }
+        }
+        catch (JSException)
+        {
+            _error = "Възникна грешка при показването на визуализацията. Моля, опитайте отново.";
+        }
+        finally
+        {
+            StateHasChanged();
+        }
     }
+
+    // Until the customer drags a corner, the perspective follows the current selection
+    // (camera model + horizon estimated from the mask shape in visualizer.js).
+    private async Task UpdateAutoPerspectiveAsync()
+    {
+        if (_perspectiveManual) return;
+        _corners = await JS.InvokeAsync<double[]>("nsiVisualizer.autoPerspective");
+    }
+
+    private async Task ResetPerspectiveAsync()
+    {
+        _perspectiveManual = false;
+        await UpdateAutoPerspectiveAsync();
+        await JS.InvokeVoidAsync("nsiVisualizer.render");
+    }
+
+    private string ModeHint => !_hasMask
+        ? (_mode is "brush"
+            ? "Оцветете с четката площта, която искате да покриете с настилка."
+            : "Докоснете площта, която искате да покриете с настилка — ще я разпознаем автоматично.")
+        : _mode switch
+        {
+            "tap-add" => "Докоснете още участък, за да го добавите към площта.",
+            "tap-remove" => "Докоснете участък, който да бъде изключен от площта (напр. цветна леха или предмет).",
+            "brush" => "Оцветете с четката, за да добавите към площта (зелено = избрано).",
+            "erase" => "Изтрийте с гумата излишните части от площта (зелено = избрано).",
+            _ => "Изберете настилка от списъка."
+        };
 
     private async Task ApplySelectedProductAsync()
     {
         if (_selected is null || !_hasMask) return;
+        // A texture uploaded specifically for the visualizer (spec §7.1: seamless, top-down) is
+        // rendered exactly; a catalog photo standing in for one gets automatic repair in JS.
+        var dedicatedTexture = !string.Equals(_selected.TexturePath, _selected.ImagePath, StringComparison.OrdinalIgnoreCase);
         await JS.InvokeAsync<object>("nsiVisualizer.setProductTexture",
-            _selected.TexturePath, (double)_selected.TextureWidthMeters);
+            _selected.TexturePath, (double)_selected.TextureWidthMeters, dedicatedTexture);
         await JS.InvokeVoidAsync("nsiVisualizer.render");
     }
 
@@ -368,6 +415,8 @@ else
     {
         _mode = mode;
         await JS.InvokeVoidAsync("nsiVisualizer.setMode", mode);
+        // The green selection highlight only helps while painting; otherwise it hides the result.
+        await JS.InvokeVoidAsync("nsiVisualizer.setMaskVisible", mode is "brush" or "erase");
     }
 
     private async Task OnBrushSizeChanged(ChangeEventArgs e)
@@ -379,10 +428,18 @@ else
     private async Task ClearMaskAsync()
     {
         await JS.InvokeVoidAsync("nsiVisualizer.clearMask");
+        await ResetSelectionStateAsync();
+    }
+
+    private async Task ResetSelectionStateAsync()
+    {
         _points.Clear();
         _hasMask = false;
         _showHandles = false;
+        _perspectiveManual = false;
+        _dragIndex = -1;
         _corners = new double[8]; // stale corners must not survive into the next segmentation
+        await JS.InvokeVoidAsync("nsiVisualizer.setGridVisible", false);
         await SetModeAsync("tap-add");
     }
 
@@ -390,10 +447,8 @@ else
     {
         _showHandles = !_showHandles;
         if (_showHandles)
-        {
-            var corners = await JS.InvokeAsync<double[]>("nsiVisualizer.defaultCornersFromMask");
-            if (_corners[2] == 0 && _corners[5] == 0) _corners = corners; // keep user-adjusted values
-        }
+            _corners = await JS.InvokeAsync<double[]?>("nsiVisualizer.getCorners") ?? _corners;
+        await JS.InvokeVoidAsync("nsiVisualizer.setGridVisible", _showHandles);
     }
 
     private void OnHandleDown(PointerEventArgs e, int index) => _dragIndex = index;
@@ -401,6 +456,7 @@ else
     private async Task OnHandleMove(PointerEventArgs e)
     {
         if (_dragIndex < 0) return;
+        _perspectiveManual = true; // an actual drag (not just a tap on a handle) freezes the auto mode
         var rect = await JS.InvokeAsync<StageRect>("nsiVisualizer.getStageRect");
         _corners[_dragIndex * 2] = Math.Clamp((e.ClientX - rect.Left) / rect.Width * _photoW, 0, _photoW);
         _corners[_dragIndex * 2 + 1] = Math.Clamp((e.ClientY - rect.Top) / rect.Height * _photoH, 0, _photoH);
@@ -434,7 +490,15 @@ else
     {
         _selected = product;
         _cartMessage = null;
-        await ApplySelectedProductAsync();
+        _error = null;
+        try
+        {
+            await ApplySelectedProductAsync();
+        }
+        catch (JSException)
+        {
+            _error = "Текстурата на продукта не можа да бъде заредена. Моля, изберете друг продукт.";
+        }
     }
 
     private async Task DownloadAsync() =>
@@ -474,6 +538,7 @@ else
         _error = null;
         _mode = "tap-add";
         _showHandles = false;
+        _perspectiveManual = false;
         _corners = new double[8];
         _scale = 1.0;
         _rotation = 0;

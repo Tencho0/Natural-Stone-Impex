@@ -82,10 +82,12 @@
     await viz.setMaskPng(mask.toDataURL("image/png").split(",")[1]);
     assert(viz.hasMask(), "mask registered");
 
-    const def = viz.defaultCornersFromMask();
-    assert(def.length === 8, "default corners has 8 values");
+    const def = viz.autoPerspective();
+    assert(def.length === 8, "auto perspective returns 8 corner values");
     assert(def[7] > def[1], "bottom corners below top corners");
-    viz.setCorners(def);
+    assert(def[2] - def[0] < def[4] - def[6], "far edge narrower than near edge (perspective)");
+    const ground = viz._internal().ground;
+    assert(ground.w > 0.3 && ground.d > 0.3, "ground rectangle has a plausible size in metres");
 
     // Procedural stone texture
     const tile = document.createElement("canvas");
@@ -217,6 +219,49 @@
       assert(maskPx(1100, 500) < 128, "mid-stroke: no stray painting after tool switch (second point clean)");
     } catch (e) {
       failures.push("mid-stroke tool switch threw: " + e.message);
+    }
+
+    // --- review regressions ---
+    try {
+      // (1) tileable texture: the step across the X wrap must look like any step inside the
+      // tile, including near the corners (Y-pass seam must be wrap-consistent).
+      // Diagonal stripes: a non-cyclic Y-pass seam breaks the X wrap here (step ~190 vs ~50).
+      const tw = 400, th = 300, src = new Uint8ClampedArray(tw * th * 4);
+      for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+        const i = (y * tw + x) * 4, v = 128 + 100 * Math.sin(x * 0.07 + y * 0.11);
+        src[i] = v; src[i + 1] = v; src[i + 2] = v; src[i + 3] = 255;
+      }
+      const t = viz._test.makeTileable(src, tw, th);
+      const px = (x, y) => (y * t.w + x) * 4;
+      const diff = (a, b) => Math.max(Math.abs(t.data[a] - t.data[b]), Math.abs(t.data[a + 1] - t.data[b + 1]), Math.abs(t.data[a + 2] - t.data[b + 2]));
+      let inner = 0, wrapX = 0, wrapY = 0;
+      for (let y = 0; y < t.h; y++) for (let x = 0; x + 1 < t.w; x++) inner = Math.max(inner, diff(px(x, y), px(x + 1, y)));
+      for (let y = 0; y < t.h; y++) wrapX = Math.max(wrapX, diff(px(t.w - 1, y), px(0, y)));
+      for (let x = 0; x < t.w; x++) wrapY = Math.max(wrapY, diff(px(x, t.h - 1), px(x, 0)));
+      assert(t.w < tw && t.h < th && t.data.length === t.w * t.h * 4, "tileable: dimensions consistent");
+      assert(wrapX <= inner + 12, "tileable: X wrap continuous (wrap " + wrapX + " vs inner " + inner + ")");
+      assert(wrapY <= inner + 12, "tileable: Y wrap continuous (wrap " + wrapY + " vs inner " + inner + ")");
+
+      // (2) brush corrections survive a new server mask (taps replace the server mask)
+      viz.setMode("brush"); viz.setBrushSize(40);
+      viz._test.strokeForTest(1150, 150);                        // far outside the trapezoid
+      viz.setMode(null);
+      await viz.setMaskPng(mask.toDataURL("image/png").split(",")[1]);
+      const sel = (x, y) => viz._internal().maskCanvas.getContext("2d").getImageData(x, y, 1, 1).data[3];
+      assert(sel(1150, 150) > 128, "brush addition survives a new server mask");
+      assert(sel(600, 800) > 128, "server mask still applied after recompose");
+
+      // (3) degenerate corners are ignored instead of producing NaN
+      const good = viz.getCorners();
+      viz.setCorners([100, 100, 100, 100, 100, 100, 100, 100]);
+      assert(JSON.stringify(viz.getCorners()) === JSON.stringify(good), "degenerate corners keep the last valid quad");
+
+      // (4) compare slider must not clip the input layer
+      viz.setCompareRatio(50);
+      assert(!viz._internal().editCanvas.style.clipPath, "compare does not clip the edit canvas (input stays live)");
+      viz.setCompareRatio(0);
+    } catch (e) {
+      failures.push("review regressions threw: " + e.message);
     }
 
     // --- dispose / re-init lifecycle ---

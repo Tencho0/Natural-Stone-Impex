@@ -246,15 +246,11 @@ public class ProductService : IProductService
         var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "products");
         Directory.CreateDirectory(uploadsDir);
 
-        // Delete old image if exists
-        if (!string.IsNullOrEmpty(product.ImagePath))
-        {
-            var oldPath = Path.Combine(_env.WebRootPath, product.ImagePath.TrimStart('/'));
-            if (File.Exists(oldPath))
-                File.Delete(oldPath);
-        }
+        // Delete old image if exists (unless the texture still uses the same file)
+        DeleteOldUpload(product.ImagePath, uploadsDir, product.TextureImagePath);
 
-        var fileName = $"{id}_{file.FileName}";
+        // Never trust the client's file name: strip any directory parts ("../") so the file stays in uploads/products.
+        var fileName = $"{id}_{Path.GetFileName(file.FileName)}";
         var filePath = Path.Combine(uploadsDir, fileName);
 
         using (var stream = new FileStream(filePath, FileMode.Create))
@@ -331,12 +327,8 @@ public class ProductService : IProductService
         var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "textures");
         Directory.CreateDirectory(uploadsDir);
 
-        if (!string.IsNullOrEmpty(product.TextureImagePath))
-        {
-            var oldPath = Path.Combine(_env.WebRootPath, product.TextureImagePath.TrimStart('/'));
-            if (File.Exists(oldPath))
-                File.Delete(oldPath);
-        }
+        // Delete old texture if exists (unless the catalog image still uses the same file)
+        DeleteOldUpload(product.TextureImagePath, uploadsDir, product.ImagePath);
 
         var extension = file.ContentType == "image/png" ? ".png" : ".jpg";
         var fileName = $"{id}_texture{extension}";
@@ -354,4 +346,34 @@ public class ProductService : IProductService
 
         return (texturePath, null);
     }
+
+    /// <summary>
+    /// Deletes a previously uploaded file, but only when it resolves inside <paramref name="ownedDir"/>
+    /// (the path comes from the database, so a value like "/../appsettings.json" must not escape it)
+    /// and no other path on the product still references the same file (e.g. a texture that reuses
+    /// the catalog image).
+    /// </summary>
+    private void DeleteOldUpload(string? oldWebPath, string ownedDir, params string?[] stillReferencedWebPaths)
+    {
+        if (string.IsNullOrEmpty(oldWebPath))
+            return;
+
+        var oldFullPath = ToFullPath(oldWebPath);
+        var ownedPrefix = Path.GetFullPath(ownedDir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!oldFullPath.StartsWith(ownedPrefix, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        foreach (var other in stillReferencedWebPaths)
+        {
+            if (!string.IsNullOrEmpty(other)
+                && string.Equals(ToFullPath(other), oldFullPath, StringComparison.OrdinalIgnoreCase))
+                return;
+        }
+
+        if (File.Exists(oldFullPath))
+            File.Delete(oldFullPath);
+    }
+
+    private string ToFullPath(string webPath) =>
+        Path.GetFullPath(Path.Combine(_env.WebRootPath, webPath.TrimStart('/', '\\')));
 }

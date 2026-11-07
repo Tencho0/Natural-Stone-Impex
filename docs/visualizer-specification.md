@@ -156,20 +156,24 @@ Refinement taps (add/remove region) each require a segmentation call. To avoid r
 
 The paved ground is approximated as a **plane**; the mapping from texture space to image space is a **homography** computed from the 4 corner handles of the perspective grid (standard 4-point DLT — a ~40-line JS function; no library dependency required, though `glMatrix` may be used).
 
-- **Initialization**: the grid quadrilateral is derived from the mask's bounding geometry — bottom edge at the mask's bottom (near), top edge at the mask's top narrowed to ~45% width (far), a heuristic that matches typical photos where the camera looks slightly down at the ground. Good defaults make Step 3 skippable for most photos.
-- **Texture scale**: the homography maps a virtual ground rectangle of configurable physical size; the product's `TextureWidthMeters` (§7.1) determines how many texture tiles fit, so «Размер на камъка» starts at a physically plausible value.
+- **Initialization (camera model)**: a level pinhole camera ~1.6 m above the ground with a typical phone focal length (≈0.7 × long side). The horizon row is estimated from the mask: if its left/right borders are straight converging lines (paths, driveways) their intersection — the vanishing point — gives the horizon; otherwise a prior of 40% from the top is used, always kept above the selected area. The camera model then yields a ground rectangle in **real metres** spanning the selection, projected to the 4 corner handles. The default follows the selection until the customer drags a handle («Автоматична перспектива» restores it). Good defaults make Step 3 skippable for most photos.
+- **Texture scale**: because the ground rectangle is in metres, the product's `TextureWidthMeters` (§7.1) directly sets the stone size, so «Размер на камъка» starts at a physically plausible value.
 - **Limitations accepted**: curved/sloped/stepped terrain deviates from the plane assumption — the visualization remains a believable approximation, per the disclaimer.
 
 ### 5.3 Rendering (client, per product — the instant part)
 
 Renderer: **WebGL** (true projective texture mapping, fast on mobile), with a **canvas-2D fallback** (subdivision warp, perspective.js-style) for browsers without WebGL. Implemented as a plain-JS module (`visualizer.js`) driven from Blazor via JS interop; Blazor owns UI state, JS owns the canvas.
 
+Texture preparation (once per product, cached client-side): the product photo's low-frequency lighting (vignetting, darker corners) is flattened, then the image is made tileable with an image-quilting min-cut seam on each axis (the cut follows the lowest-difference path, typically the joints between stones). The aspect ratio is preserved — `TextureWidthMeters` is the width; height follows the image.
+
 Compositing pipeline per render:
-1. Tile the product's seamless texture (repeat wrap, scale/rotation from sliders).
-2. Warp by the homography onto the photo plane (one textured quad in WebGL).
-3. Clip to the mask (mask as alpha texture; feathered ~2 px edge to avoid hard cut-outs).
-4. **Lighting transfer**: multiply the warped texture by the original photo's normalized luminance within the mask (`result = texture × L/L̄`, clamped). This carries real shadows (tree, building, car shadows) onto the new paving — the single highest-value realism trick in classical visualizers.
+1. Tile the prepared texture (repeat wrap, scale/rotation from sliders). Where `EXT_shader_texture_lod` is available, a smooth noise picks a random offset per region of ground (stochastic tiling) so the repeat lattice is not visible; a gentle large-scale brightness variation is added too.
+2. Warp by the homography onto the photo plane (one full-screen pass in WebGL; pixels at/above the horizon are left untouched).
+3. Clip to the mask (alpha mask; ~1.5 px feather in the shader; premultiplied output, so no bright halos).
+4. **Lighting transfer (low-frequency)**: the photo's luminance is blurred **inside the mask only** (normalized convolution, so lawn/walls next to the area do not leak in) and divided by the brightly-lit level of the area (75th percentile). The texture is multiplied by this map in linear light, plus a faint contact shadow at the boundary. This carries real shadows (tree, building, car shadows) onto the new paving **without** imprinting the old surface's texture (gravel, grass, cracks) — using full-resolution luminance would stamp the old surface onto the new stone.
 5. Draw over the original photo → final canvas.
+
+**Segmentation output note**: the decoder's in-graph full-resolution `masks` output is misregistered for this ONNX export; the server upsamples `low_res_masks` itself (see `SamOnnxModel`).
 
 Product switch changes only the texture in step 1 → full re-render in tens of milliseconds.
 

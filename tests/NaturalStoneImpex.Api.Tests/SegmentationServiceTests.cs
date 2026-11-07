@@ -5,6 +5,13 @@ using NaturalStoneImpex.Api.Data;
 using NaturalStoneImpex.Api.Models.Entities;
 using NaturalStoneImpex.Api.Services.Segmentation;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Bmp;
+using SixLabors.ImageSharp.Formats.Gif;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Tiff;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace NaturalStoneImpex.Api.Tests;
@@ -174,6 +181,61 @@ public class SegmentationServiceTests
 
         Assert.Equal(429, blocked.StatusCode);
         Assert.Equal("Достигнахте дневния лимит за визуализации. Опитайте отново утре.", blocked.Error);
+    }
+
+    private static byte[] EncodePhoto(string format, int width = 400, int height = 300)
+    {
+        using var image = new Image<Rgb24>(width, height, new Rgb24(100, 100, 100));
+        using var ms = new MemoryStream();
+        IImageEncoder encoder = format switch
+        {
+            "jpeg" => new JpegEncoder(),
+            "png" => new PngEncoder(),
+            "webp" => new WebpEncoder(),
+            "tiff" => new TiffEncoder(),
+            "bmp" => new BmpEncoder(),
+            "gif" => new GifEncoder(),
+            _ => throw new ArgumentOutOfRangeException(nameof(format))
+        };
+        image.Save(ms, encoder);
+        return ms.ToArray();
+    }
+
+    // Only JPG/PNG/WebP are decoded (spec §3.2). TIFF in particular must never reach the
+    // decoder: ImageSharp 3.1.12 has open TIFF-decoder advisories (e.g. GHSA-v76p-62qx-wwq2).
+    [Theory]
+    [InlineData("tiff")]
+    [InlineData("bmp")]
+    [InlineData("gif")]
+    public async Task Unsupported_format_returns_400_and_persists_failed_row(string format)
+    {
+        var (service, model, db) = CreateService();
+        using var photo = new MemoryStream(EncodePhoto(format));
+
+        var outcome = await service.SegmentNewAsync(photo, Tap(), "7.7.7.7");
+
+        Assert.Equal(400, outcome.StatusCode);
+        Assert.Equal("Моля, качете снимка във формат JPG или PNG до 10 MB.", outcome.Error);
+        Assert.Equal(0, model.EncodeCalls);
+        var row = Assert.Single(db.VisualizationRequests.ToList());
+        Assert.Equal(VisualizationStatus.Failed, row.Status);
+    }
+
+    [Theory]
+    [InlineData("jpeg")]
+    [InlineData("png")]
+    [InlineData("webp")]
+    public async Task Supported_format_is_decoded(string format)
+    {
+        var (service, model, _) = CreateService();
+        using var photo = new MemoryStream(EncodePhoto(format));
+
+        var outcome = await service.SegmentNewAsync(photo, Tap(), "6.6.6.6");
+
+        Assert.Equal(200, outcome.StatusCode);
+        Assert.Equal(400, outcome.Result!.Width);
+        Assert.Equal(300, outcome.Result.Height);
+        Assert.Equal(1, model.EncodeCalls);
     }
 
     [Fact]

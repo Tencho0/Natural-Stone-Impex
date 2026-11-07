@@ -7,6 +7,10 @@ using Microsoft.Extensions.Options;
 using NaturalStoneImpex.Api.Data;
 using NaturalStoneImpex.Api.Models.Entities;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
@@ -22,6 +26,20 @@ public class SegmentationService : ISegmentationService
     private const string ErrorExpired = "Сесията е изтекла. Моля, качете снимката отново.";
     private const string ErrorNoSurface = "Не разпознахме повърхност тук. Опитайте друго място или използвайте четката.";
     private const int MaxRefinesPerToken = 200;
+
+    // Customer uploads are decoded with ONLY the JPEG/PNG/WebP modules (spec §3.2), so other
+    // formats fail format detection → UnknownImageFormatException → 400 ErrorBadImage.
+    // Security: SixLabors.ImageSharp 3.1.12 has open TIFF-decoder advisories (GHSA-v76p-62qx-wwq2
+    // heap OOB write, GHSA-wmxv-xphr-5c9g BigTIFF loop) that this keeps unreachable. The patched
+    // 3.2.0 requires a Six Labors license key at build time (Release builds fail without one);
+    // that upgrade is pending a licensing decision. Keep this restriction even after upgrading.
+    private static readonly DecoderOptions PhotoDecoderOptions = new()
+    {
+        Configuration = new Configuration(
+            new JpegConfigurationModule(),
+            new PngConfigurationModule(),
+            new WebpConfigurationModule())
+    };
 
     private readonly ISamModel _model;
     private readonly AppDbContext _context;
@@ -63,7 +81,7 @@ public class SegmentationService : ISegmentationService
             // Cheap header-only check before the full decode: rejects declared-oversized
             // images (e.g. a crafted header claiming huge dimensions) without ever
             // allocating the decoded pixel buffer.
-            var info = await Image.IdentifyAsync(photo);
+            var info = await Image.IdentifyAsync(PhotoDecoderOptions, photo);
             if (Math.Max(info.Width, info.Height) > 2 * _options.MaxImageDimension)
             {
                 await RecordAsync(ipHash, VisualizationStatus.Failed, stopwatch.ElapsedMilliseconds);
@@ -75,7 +93,7 @@ public class SegmentationService : ISegmentationService
             photo.Position = 0;
 
             // Fully in-memory: the photo is never written to disk.
-            image = await Image.LoadAsync<Rgb24>(photo);
+            image = await Image.LoadAsync<Rgb24>(PhotoDecoderOptions, photo);
         }
         catch (Exception ex) when (ex is UnknownImageFormatException or InvalidImageContentException)
         {
