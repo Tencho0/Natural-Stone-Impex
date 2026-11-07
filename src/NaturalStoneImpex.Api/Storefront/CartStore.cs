@@ -7,7 +7,8 @@ public interface ICartStore
     /// <summary>Number of cart lines (not the summed quantity).</summary>
     int Count { get; }
 
-    void Add(int productId, decimal quantity);
+    /// <summary>Returns false only when a new product was dropped because the cart is full.</summary>
+    bool Add(int productId, decimal quantity);
     void SetQuantity(int productId, decimal quantity);
     void Remove(int productId);
     void Clear();
@@ -28,7 +29,7 @@ public class CartStore(IHttpContextAccessor accessor) : ICartStore
 
     public int Count => Current.Count;
 
-    public void Add(int productId, decimal quantity)
+    public bool Add(int productId, decimal quantity)
     {
         var lines = Current;
         var index = lines.FindIndex(l => l.ProductId == productId);
@@ -36,7 +37,10 @@ public class CartStore(IHttpContextAccessor accessor) : ICartStore
             lines[index] = lines[index] with { Quantity = Math.Min(lines[index].Quantity + quantity, QuantityCalculator.MaxQuantity) };
         else if (lines.Count < CartCookie.MaxLines)
             lines.Add(new CartLine(productId, Math.Min(quantity, QuantityCalculator.MaxQuantity)));
+        else
+            return false;
         Write();
+        return true;
     }
 
     public void SetQuantity(int productId, decimal quantity)

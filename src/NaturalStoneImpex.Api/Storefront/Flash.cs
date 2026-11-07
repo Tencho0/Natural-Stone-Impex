@@ -6,6 +6,7 @@ public static class Flash
     public const string CookieName = "nsi_flash";
     public const string Added = "added";
     public const string Removed = "removed";
+    public const string Full = "full";
 
     public static void Set(HttpResponse response, string code)
         => response.Cookies.Append(CookieName, code, new CookieOptions
@@ -32,6 +33,6 @@ public static class Flash
             SameSite = SameSiteMode.Lax,
             Path = "/"
         });
-        return value is Added or Removed ? value : null;
+        return value is Added or Removed or Full ? value : null;
     }
 }

@@ -25,8 +25,8 @@ public static class CartEndpoints
             if (!IsValidQuantity(qty) || !await IsPurchasable(db, productId))
                 return Results.LocalRedirect(target);
 
-            cart.Add(productId, qty);
-            Flash.Set(http.Response, Flash.Added);
+            var added = cart.Add(productId, qty);
+            Flash.Set(http.Response, added ? Flash.Added : Flash.Full);
             return Results.LocalRedirect(target);
         });
 
@@ -59,7 +59,8 @@ public static class CartEndpoints
             if (!await IsPurchasable(db, request.ProductId))
                 return Results.BadRequest(new { error = "Продуктът не е наличен." });
 
-            cart.Add(request.ProductId, request.Quantity);
+            if (!cart.Add(request.ProductId, request.Quantity))
+                return Results.BadRequest(new { error = $"Количката е пълна. Максимум {CartCookie.MaxLines} продукта." });
             return Results.NoContent();
         });
     }

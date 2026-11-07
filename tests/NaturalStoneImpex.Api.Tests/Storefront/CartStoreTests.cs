@@ -70,4 +70,35 @@ public class CartStoreTests
 
         Assert.Equal(new[] { new CartLine(1, 5m) }, store.Lines);
     }
+
+    private static string FullCookie() => string.Join("|", Enumerable.Range(1, CartCookie.MaxLines).Select(i => $"{i}:1"));
+
+    [Fact]
+    public void Add_new_product_on_full_cart_returns_false_and_leaves_cookie_unchanged()
+    {
+        var (store, ctx) = Create(FullCookie());
+
+        Assert.False(store.Add(9999, 1m));
+        Assert.Equal(CartCookie.MaxLines, store.Count);
+        Assert.Empty(SetCookie(ctx));
+    }
+
+    [Fact]
+    public void Add_existing_product_on_full_cart_returns_true()
+    {
+        var (store, _) = Create(FullCookie());
+
+        Assert.True(store.Add(3, 2m));
+        Assert.Equal(3m, store.Lines.Single(l => l.ProductId == 3).Quantity);
+    }
+
+    [Fact]
+    public void Add_clamps_to_max_quantity()
+    {
+        var (store, _) = Create();
+        store.Add(1, 9000m);
+
+        Assert.True(store.Add(1, 5000m));
+        Assert.Equal(QuantityCalculator.MaxQuantity, store.Lines.Single().Quantity);
+    }
 }
