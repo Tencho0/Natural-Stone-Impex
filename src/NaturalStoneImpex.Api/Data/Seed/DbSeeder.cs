@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NaturalStoneImpex.Api.Models.Entities;
 
@@ -6,11 +7,11 @@ namespace NaturalStoneImpex.Api.Data.Seed;
 
 public static class DbSeeder
 {
-    public static async Task SeedAsync(AppDbContext context)
+    public static async Task SeedAsync(AppDbContext context, string webRootPath)
     {
         await SeedAdminUserAsync(context);
         await SeedCategoriesAsync(context);
-        await SeedProductsAsync(context);
+        await SeedProductsAsync(context, webRootPath);
     }
 
     private static async Task SeedAdminUserAsync(AppDbContext context)
@@ -30,101 +31,78 @@ public static class DbSeeder
         await context.SaveChangesAsync();
     }
 
+    private sealed record SeedProduct(
+        string Name, string Category, string? Code, string Unit, string? UnitNote,
+        decimal PriceWithoutVat, decimal VatAmount, decimal PriceWithVat, string? Image);
+
+    private static List<SeedProduct> LoadSeedProducts()
+    {
+        var file = Path.Combine(AppContext.BaseDirectory, "SeedData", "products.json");
+        var json = File.ReadAllText(file);
+        return JsonSerializer.Deserialize<List<SeedProduct>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+               ?? new List<SeedProduct>();
+    }
+
     private static async Task SeedCategoriesAsync(AppDbContext context)
     {
         if (await context.Categories.AnyAsync())
             return;
 
         var now = DateTime.UtcNow;
-        var categories = new[]
-        {
-            new Category { Name = "Натурален камък", CreatedAt = now, UpdatedAt = now },
-            new Category { Name = "Цимент", CreatedAt = now, UpdatedAt = now },
-            new Category { Name = "Пясък и чакъл", CreatedAt = now, UpdatedAt = now },
-            new Category { Name = "Плочки", CreatedAt = now, UpdatedAt = now },
-            new Category { Name = "Инструменти", CreatedAt = now, UpdatedAt = now }
-        };
-
-        context.Categories.AddRange(categories);
+        var names = LoadSeedProducts().Select(p => p.Category).Distinct();
+        context.Categories.AddRange(names.Select(n => new Category { Name = n, CreatedAt = now, UpdatedAt = now }));
         await context.SaveChangesAsync();
     }
 
-    private static async Task SeedProductsAsync(AppDbContext context)
+    // Seeds the product catalog taken from naturalstoneimpex.com (prices converted from BGN to EUR at 1.95583,
+    // assumed VAT-inclusive at 20%). Products without a published price are seeded with 0.00 and stock 0.
+    private static async Task SeedProductsAsync(AppDbContext context, string webRootPath)
     {
         if (await context.Products.AnyAsync())
             return;
 
         var categories = await context.Categories.ToDictionaryAsync(c => c.Name, c => c.Id);
+        var seedDir = Path.Combine(AppContext.BaseDirectory, "SeedData", "products");
+        var uploadsDir = Path.Combine(webRootPath, "uploads", "products");
+        Directory.CreateDirectory(uploadsDir);
         var now = DateTime.UtcNow;
 
-        var products = new[]
+        var products = new List<Product>();
+        foreach (var p in LoadSeedProducts())
         {
-            new Product
+            string? imagePath = null;
+            if (p.Image is not null)
             {
-                Name = "Гранит сив",
-                CategoryId = categories["Натурален камък"],
-                PriceWithoutVat = 25.00m,
-                VatAmount = 5.00m,
-                PriceWithVat = 30.00m,
-                Unit = UnitType.Sqm,
-                StockQuantity = 150.00m,
-                IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new Product
-            {
-                Name = "Мрамор бял",
-                CategoryId = categories["Натурален камък"],
-                PriceWithoutVat = 40.00m,
-                VatAmount = 8.00m,
-                PriceWithVat = 48.00m,
-                Unit = UnitType.Sqm,
-                StockQuantity = 80.00m,
-                IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new Product
-            {
-                Name = "Цимент 25кг",
-                CategoryId = categories["Цимент"],
-                PriceWithoutVat = 5.00m,
-                VatAmount = 1.00m,
-                PriceWithVat = 6.00m,
-                Unit = UnitType.Kg,
-                StockQuantity = 500.00m,
-                IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new Product
-            {
-                Name = "Пясък фин",
-                CategoryId = categories["Пясък и чакъл"],
-                PriceWithoutVat = 0.08m,
-                VatAmount = 0.02m,
-                PriceWithVat = 0.10m,
-                Unit = UnitType.Kg,
-                StockQuantity = 2000.00m,
-                IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new Product
-            {
-                Name = "Гранитогрес 60x60",
-                CategoryId = categories["Плочки"],
-                PriceWithoutVat = 15.00m,
-                VatAmount = 3.00m,
-                PriceWithVat = 18.00m,
-                Unit = UnitType.Sqm,
-                StockQuantity = 200.00m,
-                IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now
+                var src = Path.Combine(seedDir, p.Image);
+                if (File.Exists(src))
+                {
+                    File.Copy(src, Path.Combine(uploadsDir, p.Image), overwrite: true);
+                    imagePath = $"/uploads/products/{p.Image}";
+                }
             }
-        };
+
+            // UnitType supports only кг and м²; the one м³ product is seeded without a price and keeps its price in the description.
+            var perCubic = p.UnitNote == "m3";
+            var description = p.Code is null ? null : $"Код: {p.Code}";
+            if (perCubic)
+                description += $"; цена: {p.PriceWithVat:0.00} € / м³";
+
+            products.Add(new Product
+            {
+                Name = p.Name,
+                Description = description,
+                CategoryId = categories[p.Category],
+                PriceWithoutVat = perCubic ? 0m : p.PriceWithoutVat,
+                VatAmount = perCubic ? 0m : p.VatAmount,
+                PriceWithVat = perCubic ? 0m : p.PriceWithVat,
+                Unit = p.Unit == "Kg" ? UnitType.Kg : UnitType.Sqm,
+                StockQuantity = 0m,
+                ImagePath = imagePath,
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
 
         context.Products.AddRange(products);
         await context.SaveChangesAsync();
