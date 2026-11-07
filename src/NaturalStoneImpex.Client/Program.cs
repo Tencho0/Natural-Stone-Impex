@@ -5,19 +5,21 @@ using NaturalStoneImpex.Client.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
-builder.Services.AddSingleton<CustomAuthStateProvider>();
-builder.Services.AddSingleton<AuthenticationStateProvider>(sp =>
-    sp.GetRequiredService<CustomAuthStateProvider>());
-
-builder.Services.AddTransient<AuthTokenHandler>();
+// Same-origin API calls: the HttpOnly admin cookie travels automatically;
+// CsrfHeaderHandler adds the header the server requires on state-changing calls.
+builder.Services.AddTransient<CsrfHeaderHandler>();
 
 builder.Services.AddHttpClient("NaturalStoneImpex.Api", client =>
 {
     client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
-}).AddHttpMessageHandler<AuthTokenHandler>();
+}).AddHttpMessageHandler<CsrfHeaderHandler>();
 
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("NaturalStoneImpex.Api"));
+
+builder.Services.AddScoped<CookieAuthStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
+    sp.GetRequiredService<CookieAuthStateProvider>());
 
 builder.Services.AddSingleton<CartService>();
 
@@ -29,5 +31,6 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IVisualizerService, VisualizerService>();
 
 builder.Services.AddAuthorizationCore();
+builder.Services.AddCascadingAuthenticationState();
 
 await builder.Build().RunAsync();

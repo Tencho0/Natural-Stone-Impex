@@ -23,16 +23,23 @@ public class AuthService : IAuthService
         _configuration = configuration;
     }
 
-    public async Task<LoginResponse?> LoginAsync(LoginRequest request)
+    public async Task<AdminUser?> ValidateCredentialsAsync(string username, string password)
     {
         var user = await _context.AdminUsers
-            .SingleOrDefaultAsync(u => u.Username == request.Username);
+            .SingleOrDefaultAsync(u => u.Username == username);
 
         if (user is null)
             return null;
 
-        var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
-        if (result == PasswordVerificationResult.Failed)
+        var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+        return result == PasswordVerificationResult.Failed ? null : user;
+    }
+
+    public async Task<LoginResponse?> LoginAsync(LoginRequest request)
+    {
+        var user = await ValidateCredentialsAsync(request.Username, request.Password);
+
+        if (user is null)
             return null;
 
         var jwtSettings = _configuration.GetSection("JwtSettings");

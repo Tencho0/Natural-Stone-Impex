@@ -1,0 +1,88 @@
+@page "/admin/login"
+@attribute [ExcludeFromInteractiveRouting]
+@layout LoginLayout
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using NaturalStoneImpex.Api.Auth
+@inject NaturalStoneImpex.Api.Services.IAuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Вход в администрацията — Natural Stone Impex</PageTitle>
+
+<div class="text-center mb-4">
+    <p class="text-muted mb-0" style="font-size: 0.95rem;">Вход в администрацията</p>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="login-error-alert mb-4" role="alert">
+        <i class="bi bi-exclamation-circle me-2"></i>
+        @_errorMessage
+    </div>
+}
+
+<EditForm Model="Model" OnValidSubmit="HandleLoginAsync" FormName="login">
+    <DataAnnotationsValidator />
+
+    <div class="mb-4">
+        <label for="username" class="form-label">Потребителско име</label>
+        <InputText id="username" class="form-control" autocomplete="username" @bind-Value="Model.Username" />
+        <ValidationMessage For="() => Model.Username" />
+    </div>
+
+    <div class="mb-4">
+        <label for="password" class="form-label">Парола</label>
+        <InputText id="password" type="password" class="form-control" autocomplete="current-password" @bind-Value="Model.Password" />
+        <ValidationMessage For="() => Model.Password" />
+    </div>
+
+    <button type="submit" class="btn btn-nsi-accent w-100 login-submit-btn">Вход</button>
+</EditForm>
+
+@code {
+    private string? _errorMessage;
+
+    [SupplyParameterFromForm(FormName = "login")]
+    private LoginForm Model { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override void OnInitialized() => Model ??= new();
+
+    private async Task HandleLoginAsync()
+    {
+        var user = await AuthService.ValidateCredentialsAsync(Model.Username, Model.Password);
+
+        if (user is null)
+        {
+            _errorMessage = "Невалидно потребителско име или парола.";
+            Model.Password = string.Empty; // never echo the password back into the page
+            return;
+        }
+
+        var claims = new[]
+        {
+            new Claim("sub", user.Id.ToString()),
+            new Claim("username", user.Username),
+        };
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, AuthSchemes.Cookie, "username", null));
+
+        await HttpContext.SignInAsync(AuthSchemes.Cookie, principal, new AuthenticationProperties { IsPersistent = true });
+
+        Navigation.NavigateTo(ReturnUrlValidator.ToLocalOrDefault(ReturnUrl), forceLoad: true);
+    }
+
+    private sealed class LoginForm
+    {
+        [Required(ErrorMessage = "Потребителското име е задължително.")]
+        public string Username { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Паролата е задължителна.")]
+        public string Password { get; set; } = string.Empty;
+    }
+}
