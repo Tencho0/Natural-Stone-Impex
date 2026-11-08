@@ -87,6 +87,6 @@ public class NavMatchTests
     [InlineData(1, "1 продукт")]
     [InlineData(2, "2 продукта")]
     [InlineData(50, "50 продукта")]
-    public void CartCountText_uses_bulgarian_count_form(int count, string expected)
-        => Assert.Equal(expected, NavMatch.CartCountText(count));
+    public void ProductCountText_uses_bulgarian_count_form(int count, string expected)
+        => Assert.Equal(expected, NavMatch.ProductCountText(count));
 }

@@ -41,8 +41,12 @@
 @if (_categories.Count > 0)
 {
     <section class="wrap home-section" aria-labelledby="home-categories">
-        <h2 id="home-categories" class="section-title">Видове камък</h2>
-        <div class="cat-index-cols">
+        <div class="section-head">
+            <h2 id="home-categories" class="section-title">Видове камък</h2>
+            <a class="section-head__link link-quiet" href="/catalog">Всички @NavMatch.ProductCountText(_productTotal)</a>
+        </div>
+        @* The index's own "Всички" row is hidden here; the link above takes its place. *@
+        <div class="cat-index-cols cat-index-cols--home">
             <CategoryIndex Categories="_categories" Photos="_photos" />
         </div>
     </section>
@@ -51,15 +55,13 @@
 @if (_home.Row.Count > 0)
 {
     <section class="wrap home-section" aria-labelledby="home-products">
-        <div class="section-head">
-            <h2 id="home-products" class="section-title">Избрани продукти</h2>
-            <a class="section-head__link link-quiet" href="/catalog">Разгледайте каталога</a>
-        </div>
+        <h2 id="home-products" class="section-title">Избрани продукти</h2>
         <ul class="product-grid">
             @foreach (var product in _home.Row)
             {
                 <li><ProductCard Product="product" ReturnUrl="/" /></li>
-            }        </ul>
+            }
+        </ul>
     </section>
 }
 
@@ -115,11 +117,13 @@
     private HomeContent _home = new([], [], null);
     private IReadOnlyList<CategoryDto> _categories = [];
     private IReadOnlyDictionary<int, string> _photos = new Dictionary<int, string>();
+    private int _productTotal;
 
     protected override async Task OnInitializedAsync()
     {
         // One scoped DbContext: the queries run one after another, never in parallel.
         _categories = HomeSelection.VisibleCategories(await CategoryService.GetAllAsync());
+        _productTotal = _categories.Sum(c => c.ProductCount); // active products (ProductCount counts IsActive only)
         _photos = await Storefront.GetCategoryPhotosAsync();
         _home = HomeSelection.Split(await Storefront.GetFeaturedAsync(HomeSelection.FeaturedFetchCount));
     }

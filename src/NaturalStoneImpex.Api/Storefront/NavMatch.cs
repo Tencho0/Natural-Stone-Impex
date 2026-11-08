@@ -55,8 +55,8 @@ public static class NavMatch
         return new PathString(path).ToUriComponent() + query;
     }
 
-    /// <summary>Bulgarian accessible text for the cart count, e.g. "1 продукт", "3 продукта".</summary>
-    public static string CartCountText(int count)
+    /// <summary>Bulgarian product count, e.g. "1 продукт", "3 продукта" (cart badge, category index, home links).</summary>
+    public static string ProductCountText(int count)
         => count == 1 ? "1 продукт" : $"{count} продукта";
 
     private static bool Within(string current, string section)

@@ -21,7 +21,7 @@
         <span>@Product.UnitDisplay</span>
     </p>
 
-    <h3 class="product-tile__name" id="@_nameId">
+    <h3 class="product-tile__name">
         <a class="product-tile__link" href="/products/@Product.Id">@Product.Name</a>
     </h3>
 
@@ -45,7 +45,7 @@
                 <input type="hidden" name="productId" value="@Product.Id" />
                 <input type="hidden" name="quantity" value="1" />
                 <input type="hidden" name="returnUrl" value="@ReturnUrl" />
-                <button type="submit" class="add-button" aria-label="Добави в количката" aria-describedby="@_nameId">
+                <button type="submit" class="add-button" aria-label="Добави @Product.Name в количката">
                     <i class="bi bi-plus-lg" aria-hidden="true"></i>
                 </button>
             </form>
@@ -63,12 +63,10 @@
 
     private bool _hasImage;
     private bool _onRequest;
-    private string _nameId = string.Empty;
 
     protected override void OnParametersSet()
     {
         _hasImage = !string.IsNullOrWhiteSpace(Product.ImagePath);
         _onRequest = Product.PriceWithVat <= 0;
-        _nameId = $"product-{Product.Id}-name";
     }
 }

@@ -435,7 +435,7 @@
 .cat-index__mosaic {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2px;
+  gap: 1px;
   overflow: hidden;
   background: transparent;
 }
@@ -472,6 +472,11 @@
 
 .cat-index__link:focus-visible {
   outline-offset: 0;
+}
+
+/* Home: the section heading carries the "Всички" link instead, so the grid is categories only. */
+.cat-index-cols--home .cat-index__item--all {
+  display: none;
 }
 
 @media (min-width: 768px) {
