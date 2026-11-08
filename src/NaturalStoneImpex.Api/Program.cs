@@ -95,6 +95,7 @@ builder.Services.AddHostedService<VisualizationRequestCleanupService>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<NaturalStoneImpex.Api.Storefront.ICartStore, NaturalStoneImpex.Api.Storefront.CartStore>();
+builder.Services.AddScoped<NaturalStoneImpex.Api.Storefront.IStorefrontQueryService, NaturalStoneImpex.Api.Storefront.StorefrontQueryService>();
 
 builder.Services.AddControllers();
 builder.Services.AddRazorComponents()
