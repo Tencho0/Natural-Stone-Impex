@@ -500,3 +500,278 @@
     margin-top: var(--space-2);
   }
 }
+
+/* ---------- Home ---------- */
+
+.home-hero {
+  display: grid;
+  gap: var(--space-7);
+  padding-top: var(--space-7);
+}
+
+.home-hero__title {
+  max-width: 16ch;
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-hero);
+  font-weight: 300;
+  line-height: 1.06;
+  letter-spacing: -0.028em;
+  color: var(--ink);
+}
+
+.home-hero__lead {
+  max-width: 34ch;
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-16);
+  color: var(--stone);
+}
+
+/* The 2×2 sample board: square photos, captions under them (name left, category right). */
+.sample-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sample {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+}
+
+.sample__photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* Narrow columns stack the caption (name, then category); from 1024px they share one line. */
+.sample__caption {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-size: var(--text-13);
+  line-height: 1.4;
+}
+
+.sample__link {
+  color: var(--ink);
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+}
+
+.sample__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+}
+
+.sample__link:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.sample__link:focus-visible {
+  outline: none;
+}
+
+.sample__link:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.sample__category {
+  flex: none;
+  color: var(--stone);
+}
+
+.home-section {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+}
+
+/* Visualizer band: a full-width surface panel between hairlines. */
+.home-band {
+  margin-top: var(--space-9);
+  background: var(--surface);
+  border-block: 1px solid var(--rule);
+}
+
+.home-band__inner {
+  display: grid;
+  gap: var(--space-6);
+  padding-block: var(--space-7);
+}
+
+.home-band__photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.home-band__title {
+  max-width: 18ch;
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-26);
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+
+/* Contact strip: an intro, then the four ways to reach the shop. */
+.home-contact {
+  display: grid;
+  gap: var(--space-6);
+  margin-top: var(--space-9);
+}
+
+.home-contact__lead {
+  max-width: 46ch;
+  margin: var(--space-3) 0 0;
+  color: var(--stone);
+}
+
+.home-contact__list {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.home-contact__item {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.home-contact__item dt {
+  font-size: var(--text-13);
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.home-contact__item dd {
+  margin: 0;
+}
+
+.home-contact__item dd a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+}
+
+.home-contact__phone {
+  font-family: var(--font-display);
+  font-size: var(--text-26);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.18em;
+  transition: color var(--dur-hover) var(--ease), text-decoration-color var(--dur-hover) var(--ease);
+}
+
+.home-contact__phone:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+@media (min-width: 768px) {
+  .home-hero {
+    padding-top: var(--space-8);
+  }
+
+  .home-hero__title {
+    margin-bottom: var(--space-5);
+  }
+
+  .home-hero__lead {
+    margin-bottom: var(--space-7);
+  }
+
+  /* Tablets: the board runs as one row of four under the text. */
+  .sample-board {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+
+  .home-section {
+    gap: var(--space-5);
+    margin-top: var(--space-9);
+  }
+
+  .home-band {
+    margin-top: var(--space-10);
+  }
+
+  .home-band__inner {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: center;
+    gap: var(--space-8);
+    padding-block: var(--space-8);
+  }
+
+  .home-band--text .home-band__inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-band__title {
+    font-size: var(--text-34);
+  }
+
+  .home-contact {
+    margin-top: var(--space-10);
+  }
+
+  .home-contact__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-7);
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    align-items: end;
+    gap: var(--space-8);
+    padding-top: var(--space-9);
+  }
+
+  .home-hero--text {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sample-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5) var(--space-4);
+  }
+
+  .sample__caption {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .home-contact {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    column-gap: var(--space-8);
+    align-items: start;
+  }
+}

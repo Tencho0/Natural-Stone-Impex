@@ -352,3 +352,347 @@
     left: auto;
   }
 }
+
+/* ---------- Section heading ---------- */
+
+.section-title {
+  margin: 0;
+  font-size: var(--text-22);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+/* Heading on the left, a tertiary link on the right, sharing a baseline. */
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-6);
+}
+
+.section-head__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  font-size: var(--text-14);
+}
+
+@media (min-width: 768px) {
+  .section-title {
+    font-size: var(--text-26);
+  }
+}
+
+/* ---------- Category index ---------- */
+
+/*
+ * One column by default (catalog sidebar, empty states). Wrap it in .cat-index-cols for 2 columns on
+ * tablets and 3 on desktop; "Всички" then heads the list as its own row, one column wide.
+ */
+.cat-index {
+  --cols: 1;
+  --col-gap: var(--space-7);
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  column-gap: var(--col-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.cat-index__item {
+  border-bottom: 1px solid var(--rule);
+}
+
+.cat-index__link {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.cat-index__thumb {
+  display: block;
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.cat-index__thumb--empty {
+  border: 1px solid var(--rule);
+}
+
+/* "Всички": four category photos in one 52px square. */
+.cat-index__mosaic {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.cat-index__mosaic img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: var(--surface);
+}
+
+.cat-index__name {
+  font-weight: 500;
+  transition: color var(--dur-hover) var(--ease);
+}
+
+.cat-index__count {
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.cat-index__link:hover .cat-index__name {
+  color: var(--accent);
+}
+
+.cat-index__link.is-current .cat-index__name {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+}
+
+.cat-index__link:focus-visible {
+  outline-offset: 0;
+}
+
+@media (min-width: 768px) {
+  .cat-index-cols .cat-index {
+    --cols: 2;
+  }
+
+  .cat-index-cols .cat-index__item--all {
+    grid-column: 1 / -1;
+  }
+
+  .cat-index-cols .cat-index__item--all .cat-index__link {
+    width: calc((100% - (var(--cols) - 1) * var(--col-gap)) / var(--cols));
+  }
+}
+
+@media (min-width: 1024px) {
+  .cat-index-cols .cat-index {
+    --cols: 3;
+  }
+}
+
+/* ---------- Product grid and card ---------- */
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-7) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.product-grid > li {
+  display: flex;
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-8) var(--space-5);
+  }
+}
+
+/* The name link stretches over the whole card; the add form and the inquiry link sit above it. */
+.product-tile {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+}
+
+.product-tile__photo {
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.product-tile__photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-tile__nophoto {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: var(--text-13);
+  color: var(--stone);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.product-tile__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-13);
+  line-height: 1.4;
+}
+
+.product-tile__meta span:last-child {
+  flex: none;
+  color: var(--stone);
+}
+
+.product-tile__name {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-15);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+.product-tile__link {
+  color: var(--ink);
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+}
+
+.product-tile__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+}
+
+.product-tile__link:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+
+/* The ring goes round the whole card, which is what the link opens. */
+.product-tile__link:focus-visible {
+  outline: none;
+}
+
+.product-tile__link:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.product-tile__buy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  align-self: end;
+  gap: var(--space-2);
+  padding-top: var(--space-1);
+}
+
+.product-tile__price {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+}
+
+.product-tile__amount {
+  font-size: var(--text-16);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.product-tile__note {
+  font-size: var(--text-13);
+  line-height: 1.4;
+  color: var(--stone);
+}
+
+.product-tile__add,
+.product-tile__ask {
+  position: relative;
+  z-index: 1;
+  flex: none;
+}
+
+.product-tile__add {
+  margin: 0;
+}
+
+.product-tile__ask {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  font-size: var(--text-14);
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition: color var(--dur-hover) var(--ease);
+}
+
+.product-tile__ask:hover {
+  color: var(--accent);
+}
+
+/* 40px square, outlined; the hit area reaches 44px. */
+.add-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: var(--text-18);
+  line-height: 1;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease),
+    transform var(--dur-press) var(--ease);
+}
+
+.add-button::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+}
+
+.add-button:hover {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.add-button:active {
+  transform: translateY(1px);
+}

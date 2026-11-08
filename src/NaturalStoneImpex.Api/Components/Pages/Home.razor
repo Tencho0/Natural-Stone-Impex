@@ -1,0 +1,126 @@
+@page "/"
+@attribute [ExcludeFromInteractiveRouting]
+@layout MainLayout
+@using NaturalStoneImpex.Api.Models.DTOs
+@using NaturalStoneImpex.Api.Services
+@inject IStorefrontQueryService Storefront
+@inject ICategoryService CategoryService
+
+<SeoHead Title="Естествен камък за настилки и облицовки"
+         Description="Гнайс, варовик, мрамор, гранит и речни камъни за настилки, облицовки и дворове, с цени на м² и на кг, с ДДС."
+         CanonicalPath="/"
+         ImagePath="@_home.Board.FirstOrDefault()?.ImagePath" />
+
+<section class="wrap home-hero @(_home.Board.Count == 0 ? "home-hero--text" : null)" aria-labelledby="home-title">
+    <div class="home-hero__text">
+        <h1 id="home-title" class="home-hero__title">Естествен камък за настилки, облицовки и дворове</h1>
+        <p class="home-hero__lead">Гнайс, варовик, мрамор, гранит и речни камъни. Цени на м² и на кг, с ДДС.</p>
+        <a class="btn btn-primary" href="/catalog">Разгледайте каталога</a>
+    </div>
+
+    @if (_home.Board.Count > 0)
+    {
+        <ul class="sample-board" aria-label="Мостри от каталога">
+            @for (var i = 0; i < _home.Board.Count; i++)
+            {
+                var product = _home.Board[i];
+                <li class="sample">
+                    @* Above the fold: no lazy loading, and the first photo is the likely LCP element. *@
+                    <img class="sample__photo" src="@product.ImagePath" alt="@product.Name" width="600" height="600"
+                         decoding="async" fetchpriority="@(i == 0 ? "high" : null)" />
+                    <p class="sample__caption">
+                        <a class="sample__link" href="/products/@product.Id">@product.Name</a>
+                        <span class="sample__category">@product.CategoryName</span>
+                    </p>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@if (_categories.Count > 0)
+{
+    <section class="wrap home-section" aria-labelledby="home-categories">
+        <h2 id="home-categories" class="section-title">Видове камък</h2>
+        <div class="cat-index-cols">
+            <CategoryIndex Categories="_categories" Photos="_photos" />
+        </div>
+    </section>
+}
+
+@if (_home.Row.Count > 0)
+{
+    <section class="wrap home-section" aria-labelledby="home-products">
+        <div class="section-head">
+            <h2 id="home-products" class="section-title">Избрани продукти</h2>
+            <a class="section-head__link link-quiet" href="/catalog">Разгледайте каталога</a>
+        </div>
+        <ul class="product-grid">
+            @foreach (var product in _home.Row)
+            {
+                <li><ProductCard Product="product" ReturnUrl="/" /></li>
+            }        </ul>
+    </section>
+}
+
+<section class="home-band @(_home.BandPhoto is null ? "home-band--text" : null)" aria-labelledby="home-visualizer">
+    <div class="wrap home-band__inner">
+        @if (_home.BandPhoto is { } band)
+        {
+            <img class="home-band__photo" src="@band.ImagePath" alt="@band.Name" width="800" height="600"
+                 loading="lazy" decoding="async" />
+        }
+        <div class="home-band__text">
+            <h2 id="home-visualizer" class="home-band__title">Вижте камъка върху снимка на вашия двор.</h2>
+            <a class="btn btn-outline" href="/visualizer" data-enhance-nav="false">Опитайте визуализатора</a>
+        </div>
+    </div>
+</section>
+
+<section class="wrap home-contact" aria-labelledby="home-contact">
+    <div class="home-contact__intro">
+        <h2 id="home-contact" class="section-title">Обадете се или елате на място</h2>
+        <p class="home-contact__lead">Ще ви помогнем да изберете камък и да изчислите количеството. Вземане от склада или доставка до обекта.</p>
+    </div>
+    <dl class="home-contact__list">
+        <div class="home-contact__item home-contact__item--phone">
+            <dt>Телефон</dt>
+            <dd><a class="home-contact__phone num" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a></dd>
+        </div>
+        <div class="home-contact__item">
+            <dt>Имейл</dt>
+            <dd><a class="link-quiet" href="mailto:@ShopInfo.Email">@ShopInfo.Email</a></dd>
+        </div>
+        <div class="home-contact__item">
+            <dt>Адрес</dt>
+            <dd>@ShopInfo.Address</dd>
+        </div>
+        <div class="home-contact__item">
+            <dt>Работно време</dt>
+            <dd class="num">
+                @for (var i = 0; i < ShopInfo.Hours.Count; i++)
+                {
+                    if (i > 0)
+                    {
+                        <br />
+                    }
+                    <text>@ShopInfo.Hours[i]</text>
+                }
+            </dd>
+        </div>
+    </dl>
+</section>
+
+@code {
+    private HomeContent _home = new([], [], null);
+    private IReadOnlyList<CategoryDto> _categories = [];
+    private IReadOnlyDictionary<int, string> _photos = new Dictionary<int, string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // One scoped DbContext: the queries run one after another, never in parallel.
+        _categories = HomeSelection.VisibleCategories(await CategoryService.GetAllAsync());
+        _photos = await Storefront.GetCategoryPhotosAsync();
+        _home = HomeSelection.Split(await Storefront.GetFeaturedAsync(HomeSelection.FeaturedFetchCount));
+    }
+}

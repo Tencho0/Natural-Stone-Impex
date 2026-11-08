@@ -1,0 +1,74 @@
+@using NaturalStoneImpex.Api.Models.DTOs
+@using NaturalStoneImpex.Client.Formatting
+
+@* A labelled sample (spec §6.6). The name link stretches over the card, so the photo opens the product too;
+   the add form and the inquiry link sit above that layer. Stock does not change the card. *@
+
+<article class="product-tile">
+    <div class="product-tile__photo">
+        @if (_hasImage)
+        {
+            <img src="@Product.ImagePath" alt="@Product.Name" width="600" height="600" loading="lazy" decoding="async" />
+        }
+        else
+        {
+            <span class="product-tile__nophoto">Без снимка</span>
+        }
+    </div>
+
+    <p class="product-tile__meta">
+        <span>@Product.CategoryName</span>
+        <span>@Product.UnitDisplay</span>
+    </p>
+
+    <h3 class="product-tile__name" id="@_nameId">
+        <a class="product-tile__link" href="/products/@Product.Id">@Product.Name</a>
+    </h3>
+
+    <div class="product-tile__buy">
+        @if (_onRequest)
+        {
+            <p class="product-tile__price">
+                <span class="product-tile__amount">Цена при запитване</span>
+                <span class="product-tile__note">обадете се за оферта</span>
+            </p>
+            <a class="product-tile__ask" href="/contacts">Запитване</a>
+        }
+        else
+        {
+            <p class="product-tile__price">
+                <span class="product-tile__amount num">@PriceFormat.Money(Product.PriceWithVat)</span>
+                <span class="product-tile__note">за @Product.UnitDisplay, с ДДС</span>
+            </p>
+            <form class="product-tile__add" method="post" action="/cart/add" data-enhance>
+                <AntiforgeryToken />
+                <input type="hidden" name="productId" value="@Product.Id" />
+                <input type="hidden" name="quantity" value="1" />
+                <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+                <button type="submit" class="add-button" aria-label="Добави в количката" aria-describedby="@_nameId">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                </button>
+            </form>
+        }
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public ProductListDto Product { get; set; } = default!;
+
+    /// <summary>Local path the add form returns to, e.g. "/" or "/catalog?categoryId=2".</summary>
+    [Parameter, EditorRequired]
+    public string ReturnUrl { get; set; } = "/";
+
+    private bool _hasImage;
+    private bool _onRequest;
+    private string _nameId = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        _hasImage = !string.IsNullOrWhiteSpace(Product.ImagePath);
+        _onRequest = Product.PriceWithVat <= 0;
+        _nameId = $"product-{Product.Id}-name";
+    }
+}
