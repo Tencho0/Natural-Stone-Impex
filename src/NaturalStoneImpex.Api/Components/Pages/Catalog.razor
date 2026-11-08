@@ -24,9 +24,10 @@
                 @* data-permanent keeps the element, its text and focus while live search updates the page. *@
                 <input class="field-input" id="catalog-search" type="search" name="search" value="@_search"
                        maxlength="@MaxSearchLength" autocomplete="off" enterkeyhint="search" data-permanent="catalog-search" />
-                @if (_categoryId is { } categoryId)
+                @* Only a category that exists: an unknown id would make every search come back empty. *@
+                @if (_category is { } category)
                 {
-                    <input type="hidden" name="categoryId" value="@categoryId" />
+                    <input type="hidden" name="categoryId" value="@category.Id" />
                 }
                 <button class="btn btn-outline" type="submit">Търси</button>
             </div>
@@ -133,7 +134,8 @@
         }
 
         _isEmpty = _result.Items.Count == 0;
-        _canonical = CatalogUrl.Build(_categoryId, _search, _page);
+        // Links and the canonical carry the category only when it exists; an unknown id is dropped.
+        _canonical = CatalogUrl.Build(_category?.Id, _search, _page);
 
         // Search results and empty pages stay out of search engines; category and plain catalog pages are indexed.
         _noIndex = _search is not null || _isEmpty;
@@ -159,7 +161,9 @@
             _statusText = count + pageNote;
         }
 
-        var name = _search is not null ? $"„{_search}“" : _category?.Name;
+        var name = _search is null ? _category?.Name
+            : _category is null ? $"„{_search}“"
+            : $"„{_search}“ в {_category.Name}";
         var pageSuffix = _page > 1 ? $", страница {_page}" : string.Empty;
         _title = name is null ? $"Каталог{pageSuffix}" : $"{name}{pageSuffix} | Каталог";
         _description = _category is not null
@@ -167,9 +171,9 @@
             : "Гнайс, варовик, мрамор, гранит и речни камъни за настилки, облицовки и дворове, с цени на м² и на кг, с ДДС.";
     }
 
-    private string PageHref(int page) => CatalogUrl.Build(_categoryId, _search, page);
+    private string PageHref(int page) => CatalogUrl.Build(_category?.Id, _search, page);
 
-    private string ClearSearchHref => CatalogUrl.Build(_categoryId, null, 1);
+    private string ClearSearchHref => CatalogUrl.Build(_category?.Id, null, 1);
 
     private static string? NormalizeSearch(string? search)
     {

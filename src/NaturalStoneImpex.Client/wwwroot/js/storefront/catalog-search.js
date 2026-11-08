@@ -1,7 +1,5 @@
-// Live catalog search (spec §5.5). Without JavaScript the GET form still works on Enter. With it, the page
-// updates 300 ms after typing stops, through enhanced navigation that replaces the history entry. The input
-// carries data-permanent, so its text and focus survive the update. A new search starts at page 1 and keeps
-// the category.
+// Live search (spec §5.5): 300 ms after typing, replace-navigate to page 1, keeping the category.
+// Without JS the GET form works on Enter.
 const DELAY = 300;
 const FORM = 'form[data-catalog-search]';
 let timer = 0;
@@ -18,21 +16,24 @@ function go(form, text) {
   clearTimeout(timer);
   timer = 0;
   const url = urlFor(form, text);
-  if (url === location.pathname + location.search) return;
-  window.Blazor.navigateTo(url, { replaceHistoryEntry: true });
+  if (url !== location.pathname + location.search) window.Blazor.navigateTo(url, { replaceHistoryEntry: true });
 }
 
-function onInput(event) {
-  const input = event.target;
+function schedule(input) {
   const form = input instanceof HTMLInputElement && input.name === 'search' ? input.closest(FORM) : null;
   if (!form) return;
   clearTimeout(timer);
   const text = input.value.trim();
-  if (text.length === 1) return; // one letter matches too much; an empty field clears the search
+  if (text.length === 1) return; // too broad; empty clears the search
   timer = setTimeout(() => go(form, text), DELAY);
 }
 
-// Enter: search now, with the same clean URL as live search, even for one letter.
+// An IME sends input mid-word; wait for compositionend.
+function onType(event) {
+  if (event.type === 'compositionend' || !event.isComposing) schedule(event.target);
+}
+
+// Enter searches at once, even for one letter.
 function onSubmit(event) {
   const form = event.target instanceof HTMLFormElement && event.target.matches(FORM) ? event.target : null;
   if (!form || !window.Blazor) return;
@@ -40,7 +41,7 @@ function onSubmit(event) {
   go(form, form.elements.namedItem('search').value.trim());
 }
 
-// Keeps the category strip (phones) scrolled to the current category.
+// Scrolls the phone category strip (not the page) to the current category.
 function revealCurrentCategory() {
   const strip = document.querySelector('.catalog-cats .cat-index');
   const current = strip && strip.querySelector('[aria-current="page"]');
@@ -53,14 +54,15 @@ function revealCurrentCategory() {
 }
 
 export function onLoad() {
-  document.addEventListener('input', onInput);
+  document.addEventListener('input', onType);
+  document.addEventListener('compositionend', onType);
   document.addEventListener('submit', onSubmit, true);
 }
 
 export function onUpdate() {
   const input = document.querySelector(FORM + ' input[name="search"]');
   if (!input) return;
-  // data-permanent keeps the old text when a link (a category, "Изчисти търсенето", Back) changes the search.
+  // data-permanent keeps stale text when a link or Back changes the search.
   if (document.activeElement !== input) {
     const search = new URLSearchParams(location.search).get('search') || '';
     if (input.value.trim() !== search.trim()) input.value = search;
@@ -71,6 +73,7 @@ export function onUpdate() {
 export function onDispose() {
   clearTimeout(timer);
   timer = 0;
-  document.removeEventListener('input', onInput);
+  document.removeEventListener('input', onType);
+  document.removeEventListener('compositionend', onType);
   document.removeEventListener('submit', onSubmit, true);
 }
