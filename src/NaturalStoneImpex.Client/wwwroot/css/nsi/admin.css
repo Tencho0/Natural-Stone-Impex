@@ -1,8 +1,11 @@
 /*
  * Admin variant, direction "Образец": the same tokens at a higher density (spec 6.7).
  * Loaded on the WebAssembly pages (App.razor) and on the SSR login (LoginLayout), never on the storefront.
- * Every rule is scoped: .admin-ui is the root of AdminLayout and PrintLayout, .login-page the root of
- * LoginLayout. The old Client public pages are WebAssembly pages too, so nothing here may be global.
+ * The old Client public pages are WebAssembly pages too, so nothing here may leak onto them:
+ * - component rules (buttons, fields, tables, statuses, skeletons) are scoped under .admin-ui, the root
+ *   of AdminLayout and PrintLayout;
+ * - the layout classes (.admin-shell*, .admin-bar*, .print-shell, .login-*) are used only by the admin
+ *   layouts, so they stand alone.
  */
 
 /* ---------- Shell ---------- */
@@ -80,14 +83,11 @@
   margin: 0 auto;
   padding: 0 var(--gutter);
   overflow-x: auto;
-  /* A desktop scrollbar would sit under the links and lift the active rule off the hairline.
-     The cut-off last link already shows the row continues; touch, trackpad and Tab still scroll it. */
-  scrollbar-width: none;
+  /* Below about 860px the row overflows. A thin, quiet scrollbar keeps that discoverable for mouse users;
+     touch screens draw it as an overlay. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
   white-space: nowrap;
-}
-
-.admin-bar__inner::-webkit-scrollbar {
-  display: none;
 }
 
 .admin-bar__wordmark {
@@ -155,14 +155,17 @@
 }
 
 @media (min-width: 768px) {
+  .admin-shell__main {
+    padding-top: var(--space-7);
+  }
+}
+
+/* Wider gaps only once the whole row fits. */
+@media (min-width: 1024px) {
   .admin-bar__inner,
   .admin-bar__nav,
   .admin-bar__end {
     gap: var(--space-6);
-  }
-
-  .admin-shell__main {
-    padding-top: var(--space-7);
   }
 }
 
@@ -176,9 +179,12 @@
 }
 
 @media print {
+  /* The receipt sets its own 12pt print size on body; .admin-ui's 14px must not override it. */
   .print-shell {
     min-height: 0;
     padding: 0;
+    font-size: inherit;
+    line-height: inherit;
     background: none;
   }
 }
@@ -259,13 +265,16 @@
   --bs-btn-disabled-border-color: var(--rule);
 }
 
-/* Compact buttons for table rows: 36px drawn, 44px to the pointer. */
-.admin-ui .btn-sm {
+/*
+ * Compact buttons for table rows: 36px drawn, 44px to the pointer. Only the new button classes, which are
+ * position: relative above; on a legacy .btn-sm the hit area would cover its nearest positioned ancestor.
+ */
+.admin-ui :is(.btn-primary, .btn-outline).btn-sm {
   min-height: 36px;
   padding: var(--space-1) var(--space-3);
 }
 
-.admin-ui .btn-sm::before {
+.admin-ui :is(.btn-primary, .btn-outline).btn-sm::before {
   content: "";
   position: absolute;
   inset: -4px 0;
@@ -279,19 +288,19 @@
  *   <div class="form-grid__row"> two or three short fields side by side from 768px </div>
  * </div>
  */
-.form-grid {
+.admin-ui .form-grid {
   display: grid;
   gap: var(--space-5);
   max-width: 720px;
 }
 
-.form-grid__row {
+.admin-ui .form-grid__row {
   display: grid;
   gap: var(--space-5) var(--space-4);
 }
 
 @media (min-width: 768px) {
-  .form-grid__row {
+  .admin-ui .form-grid__row {
     grid-auto-flow: column;
     grid-auto-columns: minmax(0, 1fr);
   }
@@ -366,11 +375,11 @@
 /* ---------- Data table ---------- */
 
 /* Wrap in .table-scroll so wide tables scroll inside their column on phones. */
-.table-scroll {
+.admin-ui .table-scroll {
   overflow-x: auto;
 }
 
-.data-table {
+.admin-ui .data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-14);
@@ -378,7 +387,7 @@
   color: var(--ink);
 }
 
-.data-table th {
+.admin-ui .data-table th {
   padding: 0 var(--space-3) var(--space-2) 0;
   font-size: var(--text-13);
   font-weight: 500;
@@ -388,18 +397,18 @@
   border-bottom: 1px solid var(--rule);
 }
 
-.data-table td {
-  padding: 10px var(--space-3) 10px 0;
+.admin-ui .data-table td {
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
   vertical-align: middle;
   border-bottom: 1px solid var(--rule);
 }
 
-.data-table th:last-child,
-.data-table td:last-child {
+.admin-ui .data-table th:last-child,
+.admin-ui .data-table td:last-child {
   padding-right: 0;
 }
 
-.data-table .num {
+.admin-ui .data-table .num {
   text-align: right;
   white-space: nowrap;
 }
@@ -407,14 +416,14 @@
 /* ---------- Status ---------- */
 
 /* <span class="status status--warn">Чакаща</span>: an 8px square marker, then the text in ink. */
-.status {
+.admin-ui .status {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   white-space: nowrap;
 }
 
-.status::before {
+.admin-ui .status::before {
   content: "";
   flex: none;
   width: 8px;
@@ -423,20 +432,20 @@
   background: var(--stone);
 }
 
-.status--ok::before {
+.admin-ui .status--ok::before {
   background: var(--ok);
 }
 
-.status--warn::before {
+.admin-ui .status--warn::before {
   background: var(--warn);
 }
 
-.status--danger::before {
+.admin-ui .status--danger::before {
   background: var(--danger);
 }
 
 @media (forced-colors: active) {
-  .status::before {
+  .admin-ui .status::before {
     background: CanvasText;
   }
 }
@@ -450,25 +459,25 @@
  *   <button class="btn btn-primary btn-sm">Да</button> <button class="btn btn-outline btn-sm">Не</button>
  * </div>
  */
-.inline-confirm {
+.admin-ui .inline-confirm {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-3);
 }
 
-.inline-confirm__text {
+.admin-ui .inline-confirm__text {
   margin: 0;
   font-weight: 500;
   color: var(--ink);
 }
 
-.inline-confirm__text--warn {
+.admin-ui .inline-confirm__text--warn {
   font-weight: 400;
   color: var(--warn);
 }
 
-.inline-confirm__actions {
+.admin-ui .inline-confirm__actions {
   display: inline-flex;
   gap: var(--space-2);
 }
@@ -481,7 +490,7 @@
  * <tr class="skeleton-row skeleton" aria-hidden="true"><td><span class="skeleton-bar"></span></td>...</tr>
  * Put the "Зареждане" text for screen readers next to them in a visually-hidden role="status".
  */
-.skeleton {
+.admin-ui .skeleton {
   opacity: 0;
   animation: skeleton-reveal 1ms linear 300ms forwards;
 }
@@ -490,7 +499,7 @@
   to { opacity: 1; }
 }
 
-.skeleton-bar {
+.admin-ui .skeleton-bar {
   display: block;
   width: 70%;
   height: 12px;
@@ -498,21 +507,22 @@
   border-radius: var(--radius);
 }
 
-.skeleton-bar--short {
+.admin-ui .skeleton-bar--short {
   width: 40%;
 }
 
-.data-table .skeleton-row td {
-  height: 42px;
+/* The bar is centred in one text line, so a skeleton row is exactly as tall as a text row. */
+.admin-ui .data-table .skeleton-row .skeleton-bar {
+  margin-block: calc((var(--leading-body) * 1em - 12px) / 2);
 }
 
-.data-table .skeleton-row .num .skeleton-bar {
+.admin-ui .data-table .skeleton-row .num .skeleton-bar {
   margin-left: auto;
 }
 
 /* base.css turns animations off under reduced motion; the reveal is not motion, so it is kept. */
 @media (prefers-reduced-motion: reduce) {
-  .skeleton {
+  .admin-ui .skeleton {
     animation: skeleton-reveal 1ms linear 300ms forwards !important;
   }
 }

@@ -14,7 +14,7 @@
 
 @if (!string.IsNullOrEmpty(_errorMessage))
 {
-    <p class="login-panel__error" role="alert">@_errorMessage</p>
+    <p id="login-error" class="login-panel__error" role="alert">@_errorMessage</p>
 }
 
 <EditForm Model="Model" OnValidSubmit="HandleLoginAsync" FormName="login" class="login-panel__form">
@@ -22,13 +22,14 @@
 
     <div class="field">
         <label for="username" class="field-label">Потребителско име</label>
-        <InputText id="username" class="field-input" autocomplete="username" @bind-Value="Model.Username" />
+        <InputText id="username" class="field-input" autocomplete="username" aria-describedby="@ErrorId" @bind-Value="Model.Username" />
         <ValidationMessage For="() => Model.Username" />
     </div>
 
     <div class="field">
         <label for="password" class="field-label">Парола</label>
-        <InputText id="password" type="password" class="field-input" autocomplete="current-password" @bind-Value="Model.Password" />
+        @* After a failed sign-in, focus lands in the cleared password field, which reads out the error. *@
+        <InputText id="password" type="password" class="field-input" autocomplete="current-password" aria-describedby="@ErrorId" autofocus="@(ErrorId is not null)" @bind-Value="Model.Password" />
         <ValidationMessage For="() => Model.Password" />
     </div>
 
@@ -37,6 +38,8 @@
 
 @code {
     private string? _errorMessage;
+
+    private string? ErrorId => string.IsNullOrEmpty(_errorMessage) ? null : "login-error";
 
     [SupplyParameterFromForm(FormName = "login")]
     private LoginForm Model { get; set; } = default!;
