@@ -1,0 +1,181 @@
+@page "/catalog"
+@attribute [ExcludeFromInteractiveRouting]
+@layout MainLayout
+@using NaturalStoneImpex.Api.Models.DTOs
+@using NaturalStoneImpex.Api.Services
+@inject IProductService ProductService
+@inject ICategoryService CategoryService
+@inject IStorefrontQueryService Storefront
+
+@* The view state lives in the URL (categoryId, search, page; spec §7.2), so links, Back, refresh and shared
+   links all keep it. Search is a GET form that works without JavaScript; catalog-search.js adds live search. *@
+
+<SeoHead Title="@_title" Description="@_description" CanonicalPath="@_canonical" NoIndex="_noIndex"
+         ImagePath="@_result.Items.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.ImagePath))?.ImagePath" />
+<PageScript Src="js/storefront/catalog-search.js" />
+
+<div class="wrap catalog @(_isEmpty ? "catalog--empty" : null)">
+    <div class="catalog-head">
+        <h1 class="catalog-head__title">@(_category?.Name ?? "Каталог")</h1>
+
+        <form class="catalog-search" method="get" action="/catalog" role="search" data-enhance data-catalog-search>
+            <label class="field-label" for="catalog-search">Търсене по име</label>
+            <div class="catalog-search__row">
+                @* data-permanent keeps the element, its text and focus while live search updates the page. *@
+                <input class="field-input" id="catalog-search" type="search" name="search" value="@_search"
+                       maxlength="@MaxSearchLength" autocomplete="off" enterkeyhint="search" data-permanent="catalog-search" />
+                @if (_categoryId is { } categoryId)
+                {
+                    <input type="hidden" name="categoryId" value="@categoryId" />
+                }
+                <button class="btn btn-outline" type="submit">Търси</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="catalog-body">
+        <nav class="catalog-cats" aria-labelledby="catalog-cats-title">
+            <h2 id="catalog-cats-title" class="catalog-cats__title">Видове камък</h2>
+            <CategoryIndex Categories="_categories" Photos="_photos" SelectedId="_categoryId" />
+        </nav>
+
+        <section class="catalog-results" aria-labelledby="catalog-results-title">
+            <h2 id="catalog-results-title" class="visually-hidden">Продукти</h2>
+
+            <div class="catalog-status">
+                @* Live region: the count is read out when live search or a filter changes it. *@
+                <p class="catalog-status__text @(_isEmpty ? "catalog-status__text--empty" : null)" role="status">@_statusText</p>
+                @if (_search is not null && !_isEmpty)
+                {
+                    <a class="catalog-status__clear link-quiet" href="@ClearSearchHref">Изчисти търсенето</a>
+                }
+            </div>
+
+            @if (_isEmpty)
+            {
+                <div class="catalog-noresults">
+                    <p class="catalog-noresults__hint">@_emptyHint</p>
+                    @if (_search is not null)
+                    {
+                        <p class="catalog-noresults__action">
+                            <a class="btn btn-outline" href="@ClearSearchHref">Изчисти търсенето</a>
+                        </p>
+                    }
+                    @* On phones the category strip gives way to this full list; on desktop the sidebar shows it. *@
+                    <div class="catalog-noresults__index">
+                        <CategoryIndex Categories="_categories" Photos="_photos" SelectedId="_categoryId" />
+                    </div>
+                </div>
+            }
+            else
+            {
+                <ul class="product-grid product-grid--catalog">
+                    @foreach (var product in _result.Items)
+                    {
+                        <li><ProductCard Product="product" ReturnUrl="@_canonical" /></li>
+                    }
+                </ul>
+
+                <Pagination Page="_page" TotalPages="_result.TotalPages" PageHref="PageHref" />
+            }
+        </section>
+    </div>
+</div>
+
+@code {
+    private const int MaxSearchLength = 100;
+
+    // Bound as strings and parsed here: an int parameter turns "?page=abc" into a 500.
+    [SupplyParameterFromQuery(Name = "categoryId")]
+    public string? CategoryIdQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "search")]
+    public string? Search { get; set; }
+
+    [SupplyParameterFromQuery(Name = "page")]
+    public string? PageQuery { get; set; }
+
+    private int? _categoryId;
+
+    private IReadOnlyList<CategoryDto> _categories = [];
+    private IReadOnlyDictionary<int, string> _photos = new Dictionary<int, string>();
+    private PaginatedResponse<ProductListDto> _result = new();
+    private CategoryDto? _category;
+    private string? _search;
+    private int _page = 1;
+    private bool _isEmpty;
+    private string _statusText = string.Empty;
+    private string _emptyHint = string.Empty;
+    private string _title = "Каталог";
+    private string _description = string.Empty;
+    private string _canonical = CatalogUrl.Path;
+    private bool _noIndex;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _categoryId = CatalogUrl.ParseCategoryId(CategoryIdQuery);
+        _search = NormalizeSearch(Search);
+        var requested = CatalogUrl.ParsePage(PageQuery);
+
+        // One scoped DbContext: the queries run one after another, never in parallel.
+        var all = await CategoryService.GetAllAsync();
+        _category = _categoryId is { } id ? all.FirstOrDefault(c => c.Id == id) : null;
+        _categories = HomeSelection.VisibleCategories(all);
+        _photos = await Storefront.GetCategoryPhotosAsync();
+
+        // includeInactive: false, so the storefront never lists a deactivated product.
+        _result = await ProductService.GetAllAsync(_categoryId, _search, requested, CatalogPaging.PageSize, includeInactive: false);
+        _page = CatalogPaging.Clamp(requested, _result.TotalPages);
+        if (_page != requested)
+        {
+            // Past the last page: show the last page, and point the canonical at it.
+            _result = await ProductService.GetAllAsync(_categoryId, _search, _page, CatalogPaging.PageSize, includeInactive: false);
+        }
+
+        _isEmpty = _result.Items.Count == 0;
+        _canonical = CatalogUrl.Build(_categoryId, _search, _page);
+
+        // Search results and empty pages stay out of search engines; category and plain catalog pages are indexed.
+        _noIndex = _search is not null || _isEmpty;
+
+        var count = NavMatch.ProductCountText(_result.TotalCount);
+        var pageNote = _result.TotalPages > 1 ? $", страница {_page} от {_result.TotalPages}" : string.Empty;
+        if (_isEmpty && _search is not null)
+        {
+            _statusText = $"Няма продукти за „{_search}“";
+            _emptyHint = "Проверете изписването или изберете вид камък от списъка.";
+        }
+        else if (_isEmpty)
+        {
+            _statusText = "Няма продукти в тази категория";
+            _emptyHint = "Изберете вид камък от списъка или разгледайте всички продукти.";
+        }
+        else if (_search is not null)
+        {
+            _statusText = $"{count} за „{_search}“{pageNote}";
+        }
+        else
+        {
+            _statusText = count + pageNote;
+        }
+
+        var name = _search is not null ? $"„{_search}“" : _category?.Name;
+        var pageSuffix = _page > 1 ? $", страница {_page}" : string.Empty;
+        _title = name is null ? $"Каталог{pageSuffix}" : $"{name}{pageSuffix} | Каталог";
+        _description = _category is not null
+            ? $"{_category.Name} в каталога на {SeoFormat.SiteName}: {NavMatch.ProductCountText(_category.ProductCount)} с цени с ДДС."
+            : "Гнайс, варовик, мрамор, гранит и речни камъни за настилки, облицовки и дворове, с цени на м² и на кг, с ДДС.";
+    }
+
+    private string PageHref(int page) => CatalogUrl.Build(_categoryId, _search, page);
+
+    private string ClearSearchHref => CatalogUrl.Build(_categoryId, null, 1);
+
+    private static string? NormalizeSearch(string? search)
+    {
+        var text = search?.Trim();
+        if (string.IsNullOrEmpty(text))
+            return null;
+        return text.Length > MaxSearchLength ? text[..MaxSearchLength].TrimEnd() : text;
+    }
+}

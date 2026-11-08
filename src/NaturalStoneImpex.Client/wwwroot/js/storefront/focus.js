@@ -1,6 +1,7 @@
 // Focus management for static SSR pages (spec §8). Loaded on every page, after blazor.web.js.
 (() => {
   let lastPath = location.pathname;
+  let lastQuery = location.search;
 
   function focusHeading() {
     const heading = document.querySelector('main h1');
@@ -10,15 +11,19 @@
   }
 
   // After an enhanced navigation, focus the new page's h1. A same-page update (a form post that redirects
-  // back, a live search) keeps focus where it is, unless the focused element was removed.
+  // back to the same URL) keeps focus where it is, unless the focused element was removed. A new query on the
+  // same path (a catalog page or category link) is a new view: Blazor does not scroll for it, so scroll up here.
+  // Live search also changes the query, but focus is then in the data-permanent input and stays there.
   function onEnhancedLoad() {
-    const path = location.pathname;
-    const pageChanged = path !== lastPath;
-    lastPath = path;
+    const pageChanged = location.pathname !== lastPath;
+    const queryChanged = !pageChanged && location.search !== lastQuery;
+    lastPath = location.pathname;
+    lastQuery = location.search;
 
     const active = document.activeElement;
     if (active && active.closest('[data-permanent]')) return;
-    if (pageChanged || !active || active === document.body) focusHeading();
+    if (queryChanged) window.scrollTo({ top: 0, behavior: 'instant' });
+    if (pageChanged || queryChanged || !active || active === document.body) focusHeading();
   }
 
   // Enhanced navigation turns "#main" into a scroll without moving focus, so the skip link focuses main itself.
