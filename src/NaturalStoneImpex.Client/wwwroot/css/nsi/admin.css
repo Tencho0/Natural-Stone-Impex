@@ -376,6 +376,7 @@
 
 /* Wrap in .table-scroll so wide tables scroll inside their column on phones. */
 .admin-ui .table-scroll {
+  position: relative; /* contains .visually-hidden cells, which would otherwise widen the page */
   overflow-x: auto;
 }
 
@@ -600,4 +601,71 @@
   display: inline-flex;
   align-items: center;
   min-height: var(--target-min);
+}
+
+/* ---------- Dashboard ---------- */
+
+.admin-ui .dash-summary {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-6);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.admin-ui .dash-summary.skeleton {
+  max-width: 480px;
+}
+
+.admin-ui .dash-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* lets .table-scroll shrink instead of widening the page */
+  gap: var(--space-7);
+}
+
+@media (min-width: 1024px) {
+  .admin-ui .dash-cols {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: var(--space-8);
+  }
+}
+
+.admin-ui .dash-h {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-text);
+  font-size: var(--text-16);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.admin-ui .dash-empty,
+.admin-ui .dash-error {
+  margin: 0 0 var(--space-3);
+  color: var(--stone);
+}
+
+.admin-ui .dash-error {
+  color: var(--danger);
+}
+
+.admin-ui .dash-summary.dash-error {
+  margin-bottom: var(--space-6);
+}
+
+.admin-ui .dash-more {
+  margin: var(--space-3) 0 0;
+}
+
+.admin-ui .data-table .nowrap {
+  white-space: nowrap;
+}
+
+/* Negative stock: orders are never blocked, so the shortfall shows in the danger colour. */
+.admin-ui .data-table .dash-negative {
+  color: var(--danger);
+}
+
+/* On phones the order number is the link, and the received time and the extra link make way for the total. */
+@media (max-width: 639.98px) {
+  .admin-ui .dash-hide-sm {
+    display: none;
+  }
 }
