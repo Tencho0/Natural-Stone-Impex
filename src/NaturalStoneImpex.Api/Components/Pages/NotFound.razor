@@ -3,39 +3,72 @@
 @layout MainLayout
 @using Microsoft.AspNetCore.Diagnostics
 
-@* Rendered for every unknown non-API URL through UseStatusCodePagesWithReExecute, which keeps the 404 status. *@
+@* Rendered for every non-API error status through UseStatusCodePagesWithReExecute, which keeps the original
+   status code. A 404 (or a direct visit) gets the not-found copy; any other status (for example a 400 from a
+   stale antiforgery token on a cart form) gets a general "could not process" message. *@
 
-<SeoHead Title="Страницата не е намерена"
-         Description="Търсената страница не съществува. Продължете към каталога с естествен камък и строителни материали."
-         CanonicalPath="/not-found"
-         NoIndex="true" />
+@if (_isNotFound)
+{
+    <SeoHead Title="Страницата не е намерена"
+             Description="Търсената страница не съществува. Продължете към каталога с естествен камък и строителни материали."
+             CanonicalPath="/not-found"
+             NoIndex="true" />
 
-<section class="wrap state" aria-labelledby="state-title">
-    <h1 id="state-title" class="state__title">Тази страница не съществува.</h1>
-    <div class="state__body">
-        <p class="state__text">
-            @if (_requestedPath is not null)
-            {
-                <text>Адресът <span class="state__path">@_requestedPath</span> не води до страница в сайта. </text>
-            }
-            Може връзката да е остаряла или адресът да е въведен с грешка.
-        </p>
-        <div class="state__actions">
-            <a class="btn btn-primary" href="/catalog">Каталог</a>
-            <a class="btn btn-outline" href="/">Начало</a>
+    <section class="wrap state" aria-labelledby="state-title">
+        <h1 id="state-title" class="state__title">Тази страница не съществува.</h1>
+        <div class="state__body">
+            <p class="state__text">
+                @if (_requestedPath is not null)
+                {
+                    <text>Адресът <span class="state__path">@_requestedPath</span> не води до страница в сайта. </text>
+                }
+                Може връзката да е остаряла или адресът да е въведен с грешка.
+            </p>
+            <div class="state__actions">
+                <a class="btn btn-primary" href="/catalog">Каталог</a>
+                <a class="btn btn-outline" href="/">Начало</a>
+            </div>
         </div>
-    </div>
-</section>
+    </section>
+}
+else
+{
+    <SeoHead Title="Заявката не е обработена"
+             Description="Заявката не можа да бъде обработена."
+             CanonicalPath="/not-found"
+             NoIndex="true" />
+
+    <section class="wrap state" aria-labelledby="state-title">
+        <h1 id="state-title" class="state__title">Заявката не можа да бъде обработена.</h1>
+        <div class="state__body">
+            <p class="state__text">
+                Опитайте отново. Ако проблемът остане, обадете ни се на
+                <a class="link-quiet num" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a>.
+            </p>
+            <div class="state__actions">
+                <a class="btn btn-primary" href="/catalog">Каталог</a>
+                <a class="btn btn-outline" href="/">Начало</a>
+            </div>
+        </div>
+    </section>
+}
 
 @code {
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
 
+    private bool _isNotFound = true;
     private string? _requestedPath;
 
     protected override void OnInitialized()
     {
-        var path = HttpContext?.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalPath;
+        var reExecute = HttpContext?.Features.Get<IStatusCodeReExecuteFeature>();
+        if (reExecute is null)
+            return; // a direct visit to /not-found
+
+        _isNotFound = reExecute.OriginalStatusCode == StatusCodes.Status404NotFound;
+
+        var path = reExecute.OriginalPath;
         if (!string.IsNullOrEmpty(path) && path != "/")
             _requestedPath = path.Length > 80 ? path[..80] + "…" : path;
     }

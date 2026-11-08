@@ -42,7 +42,7 @@
   display: flex;
   align-items: stretch;
   gap: var(--space-3);
-  min-height: 56px;
+  min-height: var(--space-9);
 }
 
 .wordmark {
@@ -160,9 +160,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
+  min-width: var(--space-6);
+  height: var(--space-6);
+  padding: 0 var(--space-1);
   font-size: var(--text-13);
   font-weight: 600;
   line-height: 1;
@@ -225,7 +225,7 @@
 }
 
 .menu[open] .menu__toggle::after {
-  margin-top: 3px;
+  margin-top: var(--space-1);
   transform: rotate(225deg);
 }
 
@@ -276,13 +276,12 @@
   text-decoration: underline;
   text-decoration-color: var(--accent);
   text-decoration-thickness: 2px;
-  text-underline-offset: 6px;
+  text-underline-offset: var(--space-2);
 }
 
 @media (min-width: 768px) {
   .site-header__bar {
     gap: var(--space-6);
-    min-height: 64px;
   }
 
   .wordmark {
@@ -322,8 +321,7 @@
 
 /* ---------- Footer ---------- */
 
-/* Columns share a first baseline; every following line sits on a 44px row, so links meet the target size
-   and the columns keep one rhythm. */
+/* Columns share a first baseline. */
 .shop-footer {
   margin-top: var(--space-10);
   padding-top: var(--space-8);
@@ -355,16 +353,28 @@
   color: var(--stone);
 }
 
-.shop-footer__line {
+/* Rows that hold a link are 44px tall (target size); plain text keeps the body line-height,
+   so the two lines of opening hours read as one block. */
+.shop-footer__row {
   display: flex;
   align-items: center;
   min-height: var(--target-min);
 }
 
-.shop-footer__line a {
+.shop-footer__row a {
   display: inline-flex;
   align-items: center;
   min-height: var(--target-min);
+}
+
+/* Lines the first text line up with the text centred in a neighbouring 44px link row. */
+.shop-footer .shop-footer__text {
+  margin-top: var(--space-3);
+  line-height: var(--leading-body);
+}
+
+.shop-footer .shop-footer__name + .shop-footer__text {
+  margin-top: var(--space-1);
 }
 
 .shop-footer .shop-footer__base {
@@ -420,7 +430,6 @@
 }
 
 .state__body {
-  max-width: 34rem;
   padding-top: var(--space-4);
   border-top: 1px solid var(--rule);
 }
@@ -428,7 +437,8 @@
 .state__text {
   margin: 0;
   font-size: var(--text-18);
-  line-height: 1.55;
+  line-height: var(--leading-body);
+  max-width: 60ch; /* text measure under 70 characters */
 }
 
 .state__path {

@@ -10,7 +10,7 @@
 .btn-primary,
 .btn-outline {
   --bs-btn-padding-x: var(--space-5);
-  --bs-btn-padding-y: 10px;
+  --bs-btn-padding-y: var(--space-2);
   --bs-btn-font-family: var(--font-text);
   --bs-btn-font-size: var(--text-15);
   --bs-btn-font-weight: 500;
@@ -24,7 +24,7 @@
   justify-content: center;
   gap: var(--space-2);
   min-height: var(--target-min);
-  padding: 10px var(--space-5);
+  padding: var(--space-2) var(--space-5);
   font-family: var(--font-text);
   font-size: var(--text-15);
   font-weight: 500;
@@ -145,7 +145,7 @@
 .field-input {
   width: 100%;
   min-height: var(--target-min);
-  padding: 10px var(--space-3);
+  padding: var(--space-2) var(--space-3);
   font-family: var(--font-text);
   font-size: var(--text-16); /* 16px stops iOS from zooming into the field */
   line-height: 1.4;
@@ -296,7 +296,7 @@
   max-width: 100%;
   min-height: var(--target-min);
   margin: 0;
-  padding: 10px var(--space-4);
+  padding: var(--space-2) var(--space-4);
   font-size: var(--text-14);
   color: var(--on-accent);
   background: var(--ink);
@@ -321,6 +321,11 @@
 .toast-line__link:hover {
   color: var(--on-accent);
   text-decoration-thickness: 2px;
+}
+
+/* The accent ring would vanish on the ink toast. */
+.toast-line__link:focus-visible {
+  outline-color: var(--on-accent);
 }
 
 /* Fades in over 160ms, holds, fades out over the last 240ms, then leaves the accessibility tree. */

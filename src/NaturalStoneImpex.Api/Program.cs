@@ -117,8 +117,15 @@ app.UseWhen(ctx => ctx.Request.Path.StartsWithSegments("/api"),
     b => b.UseMiddleware<ExceptionHandlingMiddleware>());
 app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/api"), b =>
 {
-    b.UseExceptionHandler("/error", createScopeForErrors: true);
+    // Development keeps the developer exception page; verify the designed /error with ASPNETCORE_ENVIRONMENT=Production.
+    if (!app.Environment.IsDevelopment())
+        b.UseExceptionHandler("/error", createScopeForErrors: true);
     b.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+    b.Use((ctx, next) =>
+    {
+        NaturalStoneImpex.Api.Storefront.ErrorPages.Prepare(ctx);
+        return next(ctx);
+    });
 });
 
 if (app.Environment.IsDevelopment())

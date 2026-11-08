@@ -8,21 +8,22 @@
     <meta name="description" content="@Description" />
     @if (NoIndex)
     {
+        @* Pages kept out of search results get no canonical and no Open Graph tags. *@
         <meta name="robots" content="noindex" />
     }
     else
     {
         <link rel="canonical" href="@_canonical" />
-    }
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="@SeoFormat.SiteName" />
-    <meta property="og:locale" content="bg_BG" />
-    <meta property="og:title" content="@_title" />
-    <meta property="og:description" content="@Description" />
-    <meta property="og:url" content="@_canonical" />
-    @if (_image is not null)
-    {
-        <meta property="og:image" content="@_image" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="@SeoFormat.SiteName" />
+        <meta property="og:locale" content="bg_BG" />
+        <meta property="og:title" content="@_title" />
+        <meta property="og:description" content="@Description" />
+        <meta property="og:url" content="@_canonical" />
+        @if (_image is not null)
+        {
+            <meta property="og:image" content="@_image" />
+        }
     }
     @if (_jsonLd is not null)
     {

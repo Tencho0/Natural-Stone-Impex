@@ -54,19 +54,25 @@
         <div class="wrap shop-footer__grid">
             <div class="shop-footer__brand">
                 <p class="shop-footer__name">@ShopInfo.Name</p>
-                <p class="shop-footer__line">@ShopInfo.Address</p>
+                <p class="shop-footer__text">@ShopInfo.Address</p>
             </div>
             <div>
                 <p class="shop-footer__label">Телефон и имейл</p>
-                <p class="shop-footer__line num"><a class="link-quiet" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a></p>
-                <p class="shop-footer__line"><a class="link-quiet" href="mailto:@ShopInfo.Email">@ShopInfo.Email</a></p>
+                <p class="shop-footer__row num"><a class="link-quiet" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a></p>
+                <p class="shop-footer__row"><a class="link-quiet" href="mailto:@ShopInfo.Email">@ShopInfo.Email</a></p>
             </div>
             <div>
                 <p class="shop-footer__label">Работно време</p>
-                @foreach (var line in ShopInfo.Hours)
-                {
-                    <p class="shop-footer__line num">@line</p>
-                }
+                <p class="shop-footer__text num">
+                    @for (var i = 0; i < ShopInfo.Hours.Count; i++)
+                    {
+                        if (i > 0)
+                        {
+                            <br />
+                        }
+                        <text>@ShopInfo.Hours[i]</text>
+                    }
+                </p>
             </div>
         </div>
         <div class="wrap">

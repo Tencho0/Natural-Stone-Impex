@@ -65,7 +65,12 @@ public class NavMatchTests
     [Theory]
     [InlineData("//evil.example/x", "/evil.example/x")]
     [InlineData("/\\evil.example", "/evil.example")]
-    public void BrowserPathAndQuery_never_returns_a_protocol_relative_url(string path, string expected)
+    [InlineData("/\\/evil.example", "/evil.example")]
+    [InlineData("/a\\b", "/a%5Cb")]
+    [InlineData("/a#b", "/a%23b")]
+    [InlineData("/a b", "/a%20b")]
+    [InlineData("/каталог", "/%D0%BA%D0%B0%D1%82%D0%B0%D0%BB%D0%BE%D0%B3")]
+    public void BrowserPathAndQuery_stays_local_and_encodes_the_path(string path, string expected)
     {
         var ctx = new DefaultHttpContext();
         ctx.Features.Set<IStatusCodeReExecuteFeature>(new StatusCodeReExecuteFeature

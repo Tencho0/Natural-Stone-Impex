@@ -28,22 +28,31 @@ public static class NavMatch
     /// </summary>
     public static string BrowserPathAndQuery(HttpContext context)
     {
-        string url;
+        // Paths here are decoded ("/a#b" for a request to "/a%23b"); queries are still encoded.
+        string path, query;
         var reExecute = context.Features.Get<IStatusCodeReExecuteFeature>();
         var exception = context.Features.Get<IExceptionHandlerPathFeature>();
         if (reExecute is not null)
-            url = reExecute.OriginalPathBase + reExecute.OriginalPath + reExecute.OriginalQueryString;
+        {
+            path = reExecute.OriginalPathBase + reExecute.OriginalPath;
+            query = reExecute.OriginalQueryString ?? string.Empty;
+        }
         else if (exception is not null)
-            url = context.Request.PathBase + exception.Path + context.Request.QueryString; // query is left as sent
+        {
+            path = context.Request.PathBase.Value + exception.Path;
+            query = context.Request.QueryString.Value ?? string.Empty; // left as sent by the exception handler
+        }
         else
-            url = context.Request.PathBase + context.Request.Path + context.Request.QueryString;
+        {
+            path = context.Request.PathBase.Value + context.Request.Path.Value;
+            query = context.Request.QueryString.Value ?? string.Empty;
+        }
 
         // "//host/x" or "/\host" in an href would leave the site; keep it a local path.
-        if (url.Length == 0 || url[0] != '/')
-            return "/" + url.TrimStart('/', '\\');
-        if (url.Length > 1 && (url[1] == '/' || url[1] == '\\'))
-            return "/" + url.TrimStart('/', '\\');
-        return url;
+        path = "/" + path.TrimStart('/', '\\');
+
+        // Re-encode, so "/a#b" stays "/a%23b" instead of becoming a fragment.
+        return new PathString(path).ToUriComponent() + query;
     }
 
     /// <summary>Bulgarian accessible text for the cart count, e.g. "1 продукт", "3 продукта".</summary>
