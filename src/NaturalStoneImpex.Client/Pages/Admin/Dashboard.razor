@@ -17,7 +17,10 @@
 }
 else if (_statsError is not null)
 {
-    <p class="dash-summary dash-error" role="alert">@_statsError</p>
+    <div class="dash-summary" role="alert">
+        <p class="dash-error">@_statsError</p>
+        <button type="button" class="btn btn-outline btn-sm" @onclick="LoadStatsAsync">Опитай отново</button>
+    </div>
 }
 else
 {
@@ -85,7 +88,7 @@ else
                     </tbody>
                 </table>
             </div>
-            <p class="dash-more"><a href="/admin/orders">Всички поръчки</a></p>
+            <p class="dash-more"><a href="/admin/orders">@(_pendingTotal > 20 ? $"Всички поръчки ({_pendingTotal})" : "Всички поръчки")</a></p>
         }
     </section>
 
@@ -130,7 +133,7 @@ else
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var product in _lowStock)
+                        @foreach (var product in _lowStock.Take(LowStockLimit))
                         {
                             <tr>
                                 <td><a href="/admin/products/@product.Id/edit">@product.Name</a></td>
@@ -140,12 +143,19 @@ else
                     </tbody>
                 </table>
             </div>
+            @if (_lowStock.Count > LowStockLimit)
+            {
+                var more = _lowStock.Count - LowStockLimit;
+                <p class="dash-more">и още @more @(more == 1 ? "продукт" : "продукта") · <a href="/admin/products">Всички продукти</a></p>
+            }
         }
     </section>
 </div>
 
 @code {
+    private const int LowStockLimit = 10;
     private OrderStatsDto? _stats;
+    private int _pendingTotal;
     private List<OrderListDto> _pendingOrders = new();
     private List<ProductListDto> _lowStock = new();
 
@@ -163,13 +173,14 @@ else
 
     private async Task LoadStatsAsync()
     {
+        _statsError = null;
         try
         {
             _stats = await OrderService.GetStatsAsync();
         }
         catch
         {
-            _statsError = "Не успяхме да заредим бройките. Презаредете страницата.";
+            _statsError = "Не успяхме да заредим бройките.";
         }
         StateHasChanged();
     }
@@ -183,11 +194,13 @@ else
         try
         {
             var page = await OrderService.GetAllAsync(0, 1, 20);
+            _pendingTotal = page.TotalCount;
+            // Same rule as the stats count, so the list and the summary agree.
             _pendingOrders = page.Items.Where(o => !o.IsCancelled).ToList();
         }
         catch
         {
-            _pendingError = "Не успяхме да заредим чакащите поръчки. Опитайте отново.";
+            _pendingError = "Не успяхме да заредим чакащите поръчки.";
         }
         _pendingLoading = false;
         StateHasChanged();
@@ -203,7 +216,7 @@ else
         }
         catch
         {
-            _lowError = "Не успяхме да заредим наличностите. Опитайте отново.";
+            _lowError = "Не успяхме да заредим наличностите.";
         }
         _lowLoading = false;
         StateHasChanged();
