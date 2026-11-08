@@ -54,10 +54,11 @@
 
             @if (_onRequest)
             {
-                @* Cannot be ordered: no availability line, no calculator. One sentence with the shop phone (R21). *@
+                @* Cannot be ordered: no availability line, no calculator. One sentence with the shop phone (R21);
+                   the price slot already says "Цена при запитване", so the sentence does not repeat it (R22). *@
                 <p class="product-price"><span class="product-price__amount">Цена при запитване</span></p>
                 <p class="product-ask">
-                    Цена при запитване. Обадете се на <a class="product-ask__phone num" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a>.
+                    Обадете се на <a class="product-ask__phone num" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a>.
                 </p>
             }
             else
