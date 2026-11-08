@@ -1,136 +1,42 @@
 @inherits LayoutComponentBase
-@implements IDisposable
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 
-<div class="admin-layout">
-    @* ---- Mobile top bar (visible < lg) ---- *@
-    <header class="admin-topbar-mobile d-lg-none">
-        <a href="/admin" class="admin-topbar-brand">
-            <span class="admin-topbar-brand-text">NSI</span>
-            <span class="admin-topbar-brand-sub">Admin</span>
-        </a>
-        <button class="admin-hamburger" type="button"
-                @onclick="ToggleSidebar"
-                aria-controls="adminSidebar" aria-label="Меню">
-            <i class="bi bi-list"></i>
-        </button>
+@* Admin shell: a top bar on --paper over --surface content. Styles: css/nsi/admin.css. *@
+
+<div class="admin-ui admin-shell">
+    @* A button, not a "#" link: the WebAssembly router turns a fragment link into a navigation and does not move focus. *@
+    <button type="button" class="skip-link" @onclick="SkipToContentAsync">Към съдържанието</button>
+
+    <header class="admin-bar">
+        <div class="admin-bar__inner">
+            <span class="admin-bar__wordmark">NSI Администрация</span>
+
+            <nav class="admin-bar__nav" aria-label="Администрация">
+                <NavLink class="admin-bar__link" href="/admin" Match="NavLinkMatch.All">Табло</NavLink>
+                <NavLink class="admin-bar__link" href="/admin/products">Продукти</NavLink>
+                <NavLink class="admin-bar__link" href="/admin/categories">Категории</NavLink>
+                <NavLink class="admin-bar__link" href="/admin/orders">Поръчки</NavLink>
+                <NavLink class="admin-bar__link" href="/admin/invoices">Доставки</NavLink>
+            </nav>
+
+            <div class="admin-bar__end">
+                @* The WASM router ignores data-enhance-nav; target="_top" makes it skip the link, so the browser does a full load. *@
+                <a class="admin-bar__link admin-bar__link--quiet" href="/" target="_top" data-enhance-nav="false">Към сайта</a>
+                <button type="button" class="admin-bar__link admin-bar__link--quiet admin-bar__logout" @onclick="HandleLogout">Изход</button>
+            </div>
+        </div>
     </header>
 
-    @* ---- Sidebar: offcanvas on mobile, fixed on desktop ---- *@
-    <nav class="offcanvas-lg offcanvas-start sidebar-nsi @(_sidebarOpen ? "show" : "")" tabindex="-1"
-         id="adminSidebar" aria-labelledby="adminSidebarLabel">
-
-        @* Offcanvas header (mobile only — Bootstrap hides it at lg+) *@
-        <div class="offcanvas-header d-lg-none sidebar-offcanvas-header">
-            <span class="offcanvas-title" id="adminSidebarLabel">
-                <span class="sidebar-brand-name">Natural Stone Impex</span>
-            </span>
-            <button type="button" class="btn-close btn-close-white"
-                    @onclick="CloseSidebar"
-                    aria-label="Затвори"></button>
-        </div>
-
-        <div class="offcanvas-body sidebar-body">
-            @* Brand area (desktop) *@
-            <div class="sidebar-brand d-none d-lg-block">
-                <a href="/admin" class="sidebar-brand-link">
-                    <span class="sidebar-brand-name">Natural Stone Impex</span>
-                    <span class="sidebar-brand-subtitle">Администрация</span>
-                </a>
-            </div>
-
-            <div class="sidebar-divider d-none d-lg-block"></div>
-
-            @* Main navigation *@
-            <ul class="nav flex-column sidebar-nav">
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="/admin" Match="NavLinkMatch.All">
-                        <i class="bi bi-speedometer2 me-2"></i> Табло
-                    </NavLink>
-                </li>
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="/admin/products">
-                        <i class="bi bi-box-seam me-2"></i> Продукти
-                    </NavLink>
-                </li>
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="/admin/categories">
-                        <i class="bi bi-tags me-2"></i> Категории
-                    </NavLink>
-                </li>
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="/admin/orders">
-                        <i class="bi bi-receipt me-2"></i> Поръчки
-                    </NavLink>
-                </li>
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="/admin/invoices">
-                        <i class="bi bi-truck me-2"></i> Доставки
-                    </NavLink>
-                </li>
-            </ul>
-
-            <div class="sidebar-divider"></div>
-
-            @* Secondary nav *@
-            <ul class="nav flex-column sidebar-nav">
-                <li class="nav-item">
-                    @* The WASM router ignores data-enhance-nav; target="_top" makes it skip the link, so the browser does a full load. *@
-                    <a class="nav-link sidebar-link-external" href="/" target="_top" data-enhance-nav="false">
-                        <i class="bi bi-arrow-left me-2"></i> Към сайта
-                        <i class="bi bi-box-arrow-up-right sidebar-external-icon"></i>
-                    </a>
-                </li>
-            </ul>
-
-            @* Logout — pushed to bottom *@
-            <div class="sidebar-footer">
-                <div class="sidebar-divider"></div>
-                <button class="btn sidebar-btn-logout w-100" @onclick="HandleLogout">
-                    <i class="bi bi-box-arrow-right me-2"></i> Изход
-                </button>
-            </div>
-        </div>
-    </nav>
-
-    @if (_sidebarOpen)
-    {
-        <div class="offcanvas-backdrop fade show d-lg-none" @onclick="CloseSidebar"></div>
-    }
-
-    @* ---- Main content area ---- *@
-    <div class="admin-content">
-        <header class="admin-content-topbar d-none d-lg-flex">
-            <span class="admin-content-topbar-text">Административен панел</span>
-        </header>
-        <main class="admin-main" @key="Navigation.Uri">
-            @Body
-        </main>
-    </div>
+    <main id="admin-main" class="admin-shell__main" tabindex="-1" @ref="_main" @key="Navigation.Uri">
+        @Body
+    </main>
 </div>
 
 @code {
-    private bool _sidebarOpen;
-
-    protected override void OnInitialized()
-    {
-        Navigation.LocationChanged += OnLocationChanged;
-    }
-
-    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
-    {
-        _sidebarOpen = false;
-        StateHasChanged();
-    }
-
-    private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
-    private void CloseSidebar() => _sidebarOpen = false;
+    private ElementReference _main;
 
     private Task HandleLogout() => AuthService.LogoutAsync();
 
-    public void Dispose()
-    {
-        Navigation.LocationChanged -= OnLocationChanged;
-    }
+    private async Task SkipToContentAsync() => await _main.FocusAsync();
 }

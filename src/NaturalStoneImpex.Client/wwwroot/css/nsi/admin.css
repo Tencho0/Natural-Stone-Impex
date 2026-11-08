@@ -1,0 +1,593 @@
+/*
+ * Admin variant, direction "Образец": the same tokens at a higher density (spec 6.7).
+ * Loaded on the WebAssembly pages (App.razor) and on the SSR login (LoginLayout), never on the storefront.
+ * Every rule is scoped: .admin-ui is the root of AdminLayout and PrintLayout, .login-page the root of
+ * LoginLayout. The old Client public pages are WebAssembly pages too, so nothing here may be global.
+ */
+
+/* ---------- Shell ---------- */
+
+.admin-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--surface);
+}
+
+.admin-ui {
+  font-size: var(--text-14);
+  line-height: var(--leading-body);
+  color: var(--ink);
+}
+
+/* The legacy site.css colours every link; text links in the admin use the ink and accent pair. */
+.admin-ui a:where(:not(.btn)) {
+  color: var(--ink);
+  text-underline-offset: 0.2em;
+  transition: color var(--dur-hover) var(--ease);
+}
+
+.admin-ui a:where(:not(.btn)):hover {
+  color: var(--accent);
+}
+
+/* base.css styles .skip-link for an anchor; the admin one is a button. */
+.admin-ui .skip-link {
+  border: 0;
+  font: inherit;
+  font-weight: 500;
+}
+
+.admin-ui .spinner-border {
+  color: var(--stone);
+}
+
+.admin-shell__main {
+  flex: 1;
+  width: 100%;
+  max-width: calc(var(--container-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: var(--space-6) var(--gutter) var(--space-8);
+}
+
+.admin-shell__main:focus {
+  outline: none;
+}
+
+/* One page title size across the admin; it also overrides the legacy page-title classes in site.css. */
+.admin-shell__main h1 {
+  margin: 0 0 var(--space-5);
+  font-family: var(--font-display);
+  font-size: var(--text-26);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Top bar ---------- */
+
+/* One row: wordmark, sections, then "Към сайта" and "Изход" pushed right. On phones the row scrolls. */
+.admin-bar {
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-bar__inner {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-5);
+  max-width: calc(var(--container-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  overflow-x: auto;
+  /* A desktop scrollbar would sit under the links and lift the active rule off the hairline.
+     The cut-off last link already shows the row continues; touch, trackpad and Tab still scroll it. */
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+.admin-bar__inner::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-bar__wordmark {
+  display: flex;
+  align-items: center;
+  margin-right: var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-16);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.admin-bar__nav,
+.admin-bar__end {
+  display: flex;
+  gap: var(--space-5);
+}
+
+.admin-bar__end {
+  margin-left: auto;
+}
+
+/* Links and the logout button share one shape: 48px tall, text only, a 2px accent rule when active. */
+.admin-bar__link {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-14);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--ink);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 -2px 0 transparent;
+  cursor: pointer;
+  transition:
+    color var(--dur-hover) var(--ease),
+    box-shadow var(--dur-hover) var(--ease);
+}
+
+.admin-ui .admin-bar__link {
+  color: var(--ink);
+}
+
+.admin-ui .admin-bar__link:hover {
+  color: var(--accent);
+}
+
+.admin-ui .admin-bar__link.active {
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.admin-ui .admin-bar__link--quiet {
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.admin-bar__link:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (min-width: 768px) {
+  .admin-bar__inner,
+  .admin-bar__nav,
+  .admin-bar__end {
+    gap: var(--space-6);
+  }
+
+  .admin-shell__main {
+    padding-top: var(--space-7);
+  }
+}
+
+/* ---------- Print layout (receipt) ---------- */
+
+.print-shell {
+  display: block;
+  min-height: 100vh;
+  padding: var(--space-6) var(--gutter);
+  background: var(--paper);
+}
+
+@media print {
+  .print-shell {
+    min-height: 0;
+    padding: 0;
+    background: none;
+  }
+}
+
+/* ---------- Buttons ---------- */
+
+/* components.css is not loaded on WebAssembly pages, so the admin gets its own copy, scoped. */
+.admin-ui .btn-primary,
+.admin-ui .btn-outline {
+  --bs-btn-padding-x: var(--space-4);
+  --bs-btn-padding-y: var(--space-2);
+  --bs-btn-font-family: var(--font-text);
+  --bs-btn-font-size: var(--text-14);
+  --bs-btn-font-weight: 500;
+  --bs-btn-line-height: 1.4;
+  --bs-btn-border-width: 1px;
+  --bs-btn-border-radius: var(--radius);
+  --bs-btn-box-shadow: none;
+  --bs-btn-focus-box-shadow: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-text);
+  font-size: var(--text-14);
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition:
+    background-color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease),
+    transform var(--dur-press) var(--ease);
+}
+
+.admin-ui .btn-primary:active,
+.admin-ui .btn-outline:active {
+  transform: translateY(1px);
+}
+
+.admin-ui .btn-primary:focus-visible,
+.admin-ui .btn-outline:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.admin-ui .btn-primary {
+  --bs-btn-color: var(--on-accent);
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: var(--on-accent);
+  --bs-btn-hover-bg: var(--accent-hover);
+  --bs-btn-hover-border-color: var(--accent-hover);
+  --bs-btn-active-color: var(--on-accent);
+  --bs-btn-active-bg: var(--accent-hover);
+  --bs-btn-active-border-color: var(--accent-hover);
+  --bs-btn-disabled-color: var(--on-accent);
+  --bs-btn-disabled-bg: var(--stone);
+  --bs-btn-disabled-border-color: var(--stone);
+}
+
+.admin-ui .btn-outline {
+  --bs-btn-color: var(--ink);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: var(--ink);
+  --bs-btn-hover-color: var(--accent);
+  --bs-btn-hover-bg: var(--paper);
+  --bs-btn-hover-border-color: var(--accent);
+  --bs-btn-active-color: var(--accent);
+  --bs-btn-active-bg: var(--paper);
+  --bs-btn-active-border-color: var(--accent);
+  --bs-btn-disabled-color: var(--stone);
+  --bs-btn-disabled-border-color: var(--rule);
+}
+
+/* Compact buttons for table rows: 36px drawn, 44px to the pointer. */
+.admin-ui .btn-sm {
+  min-height: 36px;
+  padding: var(--space-1) var(--space-3);
+}
+
+.admin-ui .btn-sm::before {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+
+/* ---------- Fields and form grid ---------- */
+
+/*
+ * <div class="form-grid">
+ *   <div class="field">label.field-label, .field-input, then p.field-help or p.field-error</div>
+ *   <div class="form-grid__row"> two or three short fields side by side from 768px </div>
+ * </div>
+ */
+.form-grid {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 720px;
+}
+
+.form-grid__row {
+  display: grid;
+  gap: var(--space-5) var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .form-grid__row {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+}
+
+.admin-ui .field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.admin-ui .field-label {
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.admin-ui .field-input {
+  width: 100%;
+  min-height: var(--target-min);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-text);
+  font-size: var(--text-16); /* 16px stops iOS from zooming into the field */
+  line-height: 1.4;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  transition: border-color var(--dur-hover) var(--ease);
+}
+
+.admin-ui .field-input:hover {
+  border-color: var(--stone);
+}
+
+.admin-ui .field-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-color: var(--accent);
+}
+
+.admin-ui .field-input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* Help and error share one slot, so an error replaces the help text without moving the layout. */
+.admin-ui .field-help,
+.admin-ui .field-error,
+.admin-ui .field .validation-message {
+  min-height: 1.5em;
+  margin: 0;
+  font-size: var(--text-13);
+  line-height: 1.5;
+}
+
+.admin-ui .field-help {
+  color: var(--stone);
+}
+
+.admin-ui .field-error,
+.admin-ui .field .validation-message {
+  color: var(--danger);
+}
+
+@media (min-width: 768px) {
+  .admin-ui .field-input {
+    font-size: var(--text-14);
+  }
+}
+
+/* ---------- Data table ---------- */
+
+/* Wrap in .table-scroll so wide tables scroll inside their column on phones. */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-14);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.data-table th {
+  padding: 0 var(--space-3) var(--space-2) 0;
+  font-size: var(--text-13);
+  font-weight: 500;
+  text-align: left;
+  vertical-align: bottom;
+  color: var(--stone);
+  border-bottom: 1px solid var(--rule);
+}
+
+.data-table td {
+  padding: 10px var(--space-3) 10px 0;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--rule);
+}
+
+.data-table th:last-child,
+.data-table td:last-child {
+  padding-right: 0;
+}
+
+.data-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---------- Status ---------- */
+
+/* <span class="status status--warn">Чакаща</span>: an 8px square marker, then the text in ink. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.status::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius);
+  background: var(--stone);
+}
+
+.status--ok::before {
+  background: var(--ok);
+}
+
+.status--warn::before {
+  background: var(--warn);
+}
+
+.status--danger::before {
+  background: var(--danger);
+}
+
+@media (forced-colors: active) {
+  .status::before {
+    background: CanvasText;
+  }
+}
+
+/* ---------- Inline confirm ---------- */
+
+/*
+ * Replaces an action button in place, no modal:
+ * <div class="inline-confirm" role="group" aria-label="...">
+ *   <p class="inline-confirm__text">Потвърди поръчката?</p>       (one p per stock warning)
+ *   <button class="btn btn-primary btn-sm">Да</button> <button class="btn btn-outline btn-sm">Не</button>
+ * </div>
+ */
+.inline-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.inline-confirm__text {
+  margin: 0;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.inline-confirm__text--warn {
+  font-weight: 400;
+  color: var(--warn);
+}
+
+.inline-confirm__actions {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+/* ---------- Skeleton ---------- */
+
+/*
+ * Placeholder rows for content that loads after first paint. They stay invisible for 300ms, so fast
+ * responses never flash them, then appear without motion (no shimmer).
+ * <tr class="skeleton-row skeleton" aria-hidden="true"><td><span class="skeleton-bar"></span></td>...</tr>
+ * Put the "Зареждане" text for screen readers next to them in a visually-hidden role="status".
+ */
+.skeleton {
+  opacity: 0;
+  animation: skeleton-reveal 1ms linear 300ms forwards;
+}
+
+@keyframes skeleton-reveal {
+  to { opacity: 1; }
+}
+
+.skeleton-bar {
+  display: block;
+  width: 70%;
+  height: 12px;
+  background: var(--paper);
+  border-radius: var(--radius);
+}
+
+.skeleton-bar--short {
+  width: 40%;
+}
+
+.data-table .skeleton-row td {
+  height: 42px;
+}
+
+.data-table .skeleton-row .num .skeleton-bar {
+  margin-left: auto;
+}
+
+/* base.css turns animations off under reduced motion; the reveal is not motion, so it is kept. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: skeleton-reveal 1ms linear 300ms forwards !important;
+  }
+}
+
+/* ---------- Login (static SSR; buttons and fields from components.css) ---------- */
+
+.login-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  min-height: 100vh;
+  padding: var(--space-8) var(--gutter);
+  background: var(--paper);
+}
+
+.login-panel {
+  width: 100%;
+  max-width: 360px;
+  padding: var(--space-7) var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.login-panel__wordmark {
+  margin: 0 0 var(--space-6);
+  font-family: var(--font-display);
+  font-size: var(--text-18);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.login-panel__title {
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-22);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.login-panel__error {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-14);
+  color: var(--danger);
+}
+
+.login-panel__form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.login-page .validation-message {
+  margin: 0;
+  font-size: var(--text-13);
+  line-height: 1.5;
+  color: var(--danger);
+}
+
+/* app.css outlines validated inputs; the border carries that state here, and focus keeps its ring. */
+.login-page .field-input.valid.modified:not(:focus-visible),
+.login-page .field-input.invalid:not(:focus-visible) {
+  outline: none;
+}
+
+.login-panel__submit {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.login-page__back {
+  font-size: var(--text-14);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+}

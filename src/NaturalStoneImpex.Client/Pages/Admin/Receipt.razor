@@ -1,56 +1,38 @@
 @page "/admin/orders/{Id:int}/receipt"
+@layout PrintLayout
 @attribute [Authorize]
 @inject IOrderService OrderService
 @inject IJSRuntime JS
 
-<PageTitle>Разписка — Natural Stone Impex</PageTitle>
+<PageTitle>Разписка | Natural Stone Impex</PageTitle>
 
 <style>
     @@media screen {
+        /* On screen the receipt is a sheet on the admin ground. Buttons come from admin.css. */
         .receipt-page {
             max-width: 800px;
-            margin: 2rem auto;
+            margin: 0 auto;
             padding: 2.5rem 2rem;
             font-family: Georgia, 'Times New Roman', serif;
             color: #000;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(44, 44, 44, 0.12);
+            background: var(--surface);
+            border: 1px solid var(--rule);
+            border-radius: var(--radius);
+            /* The 8-column table is wider than a phone; it scrolls inside the sheet, not the page. */
+            overflow-x: auto;
         }
         .no-print {
             display: flex;
-            gap: 10px;
+            flex-wrap: wrap;
+            gap: 8px;
             margin-bottom: 24px;
+            font-family: var(--font-text);
         }
-        .no-print .btn-print-receipt {
-            background-color: #8B7355;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            min-height: 44px;
-            padding: 0.625rem 1.5rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-        .no-print .btn-print-receipt:hover {
-            background-color: #6B5740;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(44, 44, 44, 0.12);
-        }
-        .no-print .btn-back-receipt {
-            background: transparent;
-            border: 2px solid #8B7355;
-            color: #8B7355;
-            border-radius: 8px;
-            min-height: 44px;
-            padding: 0.5rem 1.5rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-        .no-print .btn-back-receipt:hover {
-            background-color: #8B7355;
-            color: #fff;
-            transform: translateY(-1px);
+    }
+
+    @@media screen and (max-width: 767.98px) {
+        .receipt-page {
+            padding: 24px 16px;
         }
     }
 
@@ -173,7 +155,7 @@
 @if (_isLoading)
 {
     <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border text-primary" role="status">
+        <div class="spinner-border" role="status">
             <span class="visually-hidden">Зареждане...</span>
         </div>
     </div>
@@ -182,8 +164,8 @@ else if (_order is null)
 {
     <div class="receipt-page">
         <div class="no-print">
-            <a href="/admin/orders" class="btn btn-back-receipt">
-                <i class="bi bi-arrow-left me-1"></i> Обратно към поръчките
+            <a href="/admin/orders" class="btn btn-outline">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i> Обратно към поръчките
             </a>
         </div>
         <div class="alert alert-warning">Поръчката не е намерена.</div>
@@ -193,8 +175,8 @@ else if (_order.Status == 0 && !_order.IsCancelled)
 {
     <div class="receipt-page">
         <div class="no-print">
-            <a href="/admin/orders/@Id" class="btn btn-back-receipt">
-                <i class="bi bi-arrow-left me-1"></i> Обратно към поръчката
+            <a href="/admin/orders/@Id" class="btn btn-outline">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i> Обратно към поръчката
             </a>
         </div>
         <div class="alert alert-warning">Разписка може да се генерира само за потвърдени или завършени поръчки.</div>
@@ -205,11 +187,11 @@ else
     <div class="receipt-page">
         @* Screen-only buttons *@
         <div class="no-print">
-            <button class="btn btn-print-receipt" @onclick="PrintReceipt">
-                <i class="bi bi-printer me-1"></i> Принтирай
+            <button class="btn btn-primary" @onclick="PrintReceipt">
+                <i class="bi bi-printer" aria-hidden="true"></i> Принтирай
             </button>
-            <a href="/admin/orders/@Id" class="btn btn-back-receipt">
-                <i class="bi bi-arrow-left me-1"></i> Обратно към поръчката
+            <a href="/admin/orders/@Id" class="btn btn-outline">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i> Обратно към поръчката
             </a>
         </div>
 
@@ -309,7 +291,7 @@ else
 
         @* Footer *@
         <p class="receipt-footer">
-            Стокова разписка — не е официален данъчен документ.
+            Стокова разписка. Не е официален данъчен документ.
         </p>
     </div>
 }

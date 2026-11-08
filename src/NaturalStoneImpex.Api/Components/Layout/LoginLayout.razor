@@ -1,13 +1,17 @@
 @inherits LayoutComponentBase
 
-<div class="login-layout">
-    <div class="login-container">
-        <div class="login-brand">
-            <h1 class="login-brand-text">Natural Stone Impex</h1>
-            <div class="login-accent-line"></div>
-        </div>
-        <div class="login-card">
-            @Body
-        </div>
+@* Static SSR. Buttons and fields come from components.css, which App.razor loads on every SSR page;
+   the login panel's own rules live in admin.css, linked here so storefront pages never load it.
+   HeadOutlet shows only the last HeadContent rendered, so the login page itself must not add one. *@
+<HeadContent>
+    <link rel="stylesheet" href="@Assets["css/nsi/admin.css"]" />
+    <meta name="robots" content="noindex" />
+</HeadContent>
+
+<main class="login-page">
+    <div class="login-panel">
+        <p class="login-panel__wordmark">Natural Stone Impex</p>
+        @Body
     </div>
-</div>
+    <a class="login-page__back link-quiet" href="/" data-enhance-nav="false">Към сайта</a>
+</main>

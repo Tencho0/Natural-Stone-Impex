@@ -19,6 +19,11 @@
         <link rel="stylesheet" href="@Assets["css/nsi/components.css"]" />
         <link rel="stylesheet" href="@Assets["css/nsi/storefront.css"]" />
     }
+    else
+    {
+        @* WebAssembly pages (admin). The SSR login links it through LoginLayout. *@
+        <link rel="stylesheet" href="@Assets["css/nsi/admin.css"]" />
+    }
     <ImportMap />
     @* No static <title>: each page sets one through PageTitle (SeoHead on the storefront). *@
     <HeadOutlet @rendermode="PageRenderMode" />
