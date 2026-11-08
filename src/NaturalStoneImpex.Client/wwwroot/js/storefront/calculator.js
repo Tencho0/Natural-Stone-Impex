@@ -1,6 +1,7 @@
 // Live result for the product calculator (spec §7.3). It mirrors DecimalInput and QuantityCalculator in
 // BigInt fixed point, so it is exact: 4 × 3 + 10% is 13.20, never 13.21. It only rewrites the result line
-// and the button label; the POST recalculates on the server, which stays authoritative.
+// and the button label; the POST recalculates on the server, which stays authoritative. All copy comes from
+// the form's data-* templates (ProductView), so the script has no text of its own.
 const FORM = 'form[data-calc]';
 const MAX = 10000n; // QuantityCalculator.MaxQuantity
 const DECIMAL_MAX = 79228162514264337593543950335n; // decimal.MaxValue: larger input does not parse in C#
@@ -23,6 +24,10 @@ function read(form, name) {
   return v.n > MAX * 10n ** BigInt(v.s) ? 'big' : v;
 }
 
+function isArea(form) {
+  return form.querySelector('input[name="Calc.Mode"]:checked')?.value === 'area';
+}
+
 // QuantityCalculator.Calculate: hundredths of the unit as a BigInt, or an error code.
 function quantity(form) {
   let raw;
@@ -30,7 +35,7 @@ function quantity(form) {
   if (form.hasAttribute('data-kg')) {
     raw = read(form, 'Kilograms');
   } else {
-    const area = form.querySelector('input[name="Calc.Mode"]:checked')?.value === 'area';
+    const area = isArea(form);
     waste = !!form.elements.namedItem('Calc.Waste')?.checked;
     if (area) {
       raw = read(form, 'Area');
@@ -54,27 +59,30 @@ function quantity(form) {
   return q > MAX * 100n ? 'big' : q;
 }
 
-// PriceFormat: invariant, two decimals.
-function fixed2(hundredths) {
-  return (hundredths / 100n) + '.' + String(hundredths % 100n).padStart(2, '0');
+// PriceFormat: invariant, two decimals, put into a template such as "{0} м²" or "{0} €".
+function format(template, hundredths) {
+  const number = (hundredths / 100n) + '.' + String(hundredths % 100n).padStart(2, '0');
+  return (template || '{0}').replace('{0}', number);
 }
 
 function update(form) {
   const result = form.querySelector('[data-calc-result]');
   const button = form.querySelector('[data-calc-submit]');
   if (!result || !button) return;
-  const unit = form.dataset.unit || '';
+  const data = form.dataset;
   const q = quantity(form);
 
   const line = [];
   if (typeof q === 'string') {
-    line.push(['product-calc__qty', result.dataset[q] || '']);
-    button.textContent = 'Добави в количката';
+    // ProductView.ResultNote: "too large", or what to fill in for the chosen mode.
+    const note = q === 'missing' && isArea(form) ? result.dataset.missingArea : result.dataset[q];
+    line.push(['product-calc__qty', note || '']);
+    button.textContent = data.addPlain || '';
   } else {
-    const price = parse(form.dataset.price);
+    const price = parse(data.price);
     const cents = price ? (price.n * 10n ** BigInt(2 - Math.min(price.s, 2)) * q + 50n) / 100n : 0n;
-    line.push(['product-calc__qty', fixed2(q) + ' ' + unit], ['product-calc__total', fixed2(cents) + ' €']);
-    button.textContent = 'Добави ' + fixed2(q) + ' ' + unit + ' в количката';
+    line.push(['product-calc__qty', format(data.qtyTemplate, q)], ['product-calc__total', format(data.moneyTemplate, cents)]);
+    button.textContent = format(data.addTemplate, q);
   }
 
   // Rewrite only on change, so the live region does not repeat itself.

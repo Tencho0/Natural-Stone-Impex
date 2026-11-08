@@ -1121,24 +1121,20 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Priced 0: no calculator, the shop phone instead. */
+/* Priced 0: no availability and no calculator. One body sentence with the shop phone, in the calculator's
+   hairline group (R21). */
 .product-ask {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.product-ask__text {
   margin: 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
   font-size: var(--text-16);
 }
 
+/* Same size as the sentence. The block padding takes the hit area to 44px without moving the line. */
 .product-ask__phone {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--target-min);
-  font-family: var(--font-display);
-  font-size: var(--text-22);
-  letter-spacing: -0.02em;
+  padding-block: 12px;
+  font-weight: 500;
+  white-space: nowrap; /* never split the number */
   color: var(--ink);
   text-decoration: underline;
   text-decoration-thickness: 1px;
@@ -1257,8 +1253,10 @@
   overflow-wrap: anywhere;
 }
 
-/* Full-size photo (zoom.js): a modal dialog, the caption and the close button under the photo. */
+/* Full-size photo (zoom.js): a modal dialog, the caption and the close button under the photo.
+   --zoom-bar is the caption bar's height (hairline, padding, 44px button), which the photo leaves free. */
 .photo-zoom {
+  --zoom-bar: calc(1px + 2 * var(--space-3) + var(--target-min));
   max-width: calc(100vw - 2 * var(--gutter));
   max-height: calc(100dvh - 2 * var(--gutter));
   padding: 0;
@@ -1278,11 +1276,13 @@
   width: auto;
   max-width: 100%;
   height: auto;
-  max-height: calc(100dvh - 2 * var(--gutter) - 68px);
+  max-height: calc(100dvh - 2 * var(--gutter) - var(--zoom-bar));
   margin-inline: auto;
 }
 
 .photo-zoom__bar {
+  box-sizing: border-box;
+  min-height: var(--zoom-bar);
   display: flex;
   align-items: center;
   justify-content: space-between;

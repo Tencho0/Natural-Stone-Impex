@@ -10,7 +10,14 @@ public static class ProductView
     public const string BackOrder = "Доставка по заявка. Ще ви се обадим за срок.";
     public const string AddPlain = "Добави в количката";
     public const string MissingSqm = "Попълнете размерите, за да видите сумата.";
+    public const string MissingArea = "Попълнете площта, за да видите сумата.";
     public const string MissingKg = "Попълнете количеството, за да видите сумата.";
+
+    /// <summary>Where calculator.js puts its number in the templates below.</summary>
+    public const string Placeholder = "{0}";
+
+    private const string AddFormat = "Добави {0} в количката";
+    private const string Zero = "0.00"; // what PriceFormat prints for 0, swapped for the placeholder
 
     public static bool IsKilograms(ProductDto p) => p.Unit == (int)UnitType.Kg;
 
@@ -32,14 +39,32 @@ public static class ProductView
 
     /// <summary>"Добави 13.20 м² в количката", or the plain label while the input is incomplete.</summary>
     public static string AddLabel(QuantityResult result, string unitDisplay) => result.IsValid
-        ? $"Добави {PriceFormat.Quantity(result.Quantity, unitDisplay)} в количката"
+        ? string.Format(AddFormat, PriceFormat.Quantity(result.Quantity, unitDisplay))
         : AddPlain;
+
+    // Templates for calculator.js, built from the same formats, so the page and the script cannot drift apart.
+
+    /// <summary>"{0} м²": PriceFormat.Quantity with a placeholder for the number.</summary>
+    public static string QuantityTemplate(string unitDisplay)
+        => PriceFormat.Quantity(0m, unitDisplay).Replace(Zero, Placeholder);
+
+    /// <summary>"{0} €": PriceFormat.Money with a placeholder for the number.</summary>
+    public static string MoneyTemplate => PriceFormat.Money(0m).Replace(Zero, Placeholder);
+
+    /// <summary>"Добави {0} м² в количката".</summary>
+    public static string AddTemplate(string unitDisplay) => string.Format(AddFormat, QuantityTemplate(unitDisplay));
 
     public static string? Total(QuantityResult result, decimal priceWithVat)
         => result.IsValid ? PriceFormat.Money(result.Quantity * priceWithVat) : null;
 
     /// <summary>The result line's text while there is no quantity. Field errors appear under the fields.</summary>
-    public static string ResultNote(QuantityResult result, bool kilograms)
-        => result.Error == QuantityCalculator.TooLargeError ? QuantityCalculator.TooLargeError
-            : kilograms ? MissingKg : MissingSqm;
+    public static string ResultNote(QuantityResult result, QuantityMode mode)
+        => result.Error == QuantityCalculator.TooLargeError ? QuantityCalculator.TooLargeError : MissingNote(mode);
+
+    public static string MissingNote(QuantityMode mode) => mode switch
+    {
+        QuantityMode.Area => MissingArea,
+        QuantityMode.Kilograms => MissingKg,
+        _ => MissingSqm,
+    };
 }

@@ -72,9 +72,31 @@ public class ProductViewTests
 
         Assert.Equal("Добави в количката", ProductView.AddLabel(missing, "м²"));
         Assert.Null(ProductView.Total(missing, 20.45m));
-        Assert.Equal(ProductView.MissingSqm, ProductView.ResultNote(missing, kilograms: false));
-        Assert.Equal(ProductView.MissingKg, ProductView.ResultNote(missing, kilograms: true));
-        Assert.Equal(QuantityCalculator.TooLargeError, ProductView.ResultNote(tooBig, kilograms: false));
+        Assert.Equal(ProductView.MissingSqm, ProductView.ResultNote(missing, QuantityMode.Dimensions));
+        Assert.Equal(ProductView.MissingKg, ProductView.ResultNote(missing, QuantityMode.Kilograms));
+        Assert.Equal(QuantityCalculator.TooLargeError, ProductView.ResultNote(tooBig, QuantityMode.Area));
+    }
+
+    [Fact]
+    public void Missing_area_asks_for_the_area()
+    {
+        var missing = QuantityCalculator.Calculate(new ProductCalcForm { Mode = "area", Area = "" }.ToInput(false));
+
+        Assert.Equal("Попълнете площта, за да видите сумата.", ProductView.ResultNote(missing, QuantityMode.Area));
+        Assert.Equal(ProductView.MissingArea, ProductView.MissingNote(QuantityMode.Area));
+        Assert.Equal(ProductView.MissingSqm, ProductView.MissingNote(QuantityMode.Dimensions));
+    }
+
+    [Fact]
+    public void Js_templates_come_from_the_same_formats()
+    {
+        Assert.Equal("{0} м²", ProductView.QuantityTemplate("м²"));
+        Assert.Equal("{0} €", ProductView.MoneyTemplate);
+        Assert.Equal("Добави {0} кг в количката", ProductView.AddTemplate("кг"));
+
+        var result = QuantityCalculator.Calculate(ProductCalcForm.Defaults().ToInput(kilograms: false));
+        Assert.Equal(ProductView.AddLabel(result, "м²"), ProductView.AddTemplate("м²").Replace("{0}", "13.20"));
+        Assert.Equal(ProductView.Total(result, 20.45m), ProductView.MoneyTemplate.Replace("{0}", "269.94"));
     }
 
     [Fact]

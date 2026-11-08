@@ -35,7 +35,7 @@
                 <a class="product-photo__zoom" href="@product.ImagePath" data-zoom aria-controls="photo-zoom"
                    data-enhance-nav="false">
                     <img src="@product.ImagePath" alt="@product.Name" width="800" height="600"
-                         fetchpriority="high" decoding="async" />
+                         fetchpriority="high" />
                     <span class="visually-hidden">, отвори снимката в цял размер</span>
                 </a>
                 <p class="product-photo__hint">Натиснете снимката за увеличение</p>
@@ -54,12 +54,11 @@
 
             @if (_onRequest)
             {
-                <div class="product-ask">
-                    <p class="product-price"><span class="product-price__amount">Цена при запитване.</span></p>
-                    <p class="product-ask__text">
-                        Обадете се на <a class="product-ask__phone num" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a>.
-                    </p>
-                </div>
+                @* Cannot be ordered: no availability line, no calculator. One sentence with the shop phone (R21). *@
+                <p class="product-price"><span class="product-price__amount">Цена при запитване</span></p>
+                <p class="product-ask">
+                    Цена при запитване. Обадете се на <a class="product-ask__phone num" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a>.
+                </p>
             }
             else
             {
@@ -67,15 +66,17 @@
                     <span class="product-price__amount">@PriceFormat.Money(product.PriceWithVat)</span>
                     <span class="product-price__note">@ProductView.PriceNote(product)</span>
                 </p>
-            }
 
-            <p class="product-stock">@ProductView.Availability(product.StockQuantity, product.UnitDisplay)</p>
+                <p class="product-stock">@ProductView.Availability(product.StockQuantity, product.UnitDisplay)</p>
 
-            @if (!_onRequest)
-            {
+                @* The data-* templates come from ProductView, so calculator.js prints exactly what the server does. *@
                 <EditForm FormName="add-to-cart" Enhance Model="Calc" OnValidSubmit="Add" class="product-calc"
                           data-calc data-price="@product.PriceWithVat.ToString("0.00", CultureInfo.InvariantCulture)"
-                          data-unit="@product.UnitDisplay" data-kg="@(_isKg ? "" : null)">
+                          data-kg="@(_isKg ? "" : null)"
+                          data-qty-template="@ProductView.QuantityTemplate(product.UnitDisplay)"
+                          data-money-template="@ProductView.MoneyTemplate"
+                          data-add-template="@ProductView.AddTemplate(product.UnitDisplay)"
+                          data-add-plain="@ProductView.AddPlain">
                     <h2 class="product-calc__title">Колко ви трябва</h2>
 
                     @if (_isKg)
@@ -114,6 +115,7 @@
 
                     <p class="product-calc__result" aria-live="polite" data-calc-result
                        data-missing="@(_isKg ? ProductView.MissingKg : ProductView.MissingSqm)"
+                       data-missing-area="@(_isKg ? null : ProductView.MissingArea)"
                        data-big="@QuantityCalculator.TooLargeError">
                         @if (_result.IsValid)
                         {
@@ -122,7 +124,7 @@
                         }
                         else
                         {
-                            <span class="product-calc__qty">@ProductView.ResultNote(_result, _isKg)</span>
+                            <span class="product-calc__qty">@ProductView.ResultNote(_result, Calc.ToInput(_isKg).Mode)</span>
                         }
                     </p>
 
@@ -130,12 +132,13 @@
                         @ProductView.AddLabel(_result, product.UnitDisplay)
                     </button>
                 </EditForm>
-
-                <p class="product-after">
-                    Вземане от склада или доставка до обекта. Цената на доставката се уточнява по телефона.
-                    След поръчката ще ви се обадим, за да я потвърдим.
-                </p>
             }
+
+            @* Under the purchase block on every product (spec §7.3). *@
+            <p class="product-after">
+                Вземане от склада или доставка до обекта. Цената на доставката се уточнява по телефона.
+                След поръчката ще ви се обадим, за да я потвърдим.
+            </p>
 
             @if (!string.IsNullOrWhiteSpace(product.Description))
             {
