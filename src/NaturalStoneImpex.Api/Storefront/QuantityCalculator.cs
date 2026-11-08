@@ -10,6 +10,7 @@ public static class QuantityCalculator
 {
     public const decimal WasteFactor = 1.10m;
     public const decimal MaxQuantity = 10000m;
+    public const string TooLargeError = "Количеството е твърде голямо.";
 
     public static QuantityResult Calculate(QuantityInput input)
     {
@@ -41,7 +42,7 @@ public static class QuantityCalculator
 
         var quantity = Math.Ceiling(raw * 100m) / 100m;
         if (quantity > MaxQuantity)
-            return Fail(FieldFor(input.Mode), "Количеството е твърде голямо.");
+            return Fail(FieldFor(input.Mode), TooLargeError);
 
         return new QuantityResult(true, quantity, null, null);
     }
@@ -57,7 +58,7 @@ public static class QuantityCalculator
         }
         if (value > MaxQuantity)
         {
-            failure = Fail(field, "Количеството е твърде голямо.");
+            failure = Fail(field, TooLargeError);
             return false;
         }
         return true;

@@ -1,0 +1,248 @@
+@page "/products/{Id:int}"
+@attribute [ExcludeFromInteractiveRouting]
+@layout MainLayout
+@using System.Globalization
+@using NaturalStoneImpex.Api.Models.DTOs
+@using NaturalStoneImpex.Client.Formatting
+@inject IStorefrontQueryService Storefront
+@inject ICartStore Cart
+@inject NavigationManager Navigation
+
+@* Product page (spec §7.3). The calculator is an enhanced SSR form: QuantityCalculator on the server is the
+   authority, calculator.js only updates the result line and the button label while typing. *@
+
+@if (_product is { } product)
+{
+    <SeoHead Title="@product.Name" Description="@ProductView.MetaDescription(product)"
+             CanonicalPath="@_canonical" ImagePath="@product.ImagePath" JsonLd="@_jsonLd" />
+    <PageScript Src="js/storefront/calculator.js" />
+    <PageScript Src="js/storefront/zoom.js" />
+
+    <div class="wrap product-page">
+        <nav class="product-crumbs" aria-label="Път">
+            <ol>
+                <li><a href="/catalog">Каталог</a></li>
+                <li><a href="/catalog?categoryId=@product.CategoryId">@product.CategoryName</a></li>
+                <li aria-current="page">@product.Name</li>
+            </ol>
+        </nav>
+
+        <div class="product-photo">
+            @if (_hasImage)
+            {
+                @* Without JS the link opens the image file; zoom.js opens it in the dialog below instead.
+                   data-enhance-nav="false": enhanced navigation must not fetch a JPEG as a page. *@
+                <a class="product-photo__zoom" href="@product.ImagePath" data-zoom aria-controls="photo-zoom"
+                   data-enhance-nav="false">
+                    <img src="@product.ImagePath" alt="@product.Name" width="800" height="600"
+                         fetchpriority="high" decoding="async" />
+                    <span class="visually-hidden">, отвори снимката в цял размер</span>
+                </a>
+                <p class="product-photo__hint">Натиснете снимката за увеличение</p>
+            }
+            else
+            {
+                <span class="product-photo__none">Без снимка</span>
+            }
+        </div>
+
+        <div class="product-info">
+            <div class="product-info__head">
+                <p class="product-info__kind">@ProductView.SaleUnit(product)</p>
+                <h1 class="product-info__title">@product.Name</h1>
+            </div>
+
+            @if (_onRequest)
+            {
+                <div class="product-ask">
+                    <p class="product-price"><span class="product-price__amount">Цена при запитване.</span></p>
+                    <p class="product-ask__text">
+                        Обадете се на <a class="product-ask__phone num" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a>.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <p class="product-price">
+                    <span class="product-price__amount">@PriceFormat.Money(product.PriceWithVat)</span>
+                    <span class="product-price__note">@ProductView.PriceNote(product)</span>
+                </p>
+            }
+
+            <p class="product-stock">@ProductView.Availability(product.StockQuantity, product.UnitDisplay)</p>
+
+            @if (!_onRequest)
+            {
+                <EditForm FormName="add-to-cart" Enhance Model="Calc" OnValidSubmit="Add" class="product-calc"
+                          data-calc data-price="@product.PriceWithVat.ToString("0.00", CultureInfo.InvariantCulture)"
+                          data-unit="@product.UnitDisplay" data-kg="@(_isKg ? "" : null)">
+                    <h2 class="product-calc__title">Колко ви трябва</h2>
+
+                    @if (_isKg)
+                    {
+                        <div class="product-calc__fields">
+                            @Field("Kilograms", "calc-kg", "Количество, кг", Calc.Kilograms, "Например 250")
+                        </div>
+                    }
+                    else
+                    {
+                        <fieldset class="seg">
+                            <legend class="visually-hidden">Как да изчислим количеството</legend>
+                            <input class="seg-input" type="radio" id="calc-mode-dims" name="Calc.Mode"
+                                   value="@ProductCalcForm.DimensionsMode" checked="@(!Calc.IsArea)" />
+                            <label class="seg-option" for="calc-mode-dims">По размери</label>
+                            <input class="seg-input" type="radio" id="calc-mode-area" name="Calc.Mode"
+                                   value="@ProductCalcForm.AreaMode" checked="@Calc.IsArea" />
+                            <label class="seg-option" for="calc-mode-area">Знам м²</label>
+                        </fieldset>
+
+                        @* Both groups are always in the page. CSS shows the one whose radio is checked (no JS needed);
+                           the server reads only the fields of the posted mode. *@
+                        <div class="product-calc__fields product-calc__fields--dims">
+                            @Field("Length", "calc-length", "Дължина, м", Calc.Length, "Например 4,5")
+                            @Field("Width", "calc-width", "Ширина, м", Calc.Width, "Например 3,2")
+                        </div>
+                        <div class="product-calc__fields product-calc__fields--area">
+                            @Field("Area", "calc-area", "Площ, м²", Calc.Area, "Например 12,5")
+                        </div>
+
+                        <label class="product-calc__waste">
+                            <input type="checkbox" name="Calc.Waste" value="true" checked="@Calc.Waste" />
+                            <span>Добави 10% за фира и рязане</span>
+                        </label>
+                    }
+
+                    <p class="product-calc__result" aria-live="polite" data-calc-result
+                       data-missing="@(_isKg ? ProductView.MissingKg : ProductView.MissingSqm)"
+                       data-big="@QuantityCalculator.TooLargeError">
+                        @if (_result.IsValid)
+                        {
+                            <span class="product-calc__qty">@PriceFormat.Quantity(_result.Quantity, product.UnitDisplay)</span>
+                            <span class="product-calc__total">@ProductView.Total(_result, product.PriceWithVat)</span>
+                        }
+                        else
+                        {
+                            <span class="product-calc__qty">@ProductView.ResultNote(_result, _isKg)</span>
+                        }
+                    </p>
+
+                    <button type="submit" class="btn btn-primary product-calc__submit" data-calc-submit>
+                        @ProductView.AddLabel(_result, product.UnitDisplay)
+                    </button>
+                </EditForm>
+
+                <p class="product-after">
+                    Вземане от склада или доставка до обекта. Цената на доставката се уточнява по телефона.
+                    След поръчката ще ви се обадим, за да я потвърдим.
+                </p>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(product.Description))
+            {
+                <section class="product-desc" aria-labelledby="product-desc-title">
+                    <h2 id="product-desc-title" class="product-desc__title">Описание</h2>
+                    @* Plain text: encoded by Razor, line breaks kept by white-space: pre-line. *@
+                    <p class="product-desc__text">@product.Description.Trim()</p>
+                </section>
+            }
+        </div>
+    </div>
+
+    @if (_hasImage)
+    {
+        <dialog class="photo-zoom" id="photo-zoom" aria-labelledby="photo-zoom-title">
+            <img class="photo-zoom__img" src="@product.ImagePath" alt="@product.Name" loading="lazy" decoding="async" />
+            <div class="photo-zoom__bar">
+                <p class="photo-zoom__title" id="photo-zoom-title">@product.Name</p>
+                <button type="button" class="btn btn-outline photo-zoom__close" data-zoom-close>Затвори</button>
+            </div>
+        </dialog>
+    }
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [SupplyParameterFromForm(FormName = "add-to-cart")]
+    private ProductCalcForm Calc { get; set; } = default!;
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private ProductDto? _product;
+    private bool _hasImage;
+    private bool _onRequest;
+    private bool _isKg;
+    private bool _submitted;
+    private QuantityResult _result = new(false, 0, null, null);
+    private string _canonical = "/";
+    private string? _jsonLd;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // GET renders the defaults (4 × 3 with waste); a POST of "add-to-cart" binds what was typed.
+        Calc ??= ProductCalcForm.Defaults();
+
+        _product = await Storefront.GetActiveProductAsync(Id);
+        if (_product is null)
+        {
+            // Missing or inactive: HTTP 404, rendered by the designed /not-found page (status code re-execution).
+            Navigation.NotFound();
+            return;
+        }
+
+        _hasImage = !string.IsNullOrWhiteSpace(_product.ImagePath);
+        _onRequest = _product.PriceWithVat <= 0;
+        _isKg = ProductView.IsKilograms(_product);
+        _result = QuantityCalculator.Calculate(Calc.ToInput(_isKg));
+        _canonical = $"/products/{_product.Id}";
+        _jsonLd = BuildJsonLd(_product);
+    }
+
+    private void Add()
+    {
+        _submitted = true;
+        if (_product is null || _onRequest || HttpContext is null || !_result.IsValid)
+            return; // errors render under their fields
+
+        var added = Cart.Add(_product.Id, _result.Quantity);
+        Flash.Set(HttpContext.Response, added ? Flash.Added : Flash.Full);
+
+        // Post/Redirect/Get to the same view: focus.js keeps focus and scroll, the toast confirms.
+        Navigation.NavigateTo($"/products/{_product.Id}");
+    }
+
+    private string? BuildJsonLd(ProductDto product)
+    {
+        if (HttpContext is null)
+            return null;
+        // Same origin as SeoHead's canonical: the request's scheme, host and path base.
+        var request = HttpContext.Request;
+        var scheme = request.Scheme;
+        var host = request.Host.ToUriComponent();
+        var pathBase = request.PathBase.ToUriComponent();
+        var image = _hasImage ? SeoFormat.ImageUrl(scheme, host, pathBase, product.ImagePath!) : null;
+        return ProductJsonLd.Build(product, SeoFormat.AbsoluteUrl(scheme, host, pathBase, _canonical), image);
+    }
+
+    // One number field: label above, help or error below in the same slot (components.css .field).
+    private RenderFragment Field(string name, string id, string label, string? value, string help)
+    {
+        var error = _submitted && !_result.IsValid && _result.ErrorField == name ? _result.Error : null;
+        var noteId = id + "-note";
+        return @<div class="field">
+            <label class="field-label" for="@id">@label</label>
+            <input class="field-input num" id="@id" name="Calc.@name" value="@value" type="text" inputmode="decimal"
+                   autocomplete="off" aria-describedby="@noteId" aria-invalid="@(error is null ? null : "true")" />
+            @if (error is null)
+            {
+                <p class="field-help" id="@noteId">@help</p>
+            }
+            else
+            {
+                <p class="field-error" id="@noteId">@error</p>
+            }
+        </div>;
+    }
+}

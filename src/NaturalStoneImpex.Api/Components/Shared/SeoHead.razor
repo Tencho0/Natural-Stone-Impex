@@ -27,7 +27,9 @@
     }
     @if (_jsonLd is not null)
     {
-        <script type="application/ld+json">@((MarkupString)_jsonLd)</script>
+        @* One markup string: as a rendered attribute, the "+" would be written as "ld&#x2B;json". The body is safe:
+           SeoFormat.JsonLd escapes every "<", so it cannot close the element. *@
+        @((MarkupString)$"<script type=\"application/ld+json\">{_jsonLd}</script>")
     }
 </HeadContent>
 
