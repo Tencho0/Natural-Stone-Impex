@@ -46,4 +46,8 @@ public class CartCookieTests
         var value = string.Join("|", Enumerable.Range(1, 500).Select(i => $"{i}:1"));
         Assert.Equal(CartCookie.MaxLines, CartCookie.Parse(value).Count);
     }
+
+    [Fact]
+    public void Rounds_quantities_to_cents_and_drops_those_that_round_to_zero()
+        => Assert.Equal(new[] { new CartLine(1, 2.56m) }, CartCookie.Parse("1:2.555|2:0.004"));
 }

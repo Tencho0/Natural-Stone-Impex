@@ -1320,3 +1320,409 @@
     column-gap: var(--space-9);
   }
 }
+
+/* ---------- Cart ---------- */
+
+/*
+ * Phones: each line is photo + name block, then the quantity control and the line total, under a hairline.
+ * From 768px: one row per line (photo, name block, quantity, total) under quiet column labels.
+ * From 1024px: the summary sits to the right of the lines.
+ */
+.cart {
+  padding-top: var(--space-7);
+}
+
+.cart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  padding-bottom: var(--space-6);
+}
+
+.cart-head__title {
+  margin: 0;
+  font-size: var(--text-34);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.cart-head__count {
+  margin: 0;
+  font-size: var(--text-15);
+  color: var(--stone);
+}
+
+.cart-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-8);
+}
+
+.cart-cols {
+  display: none;
+}
+
+.cart-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.cart-line {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "photo info info"
+    "qty   qty  total";
+  gap: var(--space-3) var(--space-4);
+  align-items: center;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.cart-line__photo {
+  grid-area: photo;
+  align-self: start;
+  width: 64px;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.cart-line__photo:empty {
+  border: 1px solid var(--rule);
+}
+
+.cart-line__photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cart-line__info {
+  grid-area: info;
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+  min-width: 0;
+}
+
+.cart-line__name {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-16);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.cart-line__name a {
+  color: var(--ink);
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+}
+
+.cart-line__name a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+
+.cart-line__price {
+  margin: 0;
+  font-size: var(--text-14);
+}
+
+.cart-line__price span,
+.cart-line__price--off {
+  color: var(--stone);
+}
+
+.cart-line__note {
+  margin: 0;
+  font-size: var(--text-14);
+  font-weight: 500;
+}
+
+.cart-line__note--back {
+  color: var(--warn);
+}
+
+.cart-line__note--off {
+  color: var(--danger);
+}
+
+/* The remove form sits under the name: a tertiary link whose hit area reaches 44px without adding height. */
+.cart-line__remove {
+  margin: 0;
+}
+
+.cart-remove {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  margin-block: -10px;
+  padding: 0;
+  font-size: var(--text-14);
+  color: var(--stone);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  transition: color var(--dur-hover) var(--ease), text-decoration-color var(--dur-hover) var(--ease);
+}
+
+.cart-remove:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+/* Quantity: −, the field and + as one joined control, then the unit. */
+.cart-qty {
+  grid-area: qty;
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.cart-qty__step {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--target-min);
+  height: var(--target-min);
+  padding: 0;
+  font-size: var(--text-16);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease),
+    transform var(--dur-press) var(--ease);
+}
+
+.cart-qty__step:hover {
+  color: var(--accent);
+  border-color: var(--stone);
+}
+
+.cart-qty__step:active {
+  transform: translateY(1px);
+}
+
+.cart-qty__input {
+  width: 6.5em;
+  height: var(--target-min);
+  margin-inline: -1px; /* share the borders with the buttons */
+  padding: 0 var(--space-2);
+  font-family: var(--font-text);
+  font-size: var(--text-16); /* 16px stops iOS from zooming into the field */
+  text-align: center;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+}
+
+.cart-qty__step:focus-visible,
+.cart-qty__input:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-color: var(--accent);
+}
+
+.cart-qty__unit {
+  margin-left: var(--space-2);
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.cart-line__total {
+  grid-area: total;
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Lines that cannot be ordered: muted, the reason in the name block, no control and no total. On phones
+   there is no second row (the 768px rule below restores the full template). */
+.cart-line--off {
+  grid-template-areas: "photo info info";
+}
+
+.cart-line--off .cart-line__photo img {
+  opacity: 0.55;
+}
+
+.cart-line--off .cart-line__name {
+  color: var(--stone);
+}
+
+/* Summary */
+.cart-summary {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+/* A quiet label like the column labels, so on desktop both hairlines start on one line. */
+.cart-summary__title {
+  margin: 0 0 calc(var(--space-2) - var(--space-4));
+  font-family: var(--font-text);
+  font-size: var(--text-13);
+  font-weight: 400;
+  line-height: var(--leading-body);
+  letter-spacing: 0;
+  color: var(--stone);
+}
+
+.cart-totals {
+  font-size: var(--text-15);
+}
+
+.cart-totals > li > span:first-child {
+  color: var(--stone);
+}
+
+.cart-totals > li.cart-totals__grand > span {
+  font-size: var(--text-18);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.cart-summary__note,
+.cart-summary__delivery,
+.cart-summary__blocked {
+  margin: 0;
+  font-size: var(--text-14);
+}
+
+.cart-summary__note {
+  margin-top: var(--space-3);
+  color: var(--stone);
+}
+
+.cart-summary__blocked {
+  color: var(--danger);
+}
+
+.btn-primary.cart-summary__go {
+  width: 100%;
+  min-height: 48px;
+}
+
+.cart-summary__more {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: var(--target-min);
+  font-size: var(--text-14);
+}
+
+/* Empty cart */
+.cart-empty {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.cart-empty__lead {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.cart-empty__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-26);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.cart-empty__text {
+  max-width: 60ch;
+  margin: 0 0 var(--space-3);
+  color: var(--stone);
+}
+
+.cart-empty__cats-title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-text);
+  font-size: var(--text-14);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--stone);
+}
+
+@media (min-width: 768px) {
+  .cart {
+    padding-top: var(--space-8);
+  }
+
+  .cart-head {
+    padding-bottom: var(--space-7);
+  }
+
+  .cart-head__title {
+    font-size: var(--text-48);
+  }
+
+  .cart-cols,
+  .cart-line {
+    grid-template-columns: 88px minmax(0, 1fr) 15rem 7.5rem;
+    column-gap: var(--space-6);
+  }
+
+  .cart-cols {
+    display: grid;
+    padding-bottom: var(--space-2);
+    font-size: var(--text-13);
+    color: var(--stone);
+  }
+
+  .cart-cols > :first-child {
+    grid-column: 1 / 3;
+  }
+
+  .cart-cols > :last-child {
+    text-align: right;
+  }
+
+  .cart-line {
+    grid-template-areas: "photo info qty total";
+    padding: var(--space-5) 0;
+  }
+
+  .cart-line__photo {
+    width: 88px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .cart-body {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    column-gap: var(--space-9);
+    align-items: start;
+  }
+}

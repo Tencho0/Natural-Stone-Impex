@@ -11,7 +11,11 @@ public static class PriceFormat
         value.ToString(Format, CultureInfo.InvariantCulture) + " €";
 
     public static string Quantity(decimal value, string unitDisplay) =>
-        value.ToString(Format, CultureInfo.InvariantCulture) + " " + unitDisplay;
+        Number(value) + " " + unitDisplay;
+
+    /// <summary>"2.50": a quantity without its unit, e.g. the value of a quantity field.</summary>
+    public static string Number(decimal value) =>
+        value.ToString(Format, CultureInfo.InvariantCulture);
 
     /// <summary>Like <see cref="Quantity"/>, but negatives use the Unicode minus sign (U+2212).</summary>
     public static string Signed(decimal value, string unitDisplay)

@@ -1,0 +1,204 @@
+@page "/cart"
+@attribute [ExcludeFromInteractiveRouting]
+@layout MainLayout
+@using NaturalStoneImpex.Api.Models.DTOs
+@using NaturalStoneImpex.Api.Services
+@using NaturalStoneImpex.Client.Formatting
+@inject ICartStore CartStore
+@inject IStorefrontQueryService Storefront
+@inject ICategoryService CategoryService
+
+@* Cart (spec §7.4). The cookie holds only id:quantity pairs; prices come from the DB on every render
+   (CartViewModel). Each row is its own enhanced form posting to /cart/update or /cart/remove, which redirect
+   back here (Post/Redirect/Get). Without JS: Enter posts the typed quantity, − and + post step=-1 or 1.
+   cart.js posts while typing and makes − and + change the field at once.
+   GET never writes the cookie: unknown ids are only left out of the view (see the Task 11 report). *@
+
+<SeoHead Title="Количка" Description="Продуктите, които сте избрали, с цени с и без ДДС."
+         CanonicalPath="/cart" NoIndex="true" />
+
+<div class="wrap cart @(_model.Rows.Count == 0 ? "cart--empty" : null)">
+    <div class="cart-head">
+        <h1 class="cart-head__title">Количка</h1>
+        @if (_model.Rows.Count > 0)
+        {
+            <p class="cart-head__count num">@NavMatch.ProductCountText(_model.Rows.Count)</p>
+        }
+    </div>
+
+    @if (_model.Rows.Count == 0)
+    {
+        <div class="cart-empty">
+            <div class="cart-empty__lead">
+                <p class="cart-empty__title">Количката е празна</p>
+                <p class="cart-empty__text">Изберете камък от каталога и го добавете в количката.</p>
+                <a class="btn btn-primary" href="/catalog">Към каталога</a>
+            </div>
+
+            @if (_categories.Count > 0)
+            {
+                <nav class="cart-empty__cats cat-index-cols" aria-labelledby="cart-cats-title">
+                    <h2 id="cart-cats-title" class="cart-empty__cats-title">Видове камък</h2>
+                    <CategoryIndex Categories="_categories" Photos="_photos" />
+                </nav>
+            }
+        </div>
+    }
+    else
+    {
+        <PageScript Src="js/storefront/cart.js" />
+
+        <div class="cart-body">
+            <section class="cart-lines" aria-labelledby="cart-lines-title">
+                <h2 id="cart-lines-title" class="visually-hidden">Продукти в количката</h2>
+                <div class="cart-cols" aria-hidden="true">
+                    <span>Продукт</span>
+                    <span>Количество</span>
+                    <span>Сума</span>
+                </div>
+                <ul class="cart-list">
+                    @foreach (var row in _model.Rows)
+                    {
+                        <li class="cart-line @(row.Orderable ? null : "cart-line--off")">@Line(row)</li>
+                    }
+                </ul>
+            </section>
+
+            <section class="cart-summary" aria-labelledby="cart-summary-title">
+                <h2 id="cart-summary-title" class="cart-summary__title">Обобщение</h2>
+                @* Read out when a row's post changes the totals. *@
+                <div aria-live="polite">
+                    <ul class="list-hairline list-hairline--pairs cart-totals">
+                        <li><span>Без ДДС</span><span class="num">@PriceFormat.Money(_model.SubtotalWithoutVat)</span></li>
+                        <li><span>ДДС</span><span class="num">@PriceFormat.Money(_model.Vat)</span></li>
+                        <li class="cart-totals__grand"><span>Общо с ДДС</span><span class="num">@PriceFormat.Money(_model.TotalWithVat)</span></li>
+                    </ul>
+                    @if (_hasOff && _model.HasOrderable)
+                    {
+                        <p class="cart-summary__note">Отбелязаните продукти не влизат в сумата и в поръчката.</p>
+                    }
+                </div>
+                <p class="cart-summary__delivery">Доставка: уточнява се по телефона</p>
+
+                @if (_model.HasOrderable)
+                {
+                    <a class="btn btn-primary cart-summary__go" href="/checkout">Към поръчката</a>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-primary cart-summary__go" disabled aria-describedby="cart-blocked">
+                        Към поръчката
+                    </button>
+                    <p class="cart-summary__blocked" id="cart-blocked">
+                        Никой от продуктите в количката не може да се поръча. Премахнете ги и изберете други от каталога.
+                    </p>
+                }
+                <a class="link-quiet cart-summary__more" href="/catalog">Към каталога</a>
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    private CartViewModel _model = CartViewModel.Build([], []);
+    private bool _hasOff;
+    private IReadOnlyList<CategoryDto> _categories = [];
+    private IReadOnlyDictionary<int, string> _photos = new Dictionary<int, string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var lines = CartStore.Lines;
+        if (lines.Count > 0)
+        {
+            var products = await Storefront.GetByIdsAsync(lines.Select(l => l.ProductId).ToList());
+            _model = CartViewModel.Build(lines, products);
+            _hasOff = _model.Rows.Any(r => !r.Orderable);
+        }
+
+        // Empty (or only unknown ids): the category index invites the next step. Sequential queries on the
+        // scoped DbContext (spec §5.6).
+        if (_model.Rows.Count == 0)
+        {
+            _categories = HomeSelection.VisibleCategories(await CategoryService.GetAllAsync());
+            _photos = await Storefront.GetCategoryPhotosAsync();
+        }
+    }
+
+    private static RenderFragment Line(CartRow row)
+    {
+        var p = row.Product;
+        var qtyId = $"cart-qty-{p.Id}";
+        var noteId = $"cart-note-{p.Id}";
+        var note = row.Problem ?? (row.BackOrder ? CartViewModel.BackOrderNote : null);
+        var hasImage = !string.IsNullOrWhiteSpace(p.ImagePath);
+        // Inactive products have no page any more (404), so their name is plain text.
+        var linkName = p.IsActive;
+
+        return @<text>
+            <div class="cart-line__photo">
+                @if (hasImage)
+                {
+                    @* The name next to it carries the meaning. *@
+                    <img src="@p.ImagePath" alt="" width="160" height="160" loading="lazy" decoding="async" />
+                }
+            </div>
+
+            <div class="cart-line__info">
+                <h3 class="cart-line__name">
+                    @if (linkName)
+                    {
+                        <a href="/products/@p.Id">@p.Name</a>
+                    }
+                    else
+                    {
+                        @p.Name
+                    }
+                </h3>
+                @if (row.Orderable)
+                {
+                    <p class="cart-line__price num">@PriceFormat.Money(p.PriceWithVat) <span>за @p.UnitDisplay, с ДДС</span></p>
+                }
+                else
+                {
+                    @* No price, no control and no total: just the amount kept in the cart, and why it is left out. *@
+                    <p class="cart-line__price cart-line__price--off num">@PriceFormat.Quantity(row.Quantity, p.UnitDisplay)</p>
+                }
+                @if (note is not null)
+                {
+                    <p class="cart-line__note @(row.Orderable ? "cart-line__note--back" : "cart-line__note--off")" id="@noteId">@note</p>
+                }
+                @* Under the name, so the reading order (name, notes, remove, quantity, total) is also the visual one. *@
+                <form class="cart-line__remove" method="post" action="/cart/remove" data-enhance data-cart-remove>
+                    <AntiforgeryToken />
+                    <input type="hidden" name="productId" value="@p.Id" />
+                    <button type="submit" class="cart-remove">Премахни<span class="visually-hidden"> @p.Name</span></button>
+                </form>
+            </div>
+
+            @if (row.Orderable)
+            {
+                <form class="cart-qty" method="post" action="/cart/update" data-enhance data-cart-qty
+                      data-max="@QuantityCalculator.MaxQuantity.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="productId" value="@p.Id" />
+                    @* The first submit button is the one Enter presses: it posts the typed quantity without a step. *@
+                    <button type="submit" class="visually-hidden" tabindex="-1" aria-hidden="true">Обнови</button>
+                    <label class="visually-hidden" for="@qtyId">Количество на @p.Name, @p.UnitDisplay</label>
+                    <button type="submit" class="cart-qty__step" name="step" value="-1"
+                            aria-label="Намали количеството на @p.Name">
+                        <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                    </button>
+                    <input class="cart-qty__input num" id="@qtyId" name="quantity" type="text" inputmode="decimal"
+                           value="@PriceFormat.Number(row.Quantity)" autocomplete="off" enterkeyhint="done"
+                           aria-describedby="@(note is null ? null : noteId)" />
+                    <button type="submit" class="cart-qty__step" name="step" value="1"
+                            aria-label="Увеличи количеството на @p.Name">
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    </button>
+                    <span class="cart-qty__unit" aria-hidden="true">@p.UnitDisplay</span>
+                </form>
+                <p class="cart-line__total num"><span class="visually-hidden">Сума: </span>@PriceFormat.Money(row.LineTotal)</p>
+            }
+        </text>;
+    }
+}

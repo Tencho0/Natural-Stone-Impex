@@ -101,4 +101,70 @@ public class CartStoreTests
         Assert.True(store.Add(1, 5000m));
         Assert.Equal(QuantityCalculator.MaxQuantity, store.Lines.Single().Quantity);
     }
+
+    [Fact]
+    public void Update_with_step_adds_and_floors_at_one_cent()
+    {
+        var (store, _) = Create("1:1|2:2.5");
+        store.Update(1, null, -1);
+        store.Update(2, null, 1);
+
+        Assert.Equal(new[] { new CartLine(1, 0.01m), new CartLine(2, 3.5m) }, store.Lines);
+    }
+
+    [Fact]
+    public void Update_applies_step_to_a_valid_typed_quantity_else_to_the_stored_one()
+    {
+        var (store, _) = Create("1:1|2:2|3:3");
+        store.Update(1, 4.5m, 1);   // typed 4,5 then "+": 5.5
+        store.Update(2, 0m, 1);     // typed 0 is invalid: stored 2 + 1
+        store.Update(3, 20000m, -1); // typed above the cap is invalid: stored 3 - 1
+
+        Assert.Equal(new[] { new CartLine(1, 5.5m), new CartLine(2, 3m), new CartLine(3, 2m) }, store.Lines);
+    }
+
+    [Fact]
+    public void Update_without_step_sets_a_valid_quantity_rounded_to_cents()
+    {
+        var (store, _) = Create("1:1");
+        store.Update(1, 2.555m, 0);
+
+        Assert.Equal(2.56m, store.Lines.Single().Quantity);
+    }
+
+    [Fact]
+    public void Update_without_step_ignores_zero_and_out_of_range_quantities()
+    {
+        var (store, ctx) = Create("1:1");
+        store.Update(1, 0m, 0);
+        store.Update(1, 0.004m, 0); // rounds to 0
+        store.Update(1, 10000.01m, 0);
+        store.Update(1, null, 0);
+        store.Update(99, 5m, 0);  // unknown line
+
+        Assert.Equal(1m, store.Lines.Single().Quantity);
+        Assert.Empty(SetCookie(ctx));
+    }
+
+    [Fact]
+    public void Update_with_step_caps_at_max_quantity()
+    {
+        var (store, _) = Create($"1:{QuantityCalculator.MaxQuantity}");
+        store.Update(1, null, 1);
+
+        Assert.Equal(QuantityCalculator.MaxQuantity, store.Lines.Single().Quantity);
+    }
+
+    [Theory]
+    [InlineData("1", 1)]
+    [InlineData("-1", -1)]
+    [InlineData(null, 0)]
+    [InlineData("", 0)]
+    [InlineData("2", 0)]
+    [InlineData("+1", 0)]
+    [InlineData("0.5", 0)]
+    [InlineData("-10", 0)]
+    [InlineData("abc", 0)]
+    public void ParseStep_accepts_only_minus_one_and_one(string? text, int expected)
+        => Assert.Equal(expected, CartStore.ParseStep(text));
 }

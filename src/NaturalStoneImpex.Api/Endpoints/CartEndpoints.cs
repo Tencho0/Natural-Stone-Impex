@@ -30,13 +30,16 @@ public static class CartEndpoints
             return Results.LocalRedirect(target);
         });
 
+        // The cart row form. The − and + buttons post step=-1 or 1 together with the typed quantity;
+        // ICartStore.Update decides which wins. Invalid input is a no-op redirect (R8).
         app.MapPost("/cart/update", async (
-            [FromForm] int productId, [FromForm] string? quantity,
+            [FromForm] int productId, [FromForm] string? quantity, [FromForm] string? step,
             ICartStore cart, AppDbContext db) =>
         {
-            if (DecimalInput.TryParse(quantity, out var qty) && IsValidQuantity(qty)
-                && await IsPurchasable(db, productId))
-                cart.SetQuantity(productId, qty);
+            decimal? typed = DecimalInput.TryParse(quantity, out var qty) ? qty : null;
+            var delta = CartStore.ParseStep(step);
+            if ((typed is not null || delta != 0) && await IsPurchasable(db, productId))
+                cart.Update(productId, typed, delta);
             return Results.LocalRedirect("/cart");
         });
 

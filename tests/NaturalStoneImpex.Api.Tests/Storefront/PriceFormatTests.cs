@@ -23,6 +23,12 @@ public class PriceFormatTests
     }
 
     [Fact]
+    public void Number_is_the_quantity_without_a_unit()
+    {
+        UnderBg(() => Assert.Equal("2.50", PriceFormat.Number(2.5m)));
+    }
+
+    [Fact]
     public void Quantity_uses_dot_and_unit()
     {
         UnderBg(() => Assert.Equal("13.20 м²", PriceFormat.Quantity(13.2m, "м²")));
