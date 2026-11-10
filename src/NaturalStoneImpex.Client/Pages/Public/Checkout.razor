@@ -367,7 +367,8 @@
 
         if (_items.Count == 0)
         {
-            Navigation.NavigateTo("/cart");
+            // /cart is a static SSR page now: a full load, not WebAssembly routing (which would show NotFound).
+            Navigation.NavigateTo("/cart", forceLoad: true);
         }
     }
 

@@ -1455,8 +1455,10 @@
   color: var(--warn);
 }
 
+/* Not orderable (no price, or out of sale): neutral ink, not an error. The price-0 reason carries the
+   shop phone, styled as on the product page (.product-ask__phone). */
 .cart-line__note--off {
-  color: var(--danger);
+  color: var(--ink);
 }
 
 /* The remove form sits under the name: a tertiary link whose hit area reaches 44px without adding height. */
@@ -1621,7 +1623,9 @@
 }
 
 .cart-summary__blocked {
-  color: var(--danger);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule);
+  color: var(--ink);
 }
 
 .btn-primary.cart-summary__go {

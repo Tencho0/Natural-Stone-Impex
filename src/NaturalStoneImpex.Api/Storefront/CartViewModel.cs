@@ -17,7 +17,7 @@ public sealed class CartViewModel
 {
     public const string InactiveProblem = "Продуктът вече не се предлага.";
     public const string OnRequestProblem = "Цена при запитване.";
-    public const string BackOrderNote = "Над наличното количество: доставка по заявка.";
+    public const string BackOrderNote = "Доставка по заявка.";
 
     public IReadOnlyList<CartRow> Rows { get; private init; } = [];
     public decimal SubtotalWithoutVat { get; private init; }

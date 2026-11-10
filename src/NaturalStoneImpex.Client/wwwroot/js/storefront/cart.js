@@ -16,11 +16,16 @@ let inFlight = 0;        // when the current post started; 0 when idle
 let sent = '';           // "productId:cents" of the quantity post in flight
 let removeNext = null;   // productId whose remove was pressed during a post
 
-// "2,5" / "2.5" / "1 204,5" -> cents (250), or null when the server would not store it.
+// "2,5" / "2.5" / "3," / "1 204,5" -> cents (250), or null when the server would not store it.
+// Same parsing as DecimalInput and the same rounding as CartCookie.Normalize (to cents, half away from
+// zero: "2.555" -> 256), done on the digits so floating point cannot turn 2.555 into 255.
 function toCents(text, max) {
   const clean = String(text).replace(/[\s  ]/g, '').replace(',', '.');
-  if (!/^(\d+(\.\d+)?|\.\d+)$/.test(clean)) return null;
-  const cents = Math.round(parseFloat(clean) * 100);
+  if (!/^(\d+(\.\d*)?|\.\d+)$/.test(clean)) return null;
+  const [whole, fraction = ''] = clean.split('.');
+  const digits = fraction + '000';
+  let cents = Number(whole || '0') * 100 + Number(digits.slice(0, 2));
+  if (digits[2] >= '5') cents += 1;
   return cents > 0 && cents <= max * 100 ? cents : null;
 }
 

@@ -1,8 +1,9 @@
 @inject CartService CartService
-@inject NavigationManager Navigation
 @implements IDisposable
 
-<a class="nav-link cart-icon-wrapper" href="/cart" @onclick="NavigateToCart" @onclick:preventDefault>
+@* A plain link: /cart is a static SSR page, which the WebAssembly router cannot render, so the browser
+   (or enhanced navigation) must load it from the server. *@
+<a class="nav-link cart-icon-wrapper" href="/cart">
     <i class="bi bi-cart3 cart-icon__icon"></i>
     <span class="cart-icon__label">Количка</span>
     @if (_itemCount > 0)
@@ -24,11 +25,6 @@
     {
         _itemCount = CartService.GetItemCount();
         InvokeAsync(StateHasChanged);
-    }
-
-    private void NavigateToCart()
-    {
-        Navigation.NavigateTo("/cart");
     }
 
     public void Dispose()

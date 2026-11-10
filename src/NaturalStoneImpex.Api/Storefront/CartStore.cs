@@ -9,7 +9,6 @@ public interface ICartStore
 
     /// <summary>Returns false only when a new product was dropped because the cart is full.</summary>
     bool Add(int productId, decimal quantity);
-    void SetQuantity(int productId, decimal quantity);
 
     /// <summary>
     /// The cart row form: a typed quantity, a stepper press, or both (the − and + buttons post the typed value too).
@@ -55,8 +54,6 @@ public class CartStore(IHttpContextAccessor accessor) : ICartStore
         Write();
         return true;
     }
-
-    public void SetQuantity(int productId, decimal quantity) => Update(productId, quantity, 0);
 
     public void Update(int productId, decimal? quantity, int step)
     {

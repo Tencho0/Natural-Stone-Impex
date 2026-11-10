@@ -61,11 +61,11 @@ public class CartStoreTests
     }
 
     [Fact]
-    public void SetQuantity_and_Remove_update_lines()
+    public void Update_and_Remove_update_lines()
     {
         var (store, _) = Create("1:1|2:2");
-        store.SetQuantity(1, 5m);
-        store.SetQuantity(99, 5m); // unknown line: no-op
+        store.Update(1, 5m, 0);
+        store.Update(99, 5m, 0); // unknown line: no-op
         store.Remove(2);
 
         Assert.Equal(new[] { new CartLine(1, 5m) }, store.Lines);

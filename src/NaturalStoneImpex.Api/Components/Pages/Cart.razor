@@ -30,7 +30,7 @@
     {
         <div class="cart-empty">
             <div class="cart-empty__lead">
-                <p class="cart-empty__title">Количката е празна</p>
+                <h2 class="cart-empty__title">Количката е празна</h2>
                 <p class="cart-empty__text">Изберете камък от каталога и го добавете в количката.</p>
                 <a class="btn btn-primary" href="/catalog">Към каталога</a>
             </div>
@@ -57,25 +57,37 @@
                     <span>Сума</span>
                 </div>
                 <ul class="cart-list">
-                    @foreach (var row in _model.Rows)
+                    @for (var i = 0; i < _model.Rows.Count; i++)
                     {
-                        <li class="cart-line @(row.Orderable ? null : "cart-line--off")">@Line(row)</li>
+                        var row = _model.Rows[i];
+                        @* The first two photos are in the first screen: no lazy loading for them. *@
+                        <li class="cart-line @(row.Orderable ? null : "cart-line--off")">@Line(row, eager: i < 2)</li>
                     }
                 </ul>
             </section>
 
             <section class="cart-summary" aria-labelledby="cart-summary-title">
                 <h2 id="cart-summary-title" class="cart-summary__title">Обобщение</h2>
-                @* Read out when a row's post changes the totals. *@
+                @* Read out when a row's post changes the totals. With nothing orderable there are no totals to
+                   show (three lines of 0.00 €): the reason is the summary. *@
                 <div aria-live="polite">
-                    <ul class="list-hairline list-hairline--pairs cart-totals">
-                        <li><span>Без ДДС</span><span class="num">@PriceFormat.Money(_model.SubtotalWithoutVat)</span></li>
-                        <li><span>ДДС</span><span class="num">@PriceFormat.Money(_model.Vat)</span></li>
-                        <li class="cart-totals__grand"><span>Общо с ДДС</span><span class="num">@PriceFormat.Money(_model.TotalWithVat)</span></li>
-                    </ul>
-                    @if (_hasOff && _model.HasOrderable)
+                    @if (_model.HasOrderable)
                     {
-                        <p class="cart-summary__note">Отбелязаните продукти не влизат в сумата и в поръчката.</p>
+                        <ul class="list-hairline list-hairline--pairs cart-totals">
+                            <li><span>Без ДДС</span><span class="num">@PriceFormat.Money(_model.SubtotalWithoutVat)</span></li>
+                            <li><span>ДДС</span><span class="num">@PriceFormat.Money(_model.Vat)</span></li>
+                            <li class="cart-totals__grand"><span>Общо с ДДС</span><span class="num">@PriceFormat.Money(_model.TotalWithVat)</span></li>
+                        </ul>
+                        @if (_hasOff)
+                        {
+                            <p class="cart-summary__note">Продукти без цена или извън продажба не влизат в сумата и в поръчката.</p>
+                        }
+                    }
+                    else
+                    {
+                        <p class="cart-summary__blocked" id="cart-blocked">
+                            Никой от продуктите в количката не може да се поръча. Премахнете ги и изберете други от каталога.
+                        </p>
                     }
                 </div>
                 <p class="cart-summary__delivery">Доставка: уточнява се по телефона</p>
@@ -89,9 +101,6 @@
                     <button type="button" class="btn btn-primary cart-summary__go" disabled aria-describedby="cart-blocked">
                         Към поръчката
                     </button>
-                    <p class="cart-summary__blocked" id="cart-blocked">
-                        Никой от продуктите в количката не може да се поръча. Премахнете ги и изберете други от каталога.
-                    </p>
                 }
                 <a class="link-quiet cart-summary__more" href="/catalog">Към каталога</a>
             </section>
@@ -124,12 +133,14 @@
         }
     }
 
-    private static RenderFragment Line(CartRow row)
+    private static RenderFragment Line(CartRow row, bool eager)
     {
         var p = row.Product;
         var qtyId = $"cart-qty-{p.Id}";
         var noteId = $"cart-note-{p.Id}";
         var note = row.Problem ?? (row.BackOrder ? CartViewModel.BackOrderNote : null);
+        // Priced 0: the product exists, the price is given on the phone, so the reason carries the number.
+        var onRequest = row.Problem == CartViewModel.OnRequestProblem;
         var hasImage = !string.IsNullOrWhiteSpace(p.ImagePath);
         // Inactive products have no page any more (404), so their name is plain text.
         var linkName = p.IsActive;
@@ -139,7 +150,7 @@
                 @if (hasImage)
                 {
                     @* The name next to it carries the meaning. *@
-                    <img src="@p.ImagePath" alt="" width="160" height="160" loading="lazy" decoding="async" />
+                    <img src="@p.ImagePath" alt="" width="160" height="160" loading="@(eager ? null : "lazy")" decoding="async" />
                 }
             </div>
 
@@ -165,7 +176,13 @@
                 }
                 @if (note is not null)
                 {
-                    <p class="cart-line__note @(row.Orderable ? "cart-line__note--back" : "cart-line__note--off")" id="@noteId">@note</p>
+                    <p class="cart-line__note @(row.Orderable ? "cart-line__note--back" : "cart-line__note--off")" id="@noteId">
+                        @note
+                        @if (onRequest)
+                        {
+                            @(" ")<text>Обадете се на <a class="product-ask__phone num" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a>.</text>
+                        }
+                    </p>
                 }
                 @* Under the name, so the reading order (name, notes, remove, quantity, total) is also the visual one. *@
                 <form class="cart-line__remove" method="post" action="/cart/remove" data-enhance data-cart-remove>
