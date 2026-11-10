@@ -204,7 +204,7 @@ All admin pages are under the `/admin` route prefix and require JWT authenticati
   - If **Чакаща** (Pending):
     - "Потвърди поръчката" (Confirm order) button.
       - On confirm: status changes to Потвърдена. **Stock is decremented** for each item in the order.
-      - If any item has insufficient stock, show error and do not confirm.
+      - Stock never blocks confirmation (owner decision, 07.11.2026): stock may go below zero. Before confirming, the button asks inline; when a line would leave stock below zero, the question names the product and the resulting amount, e.g. "Металик 5L ще стане −8.20 м². Потвърди? Да / Не" (from `GET /api/orders/{id}/stock-check`).
     - If delivery selected: input field to enter delivery fee (Цена за доставка) before or during confirmation.
     - "Откажи поръчката" (Cancel/Reject order) — optional. Sets a "cancelled" flag but doesn't change the 3 main statuses. Stock is NOT decremented for cancelled orders.
   - If **Потвърдена** (Confirmed):

@@ -312,10 +312,11 @@ else
         }
     }
 
+    // The confirm stays open and busy until the order is reloaded, so the old buttons never flash back.
     private async Task AfterActionAsync(string message)
     {
-        _openAction = null;
         await FetchAsync();
+        _openAction = null;
         _flash = message;
         _focusHeading = true;
     }

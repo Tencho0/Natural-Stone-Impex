@@ -84,7 +84,7 @@ else
     /// <summary>Shown inline when <see cref="Action"/> throws.</summary>
     [Parameter] public string FailureText { get; set; } = "Действието не беше изпълнено. Проверете връзката и опитайте отново.";
 
-    /// <summary>Raised after a successful action, once the confirm has closed.</summary>
+    /// <summary>Raised after a successful action while the confirm is still open and busy; it closes once this completes.</summary>
     [Parameter] public EventCallback Done { get; set; }
 
     protected override void OnParametersSet()
@@ -148,8 +148,17 @@ else
             return;
         }
 
-        await OpenChanged.InvokeAsync(false);
-        await Done.InvokeAsync();
+        // Stay busy until Done (the parent's refresh) completes, then close. Closing first would bring the trigger
+        // back over stale data, where it could be pressed again against stock that is already reduced.
+        try
+        {
+            await Done.InvokeAsync();
+        }
+        finally
+        {
+            _busy = false;
+            await OpenChanged.InvokeAsync(false);
+        }
     }
 
     private async Task CancelAsync()

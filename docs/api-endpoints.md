@@ -734,6 +734,13 @@ Confirms a pending order. **Decrements stock** for all order items.
 }
 ```
 
+**Response 400 (cancelled order):**
+```json
+{
+  "error": "Отказана поръчка не може да бъде потвърдена."
+}
+```
+
 ---
 
 ### PUT /api/orders/{id}/complete

@@ -245,13 +245,14 @@ else if (_order.Status == 0 || _order.IsCancelled)
             </a>
         </div>
         <div class="receipt-state">
-            <h1>Още няма разписка</h1>
             @if (_order.IsCancelled)
             {
+                <h1>Няма разписка</h1>
                 <p>Поръчката е отказана, затова за нея не се издава разписка.</p>
             }
             else
             {
+                <h1>Още няма разписка</h1>
                 <p>Разписка се издава за потвърдени и завършени поръчки. Потвърдете поръчката и опитайте отново.</p>
             }
         </div>
@@ -300,7 +301,7 @@ else
             {
                 <p><span class="customer-label">Адрес:</span> @_order.CustomerInfo.Address</p>
             }
-            <p><span class="customer-label">Метод:</span> @_order.DeliveryMethodDisplay</p>
+            <p><span class="customer-label">Получаване:</span> @_order.DeliveryMethodDisplay</p>
         </div>
 
         @* Items *@

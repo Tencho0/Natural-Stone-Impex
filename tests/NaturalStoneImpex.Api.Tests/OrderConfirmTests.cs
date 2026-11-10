@@ -131,4 +131,38 @@ public class OrderConfirmTests
         Assert.Equal("Само чакащи поръчки могат да бъдат потвърдени.", ex.Message);
         Assert.Equal(20m, (await db.Products.SingleAsync(p => p.Id == 1)).StockQuantity);
     }
+
+    [Fact]
+    public async Task Cancelled_order_cannot_be_confirmed()
+    {
+        await using var db = CreateContext();
+        var paint = Product(1, "Металик 5L", 20m);
+        db.Products.Add(paint);
+        var order = Order(1, OrderStatus.Pending, (paint, 8.2m));
+        order.IsCancelled = true;
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => new OrderService(db).ConfirmAsync(1));
+        Assert.Equal("Отказана поръчка не може да бъде потвърдена.", ex.Message);
+        Assert.Equal(OrderStatus.Pending, (await db.Orders.SingleAsync(o => o.Id == 1)).Status);
+        Assert.Equal(20m, (await db.Products.SingleAsync(p => p.Id == 1)).StockQuantity);
+    }
+
+    [Fact]
+    public async Task Confirm_with_enough_stock_reduces_stock_to_the_remainder()
+    {
+        await using var db = CreateContext();
+        var paint = Product(1, "Металик 5L", 20m);
+        var stone = Product(2, "Речен плосък", 100m, UnitType.Kg);
+        db.Products.AddRange(paint, stone);
+        db.Orders.Add(Order(1, OrderStatus.Pending, (paint, 8.2m), (stone, 40m)));
+        await db.SaveChangesAsync();
+
+        await new OrderService(db).ConfirmAsync(1);
+
+        Assert.Equal(OrderStatus.Confirmed, (await db.Orders.SingleAsync(o => o.Id == 1)).Status);
+        Assert.Equal(11.8m, (await db.Products.SingleAsync(p => p.Id == 1)).StockQuantity);
+        Assert.Equal(60m, (await db.Products.SingleAsync(p => p.Id == 2)).StockQuantity);
+    }
 }

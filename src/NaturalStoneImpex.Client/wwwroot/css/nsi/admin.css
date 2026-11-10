@@ -793,6 +793,19 @@
   white-space: normal;
 }
 
+/* On desktop a table with row actions (.has-actions) reserves the confirm's width up front, so opening a confirm
+   never moves the other columns. The confirm then fills the reserved cell instead of widening it. */
+@media (min-width: 1024px) {
+  .admin-ui .data-table.has-actions .action-cell {
+    width: 22rem;
+  }
+
+  .admin-ui .data-table.has-actions .action-cell .inline-confirm {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 /*
  * .stack-sm: on phones each row becomes a two-column block, so nothing scrolls sideways:
  *   number        total

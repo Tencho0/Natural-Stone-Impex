@@ -56,13 +56,14 @@ else if (_orders.Items.Count == 0)
 else
 {
     <div class="table-scroll">
-        <table class="data-table stack-sm">
+        @* .has-actions reserves the confirm's width on desktop, so opening one never moves the columns. *@
+        <table class="data-table stack-sm @(_orders.Items.Any(o => o.Status == 0 && !o.IsCancelled) ? "has-actions" : null)">
             <thead>
                 <tr>
                     <th scope="col">Номер</th>
                     <th scope="col" class="hide-sm">Получена</th>
                     <th scope="col">Клиент</th>
-                    <th scope="col" class="hide-md">Доставка</th>
+                    <th scope="col" class="hide-md">Получаване</th>
                     <th scope="col" class="hide-sm">Статус</th>
                     <th scope="col" class="num">Сума</th>
                     <th scope="col"><span class="visually-hidden">Действие</span></th>
@@ -155,9 +156,9 @@ else
     }
 
     // Reloads in place, without the skeleton, so focus and the live region survive a confirmation.
+    // The open confirm stays open (and busy) until the new rows are in, so a stale "Потвърди" never shows.
     private async Task FetchAsync()
     {
-        _openId = null;
         _loadError = null;
         try
         {
@@ -176,6 +177,7 @@ else
         {
             _loadError = "Не успяхме да заредим поръчките. Опитайте отново.";
         }
+        _openId = null;
     }
 
     private async Task OnFilterChangedAsync(int? status)
