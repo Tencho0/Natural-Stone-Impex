@@ -6,248 +6,220 @@
 @inject ICategoryService CategoryService
 @inject NavigationManager Navigation
 
-<PageTitle>@(_isEditMode ? "Редактиране на продукт" : "Нов продукт") — Natural Stone Impex</PageTitle>
+<PageTitle>@(_isEditMode ? "Редактиране на продукт" : "Нов продукт") · Natural Stone Impex</PageTitle>
 
-<!-- Back link -->
-<a href="/admin/products" class="d-inline-flex align-items-center gap-1 mb-3 text-decoration-none"
-   style="color: var(--nsi-gray); font-size: 0.875rem; transition: var(--nsi-transition-fast);"
-   onmouseover="this.style.color='var(--nsi-primary)'" onmouseout="this.style.color='var(--nsi-gray)'">
-    <i class="bi bi-arrow-left"></i> Обратно към продуктите
-</a>
+<p class="page-back">
+    <a href="/admin/products"><i class="bi bi-arrow-left" aria-hidden="true"></i> Продукти</a>
+</p>
 
-<h1 class="page-heading mb-4">@(_isEditMode ? "Редактиране на продукт" : "Нов продукт")</h1>
-
-@if (_errorMessage is not null)
-{
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
-        <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
-    </div>
-}
+<h1>@(_isEditMode ? "Редактиране на продукт" : "Нов продукт")</h1>
 
 @if (_isLoadingData)
 {
-    <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
-            <span class="visually-hidden">Зареждане...</span>
-        </div>
+    <div class="visually-hidden" role="status">Зареждане...</div>
+    <div class="form-grid skeleton" aria-hidden="true">
+        @for (var i = 0; i < 4; i++)
+        {
+            <div class="field">
+                <span class="skeleton-bar skeleton-bar--short"></span>
+                <span class="skeleton-bar" style="height: var(--target-min); width: 100%;"></span>
+            </div>
+        }
     </div>
 }
 else if (_loadError)
 {
-    <div class="text-center py-5" style="color: var(--nsi-gray);">
-        <i class="bi bi-exclamation-circle" style="font-size: 2.5rem; opacity: 0.5;"></i>
-        <p class="mt-2 mb-0">Възникна грешка при зареждане на данните.</p>
+    <div role="alert">
+        <p class="note note--error">Не успяхме да заредим продукта. Опитайте отново.</p>
+        <a href="/admin/products" class="btn btn-outline btn-sm">Към продуктите</a>
     </div>
 }
 else
 {
-    <EditForm Model="_formModel" OnValidSubmit="HandleSave">
+    <EditForm Model="_formModel" OnValidSubmit="HandleSave" class="product-form">
         <DataAnnotationsValidator />
 
-        <div class="row g-4">
-            <!-- Left column: form sections -->
-            <div class="col-lg-8">
+        <div class="form-grid">
+            <section class="form-section" aria-labelledby="sec-basic">
+                <h2 class="section-h" id="sec-basic">Основна информация</h2>
 
-                <!-- Section 1: Basic Info -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-info-circle me-2" style="color: var(--nsi-accent);"></i>Основна информация
+                <div class="field">
+                    <label class="field-label" for="productName">Име на продукта</label>
+                    <InputText id="productName" class="field-input" @bind-Value="_formModel.Name" disabled="@_isSaving" />
+                    <div class="field-slot"><ValidationMessage For="() => _formModel.Name" /></div>
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="productCategory">Категория</label>
+                    <InputSelect id="productCategory" class="field-input" @bind-Value="_formModel.CategoryId" disabled="@_isSaving">
+                        <option value="0">Изберете категория</option>
+                        @foreach (var category in _categories)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </InputSelect>
+                    <div class="field-slot"><ValidationMessage For="() => _formModel.CategoryId" /></div>
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="productDescription">Описание</label>
+                    <InputTextArea id="productDescription" class="field-input" rows="4" @bind-Value="_formModel.Description" disabled="@_isSaving" />
+                    <div class="field-slot">
+                        <p class="field-help">По избор, до 2000 символа.</p>
+                        <ValidationMessage For="() => _formModel.Description" />
                     </div>
-                    <div class="card-body" style="padding: 1.5rem;">
-                        <div class="mb-3">
-                            <label for="productName" class="form-label">Име на продукта <span style="color: var(--nsi-danger);">*</span></label>
-                            <InputText id="productName" class="form-control" @bind-Value="_formModel.Name" disabled="@_isSaving" />
-                            <ValidationMessage For="() => _formModel.Name" />
-                        </div>
+                </div>
+            </section>
 
-                        <div class="mb-3">
-                            <label for="productCategory" class="form-label">Категория <span style="color: var(--nsi-danger);">*</span></label>
-                            <InputSelect id="productCategory" class="form-select" @bind-Value="_formModel.CategoryId" disabled="@_isSaving">
-                                <option value="0">-- Изберете категория --</option>
-                                @foreach (var category in _categories)
-                                {
-                                    <option value="@category.Id">@category.Name</option>
-                                }
-                            </InputSelect>
-                            <ValidationMessage For="() => _formModel.CategoryId" />
-                        </div>
+            <section class="form-section" aria-labelledby="sec-price">
+                <h2 class="section-h" id="sec-price">Цени</h2>
 
-                        <div class="mb-0">
-                            <label for="productDescription" class="form-label">Описание</label>
-                            <InputTextArea id="productDescription" class="form-control" rows="4" @bind-Value="_formModel.Description" disabled="@_isSaving" />
-                            <ValidationMessage For="() => _formModel.Description" />
+                <div class="form-grid__row">
+                    <div class="field">
+                        <label class="field-label" for="priceWithoutVat">Цена без ДДС, €</label>
+                        <InputNumber id="priceWithoutVat" class="field-input" @bind-Value="_formModel.PriceWithoutVat"
+                                     disabled="@_isSaving" @bind-Value:after="RecalculatePriceWithVat" step="0.01" inputmode="decimal" />
+                        <div class="field-slot"><ValidationMessage For="() => _formModel.PriceWithoutVat" /></div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="vatAmount">ДДС, €</label>
+                        <InputNumber id="vatAmount" class="field-input" @bind-Value="_formModel.VatAmount"
+                                     disabled="@_isSaving" @bind-Value:after="RecalculatePriceWithVat" step="0.01" inputmode="decimal" />
+                        <div class="field-slot"><ValidationMessage For="() => _formModel.VatAmount" /></div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="priceWithVat">Цена с ДДС, €</label>
+                        <InputNumber id="priceWithVat" class="field-input" @bind-Value="_formModel.PriceWithVat"
+                                     disabled="@_isSaving" step="0.01" inputmode="decimal" />
+                        <div class="field-slot">
+                            @if (_priceValidationError is not null)
+                            {
+                                <p class="field-error" role="alert">@_priceValidationError</p>
+                            }
+                            else
+                            {
+                                <p class="field-help">Изчислява се сама, може да се промени.</p>
+                            }
+                            <ValidationMessage For="() => _formModel.PriceWithVat" />
                         </div>
                     </div>
                 </div>
+            </section>
 
-                <!-- Section 2: Pricing -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-currency-euro me-2" style="color: var(--nsi-accent);"></i>Ценообразуване
+            <section class="form-section" aria-labelledby="sec-stock">
+                <h2 class="section-h" id="sec-stock">Наличност</h2>
+
+                <div class="form-grid__row">
+                    <div class="field">
+                        <label class="field-label" for="productUnit">Мерна единица</label>
+                        <InputSelect id="productUnit" class="field-input" @bind-Value="_formModel.Unit" disabled="@_isSaving">
+                            <option value="0">кг</option>
+                            <option value="1">м²</option>
+                        </InputSelect>
+                        <div class="field-slot"><ValidationMessage For="() => _formModel.Unit" /></div>
                     </div>
-                    <div class="card-body" style="padding: 1.5rem;">
-                        <div class="row">
-                            <div class="col-md-4 mb-3 mb-md-0">
-                                <label for="priceWithoutVat" class="form-label">Цена без ДДС <span style="color: var(--nsi-danger);">*</span></label>
-                                <div class="input-group">
-                                    <InputNumber id="priceWithoutVat" class="form-control" @bind-Value="_formModel.PriceWithoutVat"
-                                                 disabled="@_isSaving" @bind-Value:after="RecalculatePriceWithVat" step="0.01" />
-                                    <span class="input-group-text">€</span>
-                                </div>
-                                <ValidationMessage For="() => _formModel.PriceWithoutVat" />
-                            </div>
-                            <div class="col-md-4 mb-3 mb-md-0">
-                                <label for="vatAmount" class="form-label">ДДС <span style="color: var(--nsi-danger);">*</span></label>
-                                <div class="input-group">
-                                    <InputNumber id="vatAmount" class="form-control" @bind-Value="_formModel.VatAmount"
-                                                 disabled="@_isSaving" @bind-Value:after="RecalculatePriceWithVat" step="0.01" />
-                                    <span class="input-group-text">€</span>
-                                </div>
-                                <ValidationMessage For="() => _formModel.VatAmount" />
-                            </div>
-                            <div class="col-md-4">
-                                <label for="priceWithVat" class="form-label">Цена с ДДС <span style="color: var(--nsi-danger);">*</span></label>
-                                <div class="input-group">
-                                    <InputNumber id="priceWithVat" class="form-control" @bind-Value="_formModel.PriceWithVat"
-                                                 disabled="@_isSaving" step="0.01" />
-                                    <span class="input-group-text">€</span>
-                                </div>
-                                <ValidationMessage For="() => _formModel.PriceWithVat" />
-                                @if (_priceValidationError is not null)
-                                {
-                                    <div class="text-danger small mt-1">@_priceValidationError</div>
-                                }
-                            </div>
-                        </div>
+                    <div class="field">
+                        <label class="field-label" for="stockQuantity">Налично количество</label>
+                        <InputNumber id="stockQuantity" class="field-input" @bind-Value="_formModel.StockQuantity"
+                                     disabled="@_isSaving" step="0.01" inputmode="decimal" />
+                        <div class="field-slot"><ValidationMessage For="() => _formModel.StockQuantity" /></div>
                     </div>
                 </div>
+            </section>
 
-                <!-- Section 3: Stock & Unit -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-box-seam me-2" style="color: var(--nsi-accent);"></i>Наличност
-                    </div>
-                    <div class="card-body" style="padding: 1.5rem;">
-                        <div class="row">
-                            <div class="col-md-6 mb-3 mb-md-0">
-                                <label for="productUnit" class="form-label">Мерна единица <span style="color: var(--nsi-danger);">*</span></label>
-                                <InputSelect id="productUnit" class="form-select" @bind-Value="_formModel.Unit" disabled="@_isSaving">
-                                    <option value="0">кг</option>
-                                    <option value="1">м²</option>
-                                </InputSelect>
-                                <ValidationMessage For="() => _formModel.Unit" />
-                            </div>
-                            <div class="col-md-6">
-                                <label for="stockQuantity" class="form-label">Налично количество <span style="color: var(--nsi-danger);">*</span></label>
-                                <InputNumber id="stockQuantity" class="form-control" @bind-Value="_formModel.StockQuantity"
-                                             disabled="@_isSaving" step="0.01" />
-                                <ValidationMessage For="() => _formModel.StockQuantity" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <section class="form-section" aria-labelledby="sec-image">
+                <h2 class="section-h" id="sec-image">Снимка</h2>
 
-                <!-- Section 4: Visualizer -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-eye me-2" style="color: var(--nsi-accent);"></i>Визуализатор
-                    </div>
-                    <div class="card-body" style="padding: 1.5rem;">
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" id="viz-enabled"
-                                   @bind="_formModel.IsVisualizerEnabled" disabled="@_isSaving">
-                            <label class="form-check-label" for="viz-enabled">Достъпен във визуализатора</label>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="viz-width">Реална ширина на текстурата (м)</label>
-                            <InputNumber id="viz-width" class="form-control" @bind-Value="_formModel.TextureWidthMeters"
-                                         disabled="@_isSaving" step="0.01" min="0.1" max="100" />
-                            <ValidationMessage For="() => _formModel.TextureWidthMeters" />
-                        </div>
-                        @if (_isEditMode)
-                        {
-                            <div class="mb-0">
-                                <label class="form-label">Текстура за визуализатора (безшевна)</label>
-                                @if (!string.IsNullOrEmpty(_existingTexturePath))
-                                {
-                                    <div class="mb-2 text-center">
-                                        <img src="@_existingTexturePath" alt="Текуща текстура"
-                                             class="img-fluid" style="max-height: 150px; border-radius: var(--nsi-radius-sm);" />
-                                    </div>
-                                }
-                                <InputFile OnChange="OnTextureSelected" accept=".jpg,.jpeg,.png" disabled="@_isSaving" class="form-control" />
-                                <div class="form-text mt-2">
-                                    Снимайте продукта отгоре при равномерна светлина. За безшевна текстура използвайте
-                                    напр. GIMP: Filters → Map → Make Seamless.
-                                </div>
-                                @if (_textureError is not null)
-                                {
-                                    <div class="text-danger small mt-1">@_textureError</div>
-                                }
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="form-text mb-0">Текстурата се качва след създаване на продукта (в режим на редакция).</div>
-                        }
-                    </div>
-                </div>
-            </div>
+                @if (_imagePreviewUrl is not null)
+                {
+                    <img src="@_imagePreviewUrl" alt="Преглед на новата снимка" class="preview" />
+                }
+                else if (_isEditMode && !string.IsNullOrEmpty(_existingImagePath))
+                {
+                    <img src="@_existingImagePath" alt="Текуща снимка" class="preview" />
+                }
 
-            <!-- Right column: Image -->
-            <div class="col-lg-4">
-                <div class="card" style="position: sticky; top: 1.5rem;">
-                    <div class="card-header">
-                        <i class="bi bi-image me-2" style="color: var(--nsi-accent);"></i>Снимка
-                    </div>
-                    <div class="card-body" style="padding: 1.5rem;">
-                        @if (_imagePreviewUrl is not null)
-                        {
-                            <div class="mb-3 text-center">
-                                <img src="@_imagePreviewUrl" alt="Преглед"
-                                     class="img-fluid" style="max-height: 250px; border-radius: var(--nsi-radius-sm);" />
-                            </div>
-                        }
-                        else if (_isEditMode && !string.IsNullOrEmpty(_existingImagePath))
-                        {
-                            <div class="mb-3 text-center">
-                                <img src="@_existingImagePath" alt="Текуща снимка"
-                                     class="img-fluid" style="max-height: 250px; border-radius: var(--nsi-radius-sm);" />
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="mb-3 d-flex flex-column align-items-center justify-content-center"
-                                 style="border: 2px dashed var(--nsi-gray-light); border-radius: var(--nsi-radius-md); padding: 2.5rem 1rem; transition: var(--nsi-transition-fast);">
-                                <i class="bi bi-cloud-arrow-up" style="font-size: 2rem; color: var(--nsi-gray); opacity: 0.5;"></i>
-                                <span class="mt-2" style="font-size: 0.875rem; color: var(--nsi-gray);">Качете снимка на продукта</span>
-                            </div>
-                        }
-
-                        <InputFile OnChange="OnImageSelected" accept=".jpg,.jpeg,.png" disabled="@_isSaving" class="form-control" />
-                        <div class="form-text mt-2">Позволени формати: .jpg, .png (макс. 5 MB)</div>
+                <div class="field">
+                    <label class="field-label" for="productImage">Файл със снимка</label>
+                    <InputFile id="productImage" OnChange="OnImageSelected" accept=".jpg,.jpeg,.png" disabled="@_isSaving" class="field-input" />
+                    <div class="field-slot">
                         @if (_imageError is not null)
                         {
-                            <div class="text-danger small mt-1">@_imageError</div>
+                            <p class="field-error" role="alert">@_imageError</p>
+                        }
+                        else
+                        {
+                            <p class="field-help">Формати .jpg и .png, до 5 MB.</p>
                         }
                     </div>
                 </div>
-            </div>
+            </section>
+
+            <section class="form-section" aria-labelledby="sec-viz">
+                <h2 class="section-h" id="sec-viz">Визуализатор</h2>
+
+                <div class="field">
+                    <label class="check" for="viz-enabled">
+                        <input class="check__input" type="checkbox" id="viz-enabled"
+                               @bind="_formModel.IsVisualizerEnabled" disabled="@_isSaving" />
+                        Достъпен във визуализатора
+                    </label>
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="viz-width">Реална ширина на текстурата, м</label>
+                    <InputNumber id="viz-width" class="field-input" @bind-Value="_formModel.TextureWidthMeters"
+                                 disabled="@_isSaving" step="0.01" min="0.1" max="100" inputmode="decimal" />
+                    <div class="field-slot"><ValidationMessage For="() => _formModel.TextureWidthMeters" /></div>
+                </div>
+
+                @if (_isEditMode)
+                {
+                    @if (!string.IsNullOrEmpty(_existingTexturePath))
+                    {
+                        <img src="@_existingTexturePath" alt="Текуща текстура" class="preview preview--texture" />
+                    }
+
+                    <div class="field">
+                        <label class="field-label" for="productTexture">Текстура за визуализатора (безшевна)</label>
+                        <InputFile id="productTexture" OnChange="OnTextureSelected" accept=".jpg,.jpeg,.png" disabled="@_isSaving" class="field-input" />
+                        <div class="field-slot">
+                            @if (_textureError is not null)
+                            {
+                                <p class="field-error" role="alert">@_textureError</p>
+                            }
+                            else
+                            {
+                                <p class="field-help">
+                                    Снимайте продукта отгоре при равномерна светлина. За безшевна текстура използвайте
+                                    например GIMP: Filters → Map → Make Seamless.
+                                </p>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <p class="field-help">Текстурата се качва след създаване на продукта, при редактиране.</p>
+                }
+            </section>
         </div>
 
-        <!-- Buttons -->
-        <div class="d-flex flex-column-reverse flex-sm-row gap-2 mt-4 pb-3">
-            <button type="button" class="btn btn-nsi-outline" @onclick="NavigateBack" disabled="@_isSaving">
-                Отказ
-            </button>
-            <button type="submit" class="btn btn-nsi-accent" disabled="@_isSaving">
-                @if (_isSaving)
-                {
-                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                }
-                <i class="bi bi-check-lg me-1"></i>Запази
-            </button>
+        <div class="save-bar">
+            @if (_errorMessage is not null)
+            {
+                <p class="save-bar__error" role="alert">@_errorMessage</p>
+            }
+            <div class="save-bar__actions">
+                <button type="submit" class="btn btn-primary" aria-disabled="@(_isSaving ? "true" : null)">
+                    @if (_isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    }
+                    Запази
+                </button>
+                <button type="button" class="btn btn-outline" @onclick="NavigateBack" disabled="@_isSaving">Отказ</button>
+            </div>
         </div>
     </EditForm>
 }
@@ -388,6 +360,9 @@ else
 
     private async Task HandleSave()
     {
+        if (_isSaving)
+            return;
+
         if (!ValidatePriceConsistency())
             return;
 

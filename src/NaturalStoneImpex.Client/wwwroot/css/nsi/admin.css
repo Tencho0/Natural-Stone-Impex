@@ -1,0 +1,1549 @@
+/*
+ * Admin variant, direction "Образец": the same tokens at a higher density (spec 6.7).
+ * Loaded on the WebAssembly pages (App.razor) and on the SSR login (LoginLayout), never on the storefront.
+ * The old Client public pages are WebAssembly pages too, so nothing here may leak onto them:
+ * - component rules (buttons, fields, tables, statuses, skeletons) are scoped under .admin-ui, the root
+ *   of AdminLayout and PrintLayout;
+ * - the layout classes (.admin-shell*, .admin-bar*, .print-shell, .login-*) are used only by the admin
+ *   layouts, so they stand alone.
+ */
+
+/* ---------- Shell ---------- */
+
+.admin-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--surface);
+}
+
+.admin-ui {
+  font-size: var(--text-14);
+  line-height: var(--leading-body);
+  color: var(--ink);
+}
+
+/* The legacy site.css colours every link; text links in the admin use the ink and accent pair. */
+.admin-ui a:where(:not(.btn)) {
+  color: var(--ink);
+  text-underline-offset: 0.2em;
+  transition: color var(--dur-hover) var(--ease);
+}
+
+.admin-ui a:where(:not(.btn)):hover {
+  color: var(--accent);
+}
+
+/* base.css styles .skip-link for an anchor; the admin one is a button. */
+.admin-ui .skip-link {
+  border: 0;
+  font: inherit;
+  font-weight: 500;
+}
+
+.admin-ui .spinner-border {
+  color: var(--stone);
+}
+
+.admin-shell__main {
+  flex: 1;
+  width: 100%;
+  max-width: calc(var(--container-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: var(--space-6) var(--gutter) var(--space-8);
+}
+
+.admin-shell__main:focus {
+  outline: none;
+}
+
+/* One page title size across the admin; it also overrides the legacy page-title classes in site.css. */
+.admin-shell__main h1 {
+  margin: 0 0 var(--space-5);
+  font-family: var(--font-display);
+  font-size: var(--text-26);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Top bar ---------- */
+
+/* One row: wordmark, sections, then "Към сайта" and "Изход" pushed right. On phones the row scrolls. */
+.admin-bar {
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-bar__inner {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-5);
+  max-width: calc(var(--container-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  overflow-x: auto;
+  /* Below about 860px the row overflows. A thin, quiet scrollbar keeps that discoverable for mouse users;
+     touch screens draw it as an overlay. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+  white-space: nowrap;
+}
+
+.admin-bar__wordmark {
+  display: flex;
+  align-items: center;
+  margin-right: var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-16);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.admin-bar__nav,
+.admin-bar__end {
+  display: flex;
+  gap: var(--space-5);
+}
+
+.admin-bar__end {
+  margin-left: auto;
+}
+
+/* Links and the logout button share one shape: 48px tall, text only, a 2px accent rule when active. */
+.admin-bar__link {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-14);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--ink);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 -2px 0 transparent;
+  cursor: pointer;
+  transition:
+    color var(--dur-hover) var(--ease),
+    box-shadow var(--dur-hover) var(--ease);
+}
+
+.admin-ui .admin-bar__link {
+  color: var(--ink);
+}
+
+.admin-ui .admin-bar__link:hover {
+  color: var(--accent);
+}
+
+.admin-ui .admin-bar__link.active {
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.admin-ui .admin-bar__link--quiet {
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.admin-bar__link:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (min-width: 768px) {
+  .admin-shell__main {
+    padding-top: var(--space-7);
+  }
+}
+
+/* Wider gaps only once the whole row fits. */
+@media (min-width: 1024px) {
+  .admin-bar__inner,
+  .admin-bar__nav,
+  .admin-bar__end {
+    gap: var(--space-6);
+  }
+}
+
+/* ---------- Print layout (receipt) ---------- */
+
+.print-shell {
+  display: block;
+  min-height: 100vh;
+  padding: var(--space-6) var(--gutter);
+  background: var(--paper);
+}
+
+@media print {
+  /* The receipt sets its own 12pt print size on body; .admin-ui's 14px must not override it. */
+  .print-shell {
+    min-height: 0;
+    padding: 0;
+    font-size: inherit;
+    line-height: inherit;
+    background: none;
+  }
+}
+
+/* ---------- Buttons ---------- */
+
+/* components.css is not loaded on WebAssembly pages, so the admin gets its own copy, scoped. */
+.admin-ui .btn-primary,
+.admin-ui .btn-outline {
+  --bs-btn-padding-x: var(--space-4);
+  --bs-btn-padding-y: var(--space-2);
+  --bs-btn-font-family: var(--font-text);
+  --bs-btn-font-size: var(--text-14);
+  --bs-btn-font-weight: 500;
+  --bs-btn-line-height: 1.4;
+  --bs-btn-border-width: 1px;
+  --bs-btn-border-radius: var(--radius);
+  --bs-btn-box-shadow: none;
+  --bs-btn-focus-box-shadow: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-text);
+  font-size: var(--text-14);
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition:
+    background-color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease),
+    transform var(--dur-press) var(--ease);
+}
+
+.admin-ui .btn-primary:active,
+.admin-ui .btn-outline:active {
+  transform: translateY(1px);
+}
+
+.admin-ui .btn-primary:focus-visible,
+.admin-ui .btn-outline:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.admin-ui .btn-primary {
+  --bs-btn-color: var(--on-accent);
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: var(--on-accent);
+  --bs-btn-hover-bg: var(--accent-hover);
+  --bs-btn-hover-border-color: var(--accent-hover);
+  --bs-btn-active-color: var(--on-accent);
+  --bs-btn-active-bg: var(--accent-hover);
+  --bs-btn-active-border-color: var(--accent-hover);
+  --bs-btn-disabled-color: var(--on-accent);
+  --bs-btn-disabled-bg: var(--stone);
+  --bs-btn-disabled-border-color: var(--stone);
+}
+
+.admin-ui .btn-outline {
+  --bs-btn-color: var(--ink);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: var(--ink);
+  --bs-btn-hover-color: var(--accent);
+  --bs-btn-hover-bg: var(--paper);
+  --bs-btn-hover-border-color: var(--accent);
+  --bs-btn-active-color: var(--accent);
+  --bs-btn-active-bg: var(--paper);
+  --bs-btn-active-border-color: var(--accent);
+  --bs-btn-disabled-color: var(--stone);
+  --bs-btn-disabled-border-color: var(--rule);
+}
+
+/*
+ * Compact buttons for table rows: 36px drawn, 44px to the pointer. Only the new button classes, which are
+ * position: relative above; on a legacy .btn-sm the hit area would cover its nearest positioned ancestor.
+ */
+.admin-ui :is(.btn-primary, .btn-outline).btn-sm {
+  min-height: 36px;
+  padding: var(--space-1) var(--space-3);
+}
+
+.admin-ui :is(.btn-primary, .btn-outline).btn-sm::before {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+
+/* ---------- Fields and form grid ---------- */
+
+/*
+ * <div class="form-grid">
+ *   <div class="field">label.field-label, .field-input, then p.field-help or p.field-error</div>
+ *   <div class="form-grid__row"> two or three short fields side by side from 768px </div>
+ * </div>
+ */
+.admin-ui .form-grid {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 720px;
+}
+
+.admin-ui .form-grid__row {
+  display: grid;
+  gap: var(--space-5) var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .admin-ui .form-grid__row {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+}
+
+.admin-ui .field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.admin-ui .field-label {
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.admin-ui .field-input {
+  width: 100%;
+  min-height: var(--target-min);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-text);
+  font-size: var(--text-16); /* 16px stops iOS from zooming into the field */
+  line-height: 1.4;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  transition: border-color var(--dur-hover) var(--ease);
+}
+
+.admin-ui .field-input:hover {
+  border-color: var(--stone);
+}
+
+.admin-ui .field-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-color: var(--accent);
+}
+
+.admin-ui .field-input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* Help and error share one slot, so an error replaces the help text without moving the layout. */
+.admin-ui .field-help,
+.admin-ui .field-error,
+.admin-ui .field .validation-message {
+  min-height: 1.5em;
+  margin: 0;
+  font-size: var(--text-13);
+  line-height: 1.5;
+}
+
+.admin-ui .field-help {
+  color: var(--stone);
+}
+
+.admin-ui .field-error,
+.admin-ui .field .validation-message {
+  color: var(--danger);
+}
+
+@media (min-width: 768px) {
+  .admin-ui .field-input {
+    font-size: var(--text-14);
+  }
+}
+
+/* ---------- Data table ---------- */
+
+/* Wrap in .table-scroll so wide tables scroll inside their column on phones. */
+.admin-ui .table-scroll {
+  position: relative; /* contains .visually-hidden cells, which would otherwise widen the page */
+  overflow-x: auto;
+  /* Room for focus rings (2px + 2px offset) at the edges, which the scroll box would clip; the negative
+     margin keeps the table aligned with the text around it. */
+  margin: -4px;
+  padding: 4px;
+}
+
+.admin-ui .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-14);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.admin-ui .data-table th {
+  padding: 0 var(--space-3) var(--space-2) 0;
+  font-size: var(--text-13);
+  font-weight: 500;
+  text-align: left;
+  vertical-align: bottom;
+  color: var(--stone);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-ui .data-table td {
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-ui .data-table th:last-child,
+.admin-ui .data-table td:last-child {
+  padding-right: 0;
+}
+
+.admin-ui .data-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---------- Status ---------- */
+
+/* <span class="status status--warn">Чакаща</span>: an 8px square marker, then the text in ink. */
+.admin-ui .status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.admin-ui .status::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius);
+  background: var(--stone);
+}
+
+.admin-ui .status--ok::before {
+  background: var(--ok);
+}
+
+.admin-ui .status--warn::before {
+  background: var(--warn);
+}
+
+.admin-ui .status--danger::before {
+  background: var(--danger);
+}
+
+@media (forced-colors: active) {
+  .admin-ui .status::before {
+    background: CanvasText;
+  }
+}
+
+/* ---------- Inline confirm ---------- */
+
+/*
+ * Replaces an action button in place, no modal:
+ * <div class="inline-confirm" role="group" aria-label="...">
+ *   <p class="inline-confirm__text">Потвърди поръчката?</p>       (one p per stock warning)
+ *   <button class="btn btn-primary btn-sm">Да</button> <button class="btn btn-outline btn-sm">Не</button>
+ * </div>
+ */
+.admin-ui .inline-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.admin-ui .inline-confirm__text {
+  margin: 0;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.admin-ui .inline-confirm__text--warn {
+  font-weight: 400;
+  color: var(--warn);
+}
+
+.admin-ui .inline-confirm__actions {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+/* Warnings and an error each take a full line; the question and the answers share the last one. */
+.admin-ui .inline-confirm__warnings {
+  display: grid;
+  flex-basis: 100%;
+  gap: var(--space-1);
+  text-wrap: pretty; /* keeps "−8.20 м²." together on the last line */
+}
+
+/* The busy announcement is visually hidden; pin it inside the group so it never widens a scrolling table. */
+.admin-ui .inline-confirm {
+  position: relative;
+}
+
+.admin-ui .inline-confirm > .visually-hidden {
+  top: 0;
+  left: 0;
+}
+
+.admin-ui .inline-confirm__error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger);
+}
+
+/* A busy button keeps focus (aria-disabled, not disabled) and draws its spinner in the text colour. */
+.admin-ui .btn .spinner-border {
+  width: 1em;
+  height: 1em;
+  border-width: 2px;
+  color: currentColor;
+}
+
+.admin-ui .btn[aria-disabled="true"] {
+  cursor: progress;
+}
+
+/* ---------- Skeleton ---------- */
+
+/*
+ * Placeholder rows for content that loads after first paint. They stay invisible for 300ms, so fast
+ * responses never flash them, then appear without motion (no shimmer).
+ * <tr class="skeleton-row skeleton" aria-hidden="true"><td><span class="skeleton-bar"></span></td>...</tr>
+ * Put the "Зареждане" text for screen readers next to them in a visually-hidden role="status".
+ */
+.admin-ui .skeleton {
+  opacity: 0;
+  animation: skeleton-reveal 1ms linear 300ms forwards;
+}
+
+@keyframes skeleton-reveal {
+  to { opacity: 1; }
+}
+
+.admin-ui .skeleton-bar {
+  display: block;
+  width: 70%;
+  height: 12px;
+  background: var(--paper);
+  border-radius: var(--radius);
+}
+
+.admin-ui .skeleton-bar--short {
+  width: 40%;
+}
+
+/* The bar is centred in one text line, so a skeleton row is exactly as tall as a text row. */
+.admin-ui .data-table .skeleton-row .skeleton-bar {
+  margin-block: calc((var(--leading-body) * 1em - 12px) / 2);
+}
+
+.admin-ui .data-table .skeleton-row .num .skeleton-bar {
+  margin-left: auto;
+}
+
+/* base.css turns animations off under reduced motion; the reveal is not motion, so it is kept. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-ui .skeleton {
+    animation: skeleton-reveal 1ms linear 300ms forwards !important;
+  }
+}
+
+/* ---------- Login (static SSR; buttons and fields from components.css) ---------- */
+
+.login-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  min-height: 100vh;
+  padding: var(--space-8) var(--gutter);
+  background: var(--paper);
+}
+
+.login-panel {
+  width: 100%;
+  max-width: 360px;
+  padding: var(--space-7) var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.login-panel__wordmark {
+  margin: 0 0 var(--space-6);
+  font-family: var(--font-display);
+  font-size: var(--text-18);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.login-panel__title {
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-22);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.login-panel__error {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-14);
+  color: var(--danger);
+}
+
+.login-panel__form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.login-page .validation-message {
+  margin: 0;
+  font-size: var(--text-13);
+  line-height: 1.5;
+  color: var(--danger);
+}
+
+/* app.css outlines validated inputs; the border carries that state here, and focus keeps its ring. */
+.login-page .field-input.valid.modified:not(:focus-visible),
+.login-page .field-input.invalid:not(:focus-visible) {
+  outline: none;
+}
+
+.login-panel__submit {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.login-page__back {
+  font-size: var(--text-14);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+}
+
+/* ---------- Dashboard ---------- */
+
+.admin-ui .dash-summary {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-6);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.admin-ui .dash-summary.skeleton {
+  max-width: 480px;
+}
+
+.admin-ui .dash-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* lets .table-scroll shrink instead of widening the page */
+  gap: var(--space-7);
+}
+
+@media (min-width: 1024px) {
+  .admin-ui .dash-cols {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: var(--space-8);
+  }
+}
+
+.admin-ui .dash-h,
+.admin-ui .section-h {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-text);
+  font-size: var(--text-16);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.admin-ui .dash-empty,
+.admin-ui .dash-error {
+  margin: 0 0 var(--space-3);
+  color: var(--stone);
+}
+
+.admin-ui .dash-error {
+  color: var(--danger);
+}
+
+.admin-ui .dash-more {
+  margin: var(--space-3) 0 0;
+}
+
+.admin-ui .data-table .nowrap {
+  white-space: nowrap;
+}
+
+/* Negative stock: orders are never blocked, so the shortfall shows in the danger colour. */
+.admin-ui .data-table .dash-negative {
+  color: var(--danger);
+}
+
+/* On phones the order number is the link, and the received time and the extra link make way for the total. */
+@media (max-width: 639.98px) {
+  .admin-ui .dash-hide-sm {
+    display: none;
+  }
+}
+
+/* ---------- Page parts (orders and later admin pages) ---------- */
+
+/* A one-line count under the h1, like the dashboard summary. */
+.admin-ui .page-summary {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-5);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-ui .page-back {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-2);
+}
+
+.admin-ui .page-back a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  color: var(--stone);
+  text-decoration: none;
+}
+
+.admin-ui .page-back a:hover {
+  color: var(--accent);
+}
+
+/* Empty and error lines; .note--ok reports the result of an action. */
+.admin-ui .note {
+  margin: 0 0 var(--space-3);
+  color: var(--stone);
+}
+
+.admin-ui .note--error {
+  color: var(--danger);
+}
+
+.admin-ui .note--ok {
+  color: var(--ok);
+}
+
+/* A heading that takes focus after an action draws no ring; the live region announces the result. */
+.admin-ui h1[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* A second line inside a table cell. */
+.admin-ui .data-table .cell-sub {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-13);
+}
+
+/* Columns that make way on smaller screens; .show-sm carries their content into another cell on phones.
+   The show-sm rule names .data-table so it outranks .cell-sub above. */
+@media (max-width: 639.98px) {
+  .admin-ui .hide-sm {
+    display: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .admin-ui .show-sm,
+  .admin-ui .data-table .show-sm {
+    display: none;
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .admin-ui .hide-md {
+    display: none;
+  }
+}
+
+/* The last column holds a row action; an open inline confirm wraps inside it, right-aligned. */
+.admin-ui .data-table .action-cell {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-ui .data-table .action-cell .inline-confirm {
+  justify-content: flex-end;
+  min-width: min(22rem, 70vw);
+  text-align: right;
+  white-space: normal;
+}
+
+/* On desktop a table with row actions (.has-actions) reserves the confirm's width up front, so opening a confirm
+   never moves the other columns. The confirm then fills the reserved cell instead of widening it. */
+@media (min-width: 1024px) {
+  .admin-ui .data-table.has-actions .action-cell {
+    width: 22rem;
+  }
+
+  .admin-ui .data-table.has-actions .action-cell .inline-confirm {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/*
+ * .stack-sm: on phones each row becomes a two-column block, so nothing scrolls sideways:
+ *   number        total
+ *   client        action
+ * An open inline confirm takes a full line under them. Cells hidden with .hide-sm stay hidden; the header row
+ * stays for screen readers only.
+ */
+@media (max-width: 639.98px) {
+  .admin-ui .data-table.stack-sm,
+  .admin-ui .data-table.stack-sm tbody {
+    display: block;
+  }
+
+  .admin-ui .data-table.stack-sm thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-ui .data-table.stack-sm tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-1) var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .admin-ui .data-table.stack-sm tbody tr:first-child {
+    border-top: 1px solid var(--rule);
+  }
+
+  .admin-ui .data-table.stack-sm td {
+    padding: 0;
+    border: 0;
+  }
+
+  .admin-ui .data-table.stack-sm td:first-child {
+    grid-area: 1 / 1;
+  }
+
+  .admin-ui .data-table.stack-sm td.num {
+    grid-area: 1 / 2;
+  }
+
+  .admin-ui .data-table.stack-sm td.stack-sm__main {
+    grid-area: 2 / 1;
+  }
+
+  .admin-ui .data-table.stack-sm td.action-cell {
+    grid-area: 2 / 2;
+    width: auto;
+  }
+
+  .admin-ui .data-table.stack-sm tr:has(.inline-confirm) td.action-cell {
+    grid-area: 3 / 1 / 4 / 3;
+    padding-top: var(--space-2);
+    text-align: left;
+  }
+
+  .admin-ui .data-table.stack-sm .action-cell .inline-confirm {
+    justify-content: flex-start;
+    min-width: 0;
+    text-align: left;
+  }
+}
+
+/* ---------- Segmented filter ---------- */
+
+/*
+ * <div class="segmented" role="group" aria-label="..."><button class="segmented__btn" aria-pressed="true">...</button></div>
+ * The 1px gaps show the --rule ground, so every segment gets a hairline without double borders.
+ * One row from 640px; a 2 x 2 grid on phones.
+ */
+.admin-ui .segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 var(--space-6);
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+@media (min-width: 640px) {
+  .admin-ui .segmented {
+    display: inline-grid;
+    grid-template-columns: none;
+    grid-auto-flow: column;
+  }
+}
+
+.admin-ui .segmented__btn {
+  min-height: var(--target-min);
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  background: var(--surface);
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease);
+}
+
+.admin-ui .segmented__btn:hover {
+  color: var(--accent);
+  background: var(--paper);
+}
+
+.admin-ui .segmented__btn[aria-pressed="true"] {
+  color: var(--on-accent);
+  background: var(--accent);
+}
+
+.admin-ui .segmented__btn:focus-visible {
+  position: relative;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  .admin-ui .segmented__btn[aria-pressed="true"] {
+    outline: 2px solid CanvasText;
+    outline-offset: -4px;
+  }
+}
+
+/* ---------- Order detail ---------- */
+
+.admin-ui .order-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-3);
+}
+
+.admin-ui .order-head h1 {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The order number never breaks at its hyphens. */
+.admin-ui .order-head .nowrap {
+  white-space: nowrap;
+}
+
+.admin-ui .order-head__skeleton {
+  max-width: 360px;
+  margin: 0 0 var(--space-7);
+}
+
+/* The flash is a live region, so it stays in the page; empty, it takes no space. */
+.admin-ui .order-flash {
+  margin: 0 0 var(--space-4);
+}
+
+.admin-ui .order-flash:empty {
+  margin: 0;
+}
+
+/* Actions come first, above the details, and end on a hairline. */
+.admin-ui .order-actions {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0 0 var(--space-7);
+  padding: var(--space-2) 0 var(--space-6);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-ui .order-actions__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.admin-ui .fee-form .field {
+  max-width: 320px;
+}
+
+.admin-ui .fee-form__row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.admin-ui .fee-form__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-ui .order-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-7);
+  margin: 0 0 var(--space-8);
+}
+
+@media (min-width: 1024px) {
+  .admin-ui .order-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-8);
+  }
+}
+
+/* Label and value pairs on hairlines. */
+.admin-ui .meta-list {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, max-content) minmax(0, 1fr);
+  margin: 0;
+}
+
+.admin-ui .meta-list dt,
+.admin-ui .meta-list dd {
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-ui .meta-list > :nth-child(-n + 2) {
+  border-top: 1px solid var(--rule);
+}
+
+.admin-ui .meta-list dt {
+  padding-right: var(--space-4);
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.admin-ui .meta-list dd {
+  overflow-wrap: anywhere;
+}
+
+.admin-ui .meta-list .num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Totals under the items table: right-aligned figures, and the grand total on a hairline. */
+.admin-ui .totals {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: end;
+  margin: var(--space-4) 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-ui .totals dt,
+.admin-ui .totals dd {
+  margin: 0;
+  padding: var(--space-1) 0;
+}
+
+/* The gap is padding, not column-gap, so the grand total's hairline runs unbroken under both cells. */
+.admin-ui .totals dt {
+  padding-right: var(--space-7);
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.admin-ui .totals dd {
+  text-align: right;
+}
+
+.admin-ui .totals .totals__grand {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  font-size: var(--text-16);
+  font-weight: 600;
+  color: var(--ink);
+  border-top: 1px solid var(--rule);
+}
+
+.admin-ui .totals .totals__muted {
+  color: var(--stone);
+}
+
+.admin-ui .totals .totals__warn {
+  color: var(--warn);
+}
+
+/* ---------- Products, product form and categories ---------- */
+
+/* Title and the page's primary action on one line; the action drops below on a narrow screen. */
+.admin-ui .page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.admin-ui .page-head h1 {
+  margin: 0;
+}
+
+/* Search and category filter: labels above, side by side from 640px. */
+.admin-ui .filter-bar {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+@media (min-width: 640px) {
+  .admin-ui .filter-bar {
+    grid-template-columns: minmax(0, 24rem) minmax(0, 16rem);
+  }
+}
+
+/* A product name with its thumbnail. */
+.admin-ui .cell-product {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.admin-ui .cell-product__text {
+  min-width: 0;
+}
+
+.admin-ui .thumb {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+/* An inactive product recedes: stone text and the square marker. */
+.admin-ui .data-table .row-inactive td,
+.admin-ui .data-table .row-inactive a {
+  color: var(--stone);
+}
+
+.admin-ui .data-table .row-inactive .thumb {
+  opacity: 0.6;
+}
+
+.admin-ui .data-table .row-inactive .status::before {
+  background: var(--danger);
+}
+
+.admin-ui .row-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  white-space: normal;
+}
+
+/* The confirm sits next to the edit button and takes the rest of the cell. */
+.admin-ui .data-table.has-actions .row-actions .inline-confirm {
+  width: auto;
+}
+
+/* Phones: stock stays under the name on the left; the row's actions take their own full-width line. */
+@media (max-width: 639.98px) {
+  .admin-ui .data-table.stack-sm td.num.stack-sm__main {
+    text-align: left;
+  }
+
+  .admin-ui .data-table.stack-sm.actions-row td.action-cell {
+    grid-column: 1 / 3;
+    grid-row: auto;
+    width: auto;
+    padding-top: var(--space-1);
+    text-align: left;
+  }
+
+  .admin-ui .data-table.stack-sm.actions-row .row-actions {
+    justify-content: flex-start;
+  }
+
+  /* With stock under the name, the price takes the top right corner. */
+  .admin-ui .data-table.stack-sm.actions-row td.num:not(.stack-sm__main) {
+    grid-area: 1 / 2;
+  }
+}
+
+/* Forms: one column, sections divided by a hairline. The helper and the error share one slot (.field-slot). */
+.admin-ui .form-section {
+  display: grid;
+  gap: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.admin-ui .form-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.admin-ui .form-section > .section-h {
+  margin: 0;
+}
+
+.admin-ui .field-slot {
+  display: grid;
+}
+
+.admin-ui .field-slot:empty {
+  display: none;
+}
+
+/* ValidationMessage renders nothing when valid, so an error simply replaces the helper that sits in the slot. */
+.admin-ui .field-slot:has(.validation-message, .field-error) .field-help {
+  display: none;
+}
+
+.admin-ui .form-section > .field-help {
+  min-height: 0;
+}
+
+.admin-ui textarea.field-input {
+  resize: vertical;
+}
+
+.admin-ui select.field-input {
+  appearance: auto;
+}
+
+/* A file chooser: the browser button takes the outline-button look. */
+.admin-ui input[type="file"].field-input {
+  padding: var(--space-2);
+  cursor: pointer;
+}
+
+.admin-ui input[type="file"].field-input::file-selector-button {
+  min-height: 36px;
+  margin-right: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.admin-ui .field-input:disabled {
+  color: var(--stone);
+  background: var(--paper);
+  cursor: not-allowed;
+}
+
+.admin-ui .preview {
+  display: block;
+  max-width: 100%;
+  max-height: 16rem;
+  object-fit: contain;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.admin-ui .preview--texture {
+  max-height: 9rem;
+}
+
+.admin-ui .check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--target-min);
+  cursor: pointer;
+}
+
+.admin-ui .check__input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.admin-ui .check__input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/*
+ * Save bar: sticks to the bottom edge while the form is taller than the screen. It sits after the last field in the
+ * flow, so it never covers a field or a message when scrolled to the end; the bottom padding of the main area
+ * keeps the page from ending flush against it.
+ */
+.admin-ui .save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--space-2);
+  max-width: 720px;
+  margin-top: var(--space-6);
+  padding: var(--space-3) 0;
+  background: var(--surface);
+  border-top: 1px solid var(--rule);
+}
+
+.admin-ui .save-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.admin-ui .save-bar__error {
+  margin: 0;
+  color: var(--danger);
+}
+
+/* Modal, drawn in the same tokens: 2px radius, hairlines, no shadow. */
+.modal-backdrop {
+  --bs-backdrop-bg: var(--ink);
+  --bs-backdrop-opacity: 0.5;
+}
+
+.admin-ui .modal {
+  --bs-modal-border-radius: var(--radius);
+  --bs-modal-inner-border-radius: var(--radius);
+  --bs-modal-bg: var(--surface);
+  --bs-modal-color: var(--ink);
+  --bs-modal-border-color: var(--rule);
+  --bs-modal-border-width: 1px;
+  --bs-modal-box-shadow: none;
+}
+
+.admin-ui .modal-content {
+  font-size: var(--text-14);
+  box-shadow: none;
+}
+
+.admin-ui .modal-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-ui .modal-title {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-16);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.admin-ui .modal-body {
+  padding: var(--space-5);
+}
+
+.admin-ui .modal-footer {
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.admin-ui .modal-footer > * {
+  margin: 0;
+}
+
+.admin-ui .modal .btn-close {
+  box-sizing: content-box;
+  width: 20px;
+  height: 20px;
+  padding: var(--space-3);
+  margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) auto;
+  border-radius: var(--radius);
+  opacity: 0.7;
+}
+
+.admin-ui .modal .btn-close:hover {
+  opacity: 1;
+}
+
+.admin-ui .modal .btn-close:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  box-shadow: none;
+}
+
+/* Two actions share the cell with the confirm on desktop, so the cell is wider and the actions stay on one line. */
+@media (min-width: 1024px) {
+  .admin-ui .data-table.actions-row.has-actions .action-cell {
+    width: 30rem;
+  }
+
+  .admin-ui .data-table.actions-row.has-actions .row-actions {
+    flex-wrap: nowrap;
+  }
+}
+
+/* app.css outlines validated inputs in green and red; here the border carries the error and focus keeps its ring. */
+.admin-ui .field-input.valid.modified:not(:focus-visible),
+.admin-ui .field-input.invalid:not(:focus-visible) {
+  outline: none;
+}
+
+.admin-ui .field-input.invalid {
+  border-color: var(--danger);
+}
+
+/* ---------- Deliveries (invoices) ---------- */
+
+/* The line editor needs more room than the 720px form column; header fields stay narrow. */
+.admin-ui .invoice-form {
+  display: grid;
+  gap: var(--space-6);
+  max-width: 960px;
+}
+
+.admin-ui .invoice-form .form-grid {
+  max-width: 720px;
+}
+
+.admin-ui .invoice-form .save-bar {
+  max-width: none;
+  margin-top: 0;
+}
+
+.admin-ui .line-section {
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-5);
+}
+
+.admin-ui .line-section > .field-error {
+  min-height: 0;
+}
+
+/* Phones: each line is a block, with its own labels. */
+.admin-ui .line-editor {
+  display: grid;
+}
+
+.admin-ui .line-head {
+  display: none;
+}
+
+.admin-ui .line {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "product product"
+    "qty price"
+    "total remove";
+  gap: var(--space-3) var(--space-3);
+  align-items: start;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-ui .line:first-of-type {
+  border-top: 1px solid var(--rule);
+}
+
+.admin-ui .line__product { grid-area: product; }
+.admin-ui .line__qty { grid-area: qty; }
+.admin-ui .line__price { grid-area: price; }
+.admin-ui .line__total { grid-area: total; }
+.admin-ui .line__remove { grid-area: remove; justify-self: end; }
+
+.admin-ui .line__total {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-ui .line__total-label {
+  font-size: var(--text-14);
+  font-weight: 500;
+}
+
+.admin-ui .line__total .num {
+  white-space: nowrap;
+}
+
+/* The line total and remove button stay on the baseline of the first row's inputs on tablet and up. */
+@media (min-width: 768px) {
+  .admin-ui .line-head,
+  .admin-ui .line {
+    grid-template-columns: minmax(0, 1fr) 8rem 9rem 7rem 6.5rem;
+    grid-template-areas: "product qty price total remove";
+    gap: var(--space-3);
+  }
+
+  .admin-ui .line-head {
+    display: grid;
+    padding-bottom: var(--space-2);
+    font-size: var(--text-13);
+    font-weight: 500;
+    color: var(--stone);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .admin-ui .line-head .num {
+    text-align: right;
+  }
+
+  .admin-ui .line:first-of-type {
+    border-top: 0;
+  }
+
+  /* The header names the columns, so each line's label is for screen readers only. */
+  .admin-ui .line .field-label,
+  .admin-ui .line__total-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-ui .line__total {
+    min-height: var(--target-min);
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .admin-ui .line__remove {
+    min-height: var(--target-min);
+    display: flex;
+    align-items: center;
+  }
+}
+
+.admin-ui .totals + .note {
+  margin-top: var(--space-6);
+}

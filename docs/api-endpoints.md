@@ -670,6 +670,33 @@ Sets or updates the delivery fee for an order.
 
 ---
 
+### GET /api/orders/{id}/stock-check
+
+Lists the lines of an order that would leave stock below zero if the order were confirmed now. Lines of the same product are summed. Read-only.
+
+**Auth**: Admin
+
+**Response 200** (empty array when stock is enough):
+```json
+[
+  {
+    "productName": "Металик 5L",
+    "ordered": 8.20,
+    "available": 0.00,
+    "unit": "м²"
+  }
+]
+```
+
+**Response 404:**
+```json
+{
+  "error": "Поръчката не е намерена."
+}
+```
+
+---
+
 ### PUT /api/orders/{id}/confirm
 
 Confirms a pending order. **Decrements stock** for all order items.
@@ -682,14 +709,13 @@ Confirms a pending order. **Decrements stock** for all order items.
 - Order must exist
 - Order status must be `Pending` (0)
 - Order must not be cancelled
-- **Stock check**: for each item, `Product.StockQuantity >= OrderItem.Quantity`. If any product has insufficient stock, return error with details.
+- Stock never blocks confirmation (owner decision, 07.11.2026). Stock may go below zero. The admin UI warns beforehand through `GET /api/orders/{id}/stock-check`.
 
 **Business Logic (within a database transaction):**
-1. Verify all stock levels are sufficient.
-2. For each OrderItem: `Product.StockQuantity -= OrderItem.Quantity`
-3. Set `Order.Status = Confirmed`
-4. Set `Order.ConfirmedAt = DateTime.UtcNow`
-5. Save all changes.
+1. For each OrderItem: `Product.StockQuantity -= OrderItem.Quantity`
+2. Set `Order.Status = Confirmed`
+3. Set `Order.ConfirmedAt = DateTime.UtcNow`
+4. Save all changes.
 
 **Response 200:**
 ```json
@@ -701,25 +727,17 @@ Confirms a pending order. **Decrements stock** for all order items.
 }
 ```
 
-**Response 400 (insufficient stock):**
-```json
-{
-  "error": "Недостатъчна наличност за следните продукти:",
-  "details": [
-    {
-      "productName": "Цимент 25кг",
-      "ordered": 100.00,
-      "available": 50.00,
-      "unit": "кг"
-    }
-  ]
-}
-```
-
 **Response 400 (wrong status):**
 ```json
 {
   "error": "Само чакащи поръчки могат да бъдат потвърдени."
+}
+```
+
+**Response 400 (cancelled order):**
+```json
+{
+  "error": "Отказана поръчка не може да бъде потвърдена."
 }
 ```
 

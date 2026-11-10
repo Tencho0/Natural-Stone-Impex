@@ -1,233 +1,196 @@
 @page "/admin/invoices/new"
 @layout AdminLayout
 @attribute [Authorize]
+@using NaturalStoneImpex.Client.Formatting
 @inject IInvoiceService InvoiceService
 @inject IProductService ProductService
 @inject NavigationManager Navigation
 
-<PageTitle>Нова доставка — Natural Stone Impex</PageTitle>
+<PageTitle>Нова доставка · Natural Stone Impex</PageTitle>
 
-<!-- Back link -->
-<a href="/admin/invoices" class="od-back-link mb-3">
-    <i class="bi bi-arrow-left"></i> Обратно към доставките
-</a>
+<p class="page-back">
+    <a href="/admin/invoices"><i class="bi bi-arrow-left" aria-hidden="true"></i> Доставки</a>
+</p>
 
-<h1 class="page-heading mb-4">Нова доставка</h1>
-
-@if (_successMessage is not null)
-{
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="bi bi-check-circle me-2"></i>@_successMessage
-        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
-    </div>
-}
-
-@if (_errorMessage is not null)
-{
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
-        <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
-    </div>
-}
+<h1>Нова доставка</h1>
 
 @if (_isLoadingProducts)
 {
-    <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
-            <span class="visually-hidden">Зареждане...</span>
-        </div>
+    <div class="visually-hidden" role="status">Зареждане...</div>
+    <div class="form-grid skeleton" aria-hidden="true">
+        @for (var i = 0; i < 3; i++)
+        {
+            <div class="field">
+                <span class="skeleton-bar skeleton-bar--short"></span>
+                <span class="skeleton-bar" style="height: var(--target-min); width: 100%;"></span>
+            </div>
+        }
     </div>
 }
 else if (_loadError)
 {
-    <div class="text-center py-5" style="color: var(--nsi-gray);">
-        <i class="bi bi-exclamation-circle" style="font-size: 2.5rem; opacity: 0.5;"></i>
-        <p class="mt-2 mb-0">Възникна грешка при зареждане на продуктите.</p>
+    <div role="alert">
+        <p class="note note--error">Не успяхме да заредим продуктите. Опитайте отново.</p>
+        <button type="button" class="btn btn-outline btn-sm" @onclick="LoadProductsAsync">Опитай отново</button>
     </div>
 }
 else
 {
-    <!-- Section 1: Invoice Info -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <i class="bi bi-receipt me-2" style="color: var(--nsi-accent);"></i>Данни за доставката
-        </div>
-        <div class="card-body" style="padding: 1.5rem;">
-            <div class="row">
-                <div class="col-md-4 mb-3 mb-md-0">
-                    <label for="supplierName" class="form-label">Доставчик <span style="color: var(--nsi-danger);">*</span></label>
-                    <input id="supplierName" type="text" class="form-control @(_validationErrors.ContainsKey("SupplierName") ? "is-invalid" : "")"
-                           @bind="_supplierName" @bind:event="oninput" disabled="@_isSaving" />
-                    @if (_validationErrors.ContainsKey("SupplierName"))
-                    {
-                        <div class="invalid-feedback">@_validationErrors["SupplierName"]</div>
-                    }
+    <form class="invoice-form" @onsubmit="HandleSave" @onsubmit:preventDefault novalidate>
+        <section class="form-grid" aria-labelledby="sec-info">
+            <div class="form-section">
+                <h2 class="section-h" id="sec-info">Данни за доставката</h2>
+
+                <div class="field">
+                    <label class="field-label" for="supplierName">Доставчик</label>
+                    <input id="supplierName" type="text" class="field-input" autocomplete="off"
+                           aria-invalid="@Invalid("SupplierName")" aria-describedby="@ErrId("SupplierName")"
+                           @bind="SupplierName" @bind:event="oninput" disabled="@Locked" />
+                    <div class="field-slot">@FieldError("SupplierName")</div>
                 </div>
-                <div class="col-md-4 mb-3 mb-md-0">
-                    <label for="invoiceNumber" class="form-label">Номер на фактура <span style="color: var(--nsi-danger);">*</span></label>
-                    <input id="invoiceNumber" type="text" class="form-control @(_validationErrors.ContainsKey("InvoiceNumber") ? "is-invalid" : "")"
-                           @bind="_invoiceNumber" @bind:event="oninput" disabled="@_isSaving" />
-                    @if (_validationErrors.ContainsKey("InvoiceNumber"))
-                    {
-                        <div class="invalid-feedback">@_validationErrors["InvoiceNumber"]</div>
-                    }
+
+                <div class="field">
+                    <label class="field-label" for="invoiceNumber">Номер на фактура</label>
+                    <input id="invoiceNumber" type="text" class="field-input" autocomplete="off"
+                           aria-invalid="@Invalid("InvoiceNumber")" aria-describedby="@ErrId("InvoiceNumber")"
+                           @bind="InvoiceNumber" @bind:event="oninput" disabled="@Locked" />
+                    <div class="field-slot">@FieldError("InvoiceNumber")</div>
                 </div>
-                <div class="col-md-4">
-                    <label for="invoiceDate" class="form-label">Дата на фактура <span style="color: var(--nsi-danger);">*</span></label>
-                    <input id="invoiceDate" type="date" class="form-control @(_validationErrors.ContainsKey("InvoiceDate") ? "is-invalid" : "")"
-                           @bind="_invoiceDate" disabled="@_isSaving" />
-                    @if (_validationErrors.ContainsKey("InvoiceDate"))
-                    {
-                        <div class="invalid-feedback">@_validationErrors["InvoiceDate"]</div>
-                    }
+
+                <div class="field">
+                    <label class="field-label" for="invoiceDate">Дата на фактура</label>
+                    <input id="invoiceDate" type="date" class="field-input"
+                           aria-invalid="@Invalid("InvoiceDate")" aria-describedby="@ErrId("InvoiceDate")"
+                           @bind="InvoiceDate" disabled="@Locked" />
+                    <div class="field-slot">@FieldError("InvoiceDate")</div>
                 </div>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <!-- Section 2: Items -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <i class="bi bi-box-seam me-2" style="color: var(--nsi-accent);"></i>Артикули
-        </div>
-        <div class="card-body" style="padding: 1.5rem;">
+        <section class="form-section line-section" aria-labelledby="sec-items">
+            <h2 class="section-h" id="sec-items">Артикули</h2>
+
             @if (_validationErrors.ContainsKey("Items"))
             {
-                <div class="text-danger small mb-2">@_validationErrors["Items"]</div>
+                <p class="field-error" role="alert">@_validationErrors["Items"]</p>
             }
 
-            <div class="table-container" style="overflow-x: auto; box-shadow: none; border: 1px solid var(--nsi-gray-light);">
-                <table class="table align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th style="min-width: 300px;">Продукт <span style="color: var(--nsi-danger);">*</span></th>
-                            <th style="min-width: 130px;">Количество <span style="color: var(--nsi-danger);">*</span></th>
-                            <th style="min-width: 150px;">Покупна цена (&euro;) <span style="color: var(--nsi-danger);">*</span></th>
-                            <th style="min-width: 120px;" class="text-end">Общо</th>
-                            <th style="width: 50px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (var i = 0; i < _items.Count; i++)
-                        {
-                            var index = i;
-                            var item = _items[index];
-                            <tr>
-                                <td>
-                                    <select class="form-select @(_validationErrors.ContainsKey($"Item{index}_ProductId") ? "is-invalid" : "")"
-                                            value="@item.ProductId"
-                                            @onchange="(e) => OnProductChanged(index, e)"
-                                            disabled="@_isSaving">
-                                        <option value="">-- Изберете продукт --</option>
-                                        @foreach (var product in _products)
-                                        {
-                                            <option value="@product.Id">@product.Name (@product.CategoryName) — @product.UnitDisplay</option>
-                                        }
-                                    </select>
-                                    @if (_validationErrors.ContainsKey($"Item{index}_ProductId"))
-                                    {
-                                        <div class="invalid-feedback">@_validationErrors[$"Item{index}_ProductId"]</div>
-                                    }
-                                </td>
-                                <td>
-                                    <input type="number" class="form-control @(_validationErrors.ContainsKey($"Item{index}_Quantity") ? "is-invalid" : "")"
-                                           value="@item.Quantity"
-                                           @onchange="(e) => OnQuantityChanged(index, e)"
-                                           min="0.01" step="0.01" disabled="@_isSaving" />
-                                    @if (_validationErrors.ContainsKey($"Item{index}_Quantity"))
-                                    {
-                                        <div class="invalid-feedback">@_validationErrors[$"Item{index}_Quantity"]</div>
-                                    }
-                                </td>
-                                <td>
-                                    <input type="number" class="form-control @(_validationErrors.ContainsKey($"Item{index}_PurchasePrice") ? "is-invalid" : "")"
-                                           value="@item.PurchasePrice"
-                                           @onchange="(e) => OnPurchasePriceChanged(index, e)"
-                                           min="0" step="0.01" disabled="@_isSaving" />
-                                    @if (_validationErrors.ContainsKey($"Item{index}_PurchasePrice"))
-                                    {
-                                        <div class="invalid-feedback">@_validationErrors[$"Item{index}_PurchasePrice"]</div>
-                                    }
-                                </td>
-                                <td class="text-end">
-                                    <span class="fw-semibold" style="color: var(--nsi-accent-dark);">@item.RowTotal.ToString("F2") &euro;</span>
-                                </td>
-                                <td class="text-center">
-                                    <button type="button" class="btn btn-sm btn-nsi-table-action btn-nsi-table-action-danger"
-                                            @onclick="() => RemoveItem(index)"
-                                            disabled="@(_items.Count <= 1 || _isSaving)"
-                                            title="Премахни">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-            <button type="button" class="btn btn-nsi-outline mt-3" @onclick="AddItem" disabled="@_isSaving">
-                <i class="bi bi-plus-lg me-1"></i>Добави артикул
-            </button>
-        </div>
-    </div>
-
-    <!-- Invoice Total -->
-    <div class="d-flex justify-content-end mb-4">
-        <div class="od-card od-totals-card" style="min-width: 280px; max-width: 380px; width: 100%;">
-            <div class="od-card-header">
-                <i class="bi bi-calculator"></i> Обобщение
-            </div>
-            <div class="od-card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="od-grand-total">Обща стойност:</span>
-                    <span class="od-grand-total">@InvoiceTotal.ToString("F2") &euro;</span>
+            <div class="line-editor">
+                <div class="line-head" aria-hidden="true">
+                    <span>Продукт</span>
+                    <span>Количество</span>
+                    <span>Покупна цена, €</span>
+                    <span class="num">Общо</span>
+                    <span></span>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Buttons -->
-    <div class="d-flex flex-column-reverse flex-sm-row gap-2 pb-3">
-        <button type="button" class="btn btn-nsi-outline" @onclick="NavigateBack" disabled="@_isSaving">
-            Отказ
-        </button>
-        <button type="button" class="btn btn-nsi-accent" @onclick="HandleSave" disabled="@_isSaving">
-            @if (_isSaving)
+                @for (var i = 0; i < _items.Count; i++)
+                {
+                    var index = i;
+                    var item = _items[index];
+                    var unit = UnitFor(item);
+                    <div class="line" role="group" aria-label="@($"Артикул {index + 1}")">
+                        <div class="field line__product">
+                            <label class="field-label" for="@($"line{index}-product")">Продукт</label>
+                            <select id="@($"line{index}-product")" class="field-input"
+                                    aria-invalid="@Invalid($"Item{index}_ProductId")" aria-describedby="@ErrId($"Item{index}_ProductId")"
+                                    value="@item.ProductId"
+                                    @onchange="(e) => OnProductChanged(index, e)"
+                                    disabled="@Locked">
+                                <option value="">Изберете продукт</option>
+                                @foreach (var product in _products)
+                                {
+                                    <option value="@product.Id">@product.Name (@product.CategoryName), @product.UnitDisplay</option>
+                                }
+                            </select>
+                            <div class="field-slot">@FieldError($"Item{index}_ProductId")</div>
+                        </div>
+
+                        <div class="field line__qty">
+                            <label class="field-label" for="@($"line{index}-qty")">Количество@(unit is null ? null : $", {unit}")</label>
+                            <input id="@($"line{index}-qty")" type="number" class="field-input" inputmode="decimal"
+                                   aria-invalid="@Invalid($"Item{index}_Quantity")" aria-describedby="@ErrId($"Item{index}_Quantity")"
+                                   value="@item.Quantity"
+                                   @onchange="(e) => OnQuantityChanged(index, e)"
+                                   min="0.01" step="0.01" disabled="@Locked" />
+                            <div class="field-slot">@FieldError($"Item{index}_Quantity")</div>
+                        </div>
+
+                        <div class="field line__price">
+                            <label class="field-label" for="@($"line{index}-price")">Покупна цена, €</label>
+                            <input id="@($"line{index}-price")" type="number" class="field-input" inputmode="decimal"
+                                   aria-invalid="@Invalid($"Item{index}_PurchasePrice")" aria-describedby="@ErrId($"Item{index}_PurchasePrice")"
+                                   value="@item.PurchasePrice"
+                                   @onchange="(e) => OnPurchasePriceChanged(index, e)"
+                                   min="0" step="0.01" disabled="@Locked" />
+                            <div class="field-slot">@FieldError($"Item{index}_PurchasePrice")</div>
+                        </div>
+
+                        <p class="line__total">
+                            <span class="line__total-label">Общо</span>
+                            <span class="num">@PriceFormat.Money(item.RowTotal)</span>
+                        </p>
+
+                        <div class="line__remove">
+                            <button type="button" class="btn btn-outline btn-sm"
+                                    aria-label="@($"Премахни артикул {index + 1}")"
+                                    @onclick="() => RemoveItem(index)"
+                                    disabled="@(_items.Count <= 1 || Locked)">
+                                Премахни
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div>
+                <button type="button" class="btn btn-outline" @onclick="AddItem" disabled="@Locked">Добави артикул</button>
+            </div>
+
+            <dl class="totals">
+                <dt class="totals__grand">Обща стойност</dt>
+                <dd class="totals__grand">@PriceFormat.Money(InvoiceTotal)</dd>
+            </dl>
+        </section>
+
+        <div class="save-bar">
+            @if (_errorMessage is not null)
             {
-                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                <p class="save-bar__error" role="alert">@_errorMessage</p>
             }
-            <i class="bi bi-check-lg me-1"></i>Запази
-        </button>
-    </div>
-}
-
-<!-- Confirmation Modal -->
-@if (_showConfirmModal)
-{
-    <div class="od-modal-overlay" tabindex="-1">
-        <div class="od-modal-card">
-            <div class="od-modal-header">
-                <h5 class="mb-0" style="font-family: var(--nsi-font-display); font-weight: 700;">
-                    <i class="bi bi-question-circle me-2" style="color: var(--nsi-accent-dark);"></i>Потвърждение
-                </h5>
-                <button type="button" class="btn-close" @onclick="CancelConfirm" disabled="@_isSaving"></button>
-            </div>
-            <div class="od-modal-body">
-                <p class="mb-0">Сигурни ли сте? След запазване наличностите ще бъдат автоматично обновени. Доставката не може да бъде редактирана.</p>
-            </div>
-            <div class="od-modal-footer">
-                <button type="button" class="btn btn-nsi-outline" @onclick="CancelConfirm" disabled="@_isSaving">Отказ</button>
-                <button type="button" class="btn btn-nsi-success" @onclick="ConfirmSave" disabled="@_isSaving">
-                    @if (_isSaving)
-                    {
-                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                    }
-                    Потвърди
-                </button>
-            </div>
+            @if (_validationErrors.Count > 0)
+            {
+                <p class="save-bar__error" role="alert">Поправете отбелязаните полета.</p>
+            }
+            @if (_showConfirm)
+            {
+                <div class="inline-confirm" role="group" aria-labelledby="confirm-q" aria-describedby="confirm-w" @onkeydown="OnConfirmKeyDown">
+                    <div class="inline-confirm__warnings" id="confirm-w">
+                        <p class="inline-confirm__text inline-confirm__text--warn">След запазване наличностите се обновяват автоматично. Доставката не може да се редактира.</p>
+                    </div>
+                    <p class="inline-confirm__text" id="confirm-q">Запиши доставката?</p>
+                    <span class="inline-confirm__actions">
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="ConfirmSave" aria-disabled="@(_isSaving ? "true" : null)">
+                            @if (_isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                            }
+                            Да
+                        </button>
+                        <button type="button" class="btn btn-outline btn-sm" @ref="_noButton" @onclick="CancelConfirm" aria-disabled="@(_isSaving ? "true" : null)">Не</button>
+                    </span>
+                    <span class="visually-hidden" role="status">@(_isSaving ? "Изчакайте." : null)</span>
+                </div>
+            }
+            else
+            {
+                <div class="save-bar__actions">
+                    <button type="submit" class="btn btn-primary" @ref="_saveButton">Запази</button>
+                    <button type="button" class="btn btn-outline" @onclick="NavigateBack">Отказ</button>
+                </div>
+            }
         </div>
-    </div>
+    </form>
 }
 
 @code {
@@ -236,20 +199,38 @@ else
     private bool _isLoadingProducts = true;
     private bool _loadError;
     private bool _isSaving;
-    private bool _showConfirmModal;
+    private bool _showConfirm;
+    private bool _focusNo;
+    private bool _focusSave;
+    private ElementReference _noButton;
+    private ElementReference _saveButton;
     private string? _errorMessage;
-    private string? _successMessage;
     private Dictionary<string, string> _validationErrors = new();
 
     private string _supplierName = string.Empty;
     private string _invoiceNumber = string.Empty;
     private DateTime _invoiceDate = DateTime.Today;
 
+    // Editing a header field clears its error, like the line fields do.
+    private string SupplierName { get => _supplierName; set { _supplierName = value; ClearValidationError("SupplierName"); } }
+    private string InvoiceNumber { get => _invoiceNumber; set { _invoiceNumber = value; ClearValidationError("InvoiceNumber"); } }
+    private DateTime InvoiceDate { get => _invoiceDate; set { _invoiceDate = value; ClearValidationError("InvoiceDate"); } }
+
     private decimal InvoiceTotal => _items.Sum(i => i.RowTotal);
+
+    // The form is read-only while the confirm is open or the save runs, so what was confirmed is what is sent.
+    private bool Locked => _isSaving || _showConfirm;
 
     protected override async Task OnInitializedAsync()
     {
         _items.Add(new InvoiceItemFormModel());
+        await LoadProductsAsync();
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        _isLoadingProducts = true;
+        _loadError = false;
 
         try
         {
@@ -266,6 +247,17 @@ else
         }
     }
 
+    private string? UnitFor(InvoiceItemFormModel item) =>
+        item.ProductId is { } id ? _products.FirstOrDefault(p => p.Id == id)?.UnitDisplay : null;
+
+    private string? Invalid(string key) => _validationErrors.ContainsKey(key) ? "true" : null;
+
+    private string? ErrId(string key) => _validationErrors.ContainsKey(key) ? $"err-{key}" : null;
+
+    private RenderFragment? FieldError(string key) => _validationErrors.TryGetValue(key, out var message)
+        ? @<p class="field-error" id="@($"err-{key}")" role="alert">@message</p>
+        : null;
+
     private void OnProductChanged(int index, ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out var productId))
@@ -281,7 +273,7 @@ else
 
     private void OnQuantityChanged(int index, ChangeEventArgs e)
     {
-        if (decimal.TryParse(e.Value?.ToString(), out var quantity))
+        if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var quantity))
         {
             _items[index].Quantity = quantity;
         }
@@ -294,7 +286,7 @@ else
 
     private void OnPurchasePriceChanged(int index, ChangeEventArgs e)
     {
-        if (decimal.TryParse(e.Value?.ToString(), out var price))
+        if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var price))
         {
             _items[index].PurchasePrice = price;
         }
@@ -315,6 +307,9 @@ else
         if (_items.Count > 1)
         {
             _items.RemoveAt(index);
+            // Item errors are keyed by position, so removing a line would leave them on the wrong one.
+            foreach (var key in _validationErrors.Keys.Where(k => k.StartsWith("Item") && k.Contains('_')).ToList())
+                _validationErrors.Remove(key);
         }
     }
 
@@ -389,23 +384,55 @@ else
 
     private void HandleSave()
     {
+        if (Locked)
+            return;
+
         _errorMessage = null;
 
         if (!Validate())
             return;
 
-        _showConfirmModal = true;
+        _showConfirm = true;
+        _focusNo = true;
     }
 
     private void CancelConfirm()
     {
-        _showConfirmModal = false;
+        if (_isSaving)
+            return;
+
+        _showConfirm = false;
+        _focusSave = true;
+    }
+
+    private void OnConfirmKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+            CancelConfirm();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusNo && _showConfirm)
+        {
+            _focusNo = false;
+            await _noButton.FocusAsync();
+        }
+        else if (_focusSave && !_showConfirm)
+        {
+            _focusSave = false;
+            await _saveButton.FocusAsync();
+        }
     }
 
     private async Task ConfirmSave()
     {
+        if (_isSaving)
+            return;
+
         _isSaving = true;
         _errorMessage = null;
+        var navigated = false;
 
         try
         {
@@ -427,20 +454,25 @@ else
             if (error is not null)
             {
                 _errorMessage = error;
-                _showConfirmModal = false;
+                _showConfirm = false;
+                _focusSave = true;
                 return;
             }
 
+            // Stay locked while the page changes: the invoice exists now and must not be sent twice.
+            navigated = true;
             Navigation.NavigateTo("/admin/invoices?success=" + Uri.EscapeDataString("Доставката е записана. Наличностите са обновени."));
         }
         catch
         {
             _errorMessage = "Възникна грешка при свързване със сървъра.";
-            _showConfirmModal = false;
+            _showConfirm = false;
+            _focusSave = true;
         }
         finally
         {
-            _isSaving = false;
+            if (!navigated)
+                _isSaving = false;
         }
     }
 
