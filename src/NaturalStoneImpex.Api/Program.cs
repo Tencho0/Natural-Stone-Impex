@@ -141,6 +141,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles(); // runtime uploads (/uploads)
 // Explicit, and after the error branch: re-executing /error and /not-found must route the new path.
 // (The implicit UseRouting runs first in the pipeline, before the branch, so re-execution would find no endpoint.)
+app.UseHeadAsGet(); // R11: HEAD to a storefront page runs as GET without a body
 app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<AdminCsrfHeaderMiddleware>();
@@ -154,6 +155,7 @@ app.MapRazorComponents<App>()
 
 app.MapControllers();
 app.MapCartEndpoints();
+app.MapSeoEndpoints();
 
 // Health check endpoint
 app.MapGet("/api/health", () => Results.Ok(new

@@ -1,0 +1,49 @@
+@page "/contacts"
+@attribute [ExcludeFromInteractiveRouting]
+@layout MainLayout
+
+@* Contacts (spec §7.7). Every value comes from ShopInfo. No LocalBusiness JSON-LD: ShopInfo holds the address
+   and hours as display text only, not the structured street, city and opening-hours fields schema.org needs. *@
+
+<SeoHead Title="Контакти"
+         Description="Телефон, имейл, адрес и работно време на Natural Stone Impex. Обадете се или ни пишете за естествен камък и строителни материали."
+         CanonicalPath="/contacts" />
+
+<div class="wrap contacts">
+    <h1 class="contacts__title">Контакти</h1>
+
+    <dl class="contacts__list">
+        <div class="contacts__row">
+            <dt class="contacts__label">Телефон</dt>
+            <dd class="contacts__value contacts__value--lead num">
+                <a class="link-quiet" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a>
+            </dd>
+        </div>
+        <div class="contacts__row">
+            <dt class="contacts__label">Имейл</dt>
+            <dd class="contacts__value">
+                <a class="link-quiet" href="mailto:@ShopInfo.Email">@ShopInfo.Email</a>
+            </dd>
+        </div>
+        <div class="contacts__row">
+            <dt class="contacts__label">Адрес</dt>
+            <dd class="contacts__value">
+                <address class="contacts__address">@ShopInfo.Address</address>
+                <a class="link-quiet contacts__map" href="@ShopInfo.MapUrl" target="_blank" rel="noopener">Виж на картата</a>
+            </dd>
+        </div>
+        <div class="contacts__row">
+            <dt class="contacts__label">Работно време</dt>
+            <dd class="contacts__value num">
+                <ul class="contacts__hours">
+                    @foreach (var line in ShopInfo.Hours)
+                    {
+                        <li>@line</li>
+                    }
+                </ul>
+            </dd>
+        </div>
+    </dl>
+
+    <p class="contacts__note">Използваме само необходими бисквитки: за количката и за вход в администрацията.</p>
+</div>
