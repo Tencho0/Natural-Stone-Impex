@@ -22,6 +22,12 @@ public class SitemapBuilderTests
     }
 
     [Fact]
+    public void Sitemap_declares_utf8()
+    {
+        Assert.StartsWith("<?xml version=\"1.0\" encoding=\"utf-8\"?>", SitemapBuilder.Build("https://host", []));
+    }
+
+    [Fact]
     public void Sitemap_never_lists_private_pages()
     {
         var xml = SitemapBuilder.Build("https://host", []);

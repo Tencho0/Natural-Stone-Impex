@@ -6,6 +6,10 @@ public static class SeoEndpoints
 {
     private const string CacheControl = "public, max-age=3600";
 
+    public static bool IsSeoPath(PathString path)
+        => path.Equals("/sitemap.xml", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/robots.txt", StringComparison.OrdinalIgnoreCase);
+
     public static void MapSeoEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/sitemap.xml", async (HttpContext http, IStorefrontQueryService storefront) =>

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -23,8 +24,15 @@ public class HeadRequestTests
             => Task.FromResult<IReadOnlyList<(int, DateTime)>>([(7, new DateTime(2026, 1, 2))]);
     }
 
-    private static async Task<HttpClient> StartAsync()
+    private sealed class Probe
     {
+        public string? MethodAfter;
+        public bool BodyRestored;
+    }
+
+    private static async Task<(HttpClient Client, Probe Probe)> StartWithProbeAsync()
+    {
+        var probe = new Probe();
         var host = await new HostBuilder()
             .ConfigureWebHost(web => web
                 .UseTestServer()
@@ -35,20 +43,47 @@ public class HeadRequestTests
                 })
                 .Configure(app =>
                 {
+                    // Outermost: after the whole inner pipeline (including re-execution) the request must be
+                    // HEAD again and the response body the original stream.
+                    app.Use(async (ctx, next) =>
+                    {
+                        var original = ctx.Response.Body;
+                        await next(ctx);
+                        probe.MethodAfter = ctx.Request.Method;
+                        probe.BodyRestored = ReferenceEquals(ctx.Response.Body, original);
+                    });
+                    // The same ordering as Program.cs: HEAD as GET, then error pages, then routing. HEAD as GET has to
+                    // be outside the error pages, or the re-executed /not-found and /error bodies are not dropped.
                     app.UseHeadAsGet();
+                    app.UseStorefrontErrorPages(isDevelopment: false);
                     app.UseRouting();
                     app.UseEndpoints(e =>
                     {
                         e.MapGet("/", () => "home");
                         e.MapGet("/catalog", () => "catalog");
                         e.MapGet("/contacts", () => "contacts");
+                        e.MapGet("/boom", (Func<string>)(() => throw new InvalidOperationException("boom")));
+                        e.MapGet("/not-found", async (HttpContext c) =>
+                        {
+                            c.Response.ContentType = "text/html";
+                            c.Response.StatusCode = 404;
+                            await c.Response.WriteAsync("not found page");
+                        });
+                        e.MapGet("/error", async (HttpContext c) =>
+                        {
+                            c.Response.ContentType = "text/html"; // like the Razor pages, so status code pages leave it alone
+                            c.Response.StatusCode = 500;
+                            await c.Response.WriteAsync("error page");
+                        });
                         e.MapGet("/api/ping", () => "pong");
                         e.MapSeoEndpoints();
                     });
                 }))
             .StartAsync();
-        return host.GetTestClient();
+        return (host.GetTestClient(), probe);
     }
+
+    private static async Task<HttpClient> StartAsync() => (await StartWithProbeAsync()).Client;
 
     private static Task<HttpResponseMessage> Head(HttpClient c, string path)
         => c.SendAsync(new HttpRequestMessage(HttpMethod.Head, path));
@@ -74,6 +109,74 @@ public class HeadRequestTests
     {
         using var client = await StartAsync();
         Assert.Equal(System.Net.HttpStatusCode.NotFound, (await Head(client, "/nope")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Head_to_an_unknown_path_re_executes_not_found_with_an_empty_body_and_restores_the_request()
+    {
+        var (client, probe) = await StartWithProbeAsync();
+        using var _ = client;
+
+        var response = await Head(client, "/nope");
+
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsByteArrayAsync());
+        Assert.Equal("HEAD", probe.MethodAfter);
+        Assert.True(probe.BodyRestored);
+    }
+
+    [Fact]
+    public async Task Head_to_a_throwing_page_is_500_with_an_empty_body_and_restores_the_request()
+    {
+        var (client, probe) = await StartWithProbeAsync();
+        using var _ = client;
+
+        var response = await Head(client, "/boom");
+
+        Assert.Equal(System.Net.HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsByteArrayAsync());
+        Assert.Equal("HEAD", probe.MethodAfter);
+        Assert.True(probe.BodyRestored);
+    }
+
+    [Fact]
+    public async Task Get_to_an_unknown_path_still_serves_the_not_found_page()
+    {
+        using var client = await StartAsync();
+
+        var response = await client.GetAsync("/nope");
+
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("not found page", await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("/css/site.css")]
+    [InlineData("/uploads/products/a.jpg")]
+    public void Head_is_not_rewritten_for_static_assets(string path)
+    {
+        // Static assets and uploads answer HEAD natively (checked live against MapStaticAssets).
+        Assert.True(NaturalStoneImpex.Api.Storefront.ErrorPages.IsStaticFileRequest(path));
+        Assert.False(SeoEndpoints.IsSeoPath(path));
+    }
+
+    [Fact]
+    public async Task Head_to_a_static_asset_path_is_left_as_head()
+    {
+        // No endpoint matches HEAD here: if the middleware rewrote it, the GET-only endpoint would answer 200.
+        var host = await new HostBuilder()
+            .ConfigureWebHost(web => web.UseTestServer()
+                .ConfigureServices(s => s.AddRouting())
+                .Configure(app =>
+                {
+                    app.UseHeadAsGet();
+                    app.UseRouting();
+                    app.UseEndpoints(e => e.MapGet("/css/site.css", () => "css"));
+                }))
+            .StartAsync();
+        using var client = host.GetTestClient();
+
+        Assert.Equal(System.Net.HttpStatusCode.MethodNotAllowed, (await Head(client, "/css/site.css")).StatusCode);
     }
 
     [Fact]

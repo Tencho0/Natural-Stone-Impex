@@ -10,7 +10,7 @@ public static class HeadAsGetMiddleware
         => app.Use(async (context, next) =>
         {
             var request = context.Request;
-            if (!HttpMethods.IsHead(request.Method) || request.Path.StartsWithSegments("/api"))
+            if (!HttpMethods.IsHead(request.Method) || request.Path.StartsWithSegments("/api") || IsNativeHeadAsset(request.Path))
             {
                 await next(context);
                 return;
@@ -29,4 +29,9 @@ public static class HeadAsGetMiddleware
                 request.Method = HttpMethods.Head;
             }
         });
+
+    // Static assets and uploads answer HEAD natively; rewriting them would stream the whole file into a null body.
+    // The sitemap and robots endpoints also end in an extension but are plain GET endpoints.
+    private static bool IsNativeHeadAsset(PathString path)
+        => NaturalStoneImpex.Api.Storefront.ErrorPages.IsStaticFileRequest(path) && !Endpoints.SeoEndpoints.IsSeoPath(path);
 }

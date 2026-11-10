@@ -118,18 +118,10 @@ using (var scope = app.Services.CreateScope())
 // Errors: /api keeps its JSON middleware; everything else gets the designed error and not-found pages.
 app.UseWhen(ctx => ctx.Request.Path.StartsWithSegments("/api"),
     b => b.UseMiddleware<ExceptionHandlingMiddleware>());
-app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/api"), b =>
-{
-    // Development keeps the developer exception page; verify the designed /error with ASPNETCORE_ENVIRONMENT=Production.
-    if (!app.Environment.IsDevelopment())
-        b.UseExceptionHandler("/error", createScopeForErrors: true);
-    b.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-    b.Use((ctx, next) =>
-    {
-        NaturalStoneImpex.Api.Storefront.ErrorPages.Prepare(ctx);
-        return next(ctx);
-    });
-});
+// R11: HEAD to a storefront page runs as GET without a body. Outside the error pages, so the re-executed
+// /not-found and /error pages run under it too and their bodies are dropped as well.
+app.UseHeadAsGet();
+app.UseStorefrontErrorPages(app.Environment.IsDevelopment());
 
 if (app.Environment.IsDevelopment())
 {
@@ -141,7 +133,6 @@ app.UseHttpsRedirection();
 app.UseStaticFiles(); // runtime uploads (/uploads)
 // Explicit, and after the error branch: re-executing /error and /not-found must route the new path.
 // (The implicit UseRouting runs first in the pipeline, before the branch, so re-execution would find no endpoint.)
-app.UseHeadAsGet(); // R11: HEAD to a storefront page runs as GET without a body
 app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<AdminCsrfHeaderMiddleware>();
