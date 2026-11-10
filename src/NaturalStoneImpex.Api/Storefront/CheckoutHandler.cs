@@ -4,23 +4,32 @@ using NaturalStoneImpex.Api.Services;
 namespace NaturalStoneImpex.Api.Storefront;
 
 /// <param name="Error">Bulgarian, shown at the top of the form; null on success.</param>
-public sealed record CheckoutOutcome(bool Success, string? OrderNumber, string? Error);
+/// <param name="ClearsCart">On success: whether the caller clears the cart (see <see cref="CheckoutHandler.PlaceAsync"/>).</param>
+public sealed record CheckoutOutcome(bool Success, string? OrderNumber, string? Error, bool ClearsCart = false);
 
 /// <summary>
 /// Places the checkout order (spec §7.5). Sends only the orderable cart rows (no inactive or price-0 ids;
 /// unknown ids are already dropped by <see cref="CartViewModel"/>). Never throws: order service errors come
-/// back as <see cref="CheckoutOutcome.Error"/>. On success the caller clears the cart.
+/// back as <see cref="CheckoutOutcome.Error"/>. On success the caller clears the cart when
+/// <see cref="CheckoutOutcome.ClearsCart"/> says so.
 /// </summary>
 public sealed class CheckoutHandler(IOrderService orders, CheckoutGuard guard, ILogger<CheckoutHandler> logger)
 {
     public const string EmptyCartError = "Количката е празна.";
     public const string CartChangedError =
         "Количката се промени, докато попълвахте данните. Прегледайте обобщението и изпратете поръчката отново.";
-    public const string UnexpectedError =
-        "Поръчката не беше изпратена. Опитайте отново или ни се обадете.";
+    // Under the heading "Поръчката не е изпратена".
+    public const string UnexpectedError = "Опитайте отново или ни се обадете.";
 
-    public Task<CheckoutOutcome> PlaceAsync(CheckoutForm form, CartViewModel cart)
-        => guard.RunOnceAsync(form.Token, () => PlaceNowAsync(form, cart));
+    public async Task<CheckoutOutcome> PlaceAsync(CheckoutForm form, CartViewModel cart)
+    {
+        var (outcome, replayed) = await guard.RunOnceAsync(form.Token, () => PlaceNowAsync(form, cart));
+        // A replayed token (double-click, duplicated tab, restored form) confirms the order it placed. The cart is
+        // cleared only if it is still the one that was ordered (or empty), never a cart filled since.
+        return replayed && outcome.Success
+            ? outcome with { ClearsCart = cart.Rows.Count == 0 || CheckoutForm.Stamp(cart) == form.CartStamp }
+            : outcome;
+    }
 
     private async Task<CheckoutOutcome> PlaceNowAsync(CheckoutForm form, CartViewModel cart)
     {
@@ -39,7 +48,7 @@ public sealed class CheckoutHandler(IOrderService orders, CheckoutGuard guard, I
         try
         {
             var response = await orders.CreateAsync(form.ToRequest(items));
-            return new CheckoutOutcome(true, response.OrderNumber, null);
+            return new CheckoutOutcome(true, response.OrderNumber, null, ClearsCart: true);
         }
         catch (InvalidOperationException ex)
         {

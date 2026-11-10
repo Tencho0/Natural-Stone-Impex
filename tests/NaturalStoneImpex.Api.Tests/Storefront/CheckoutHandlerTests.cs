@@ -121,13 +121,6 @@ public class CheckoutHandlerTests
     [Fact]
     public void Company_eik_must_be_9_or_13_digits()
     {
-        static List<ValidationResult> Validate(CheckoutForm form)
-        {
-            var results = new List<ValidationResult>();
-            Validator.TryValidateObject(form, new ValidationContext(form), results, validateAllProperties: true);
-            return results;
-        }
-
         static CheckoutForm Company(string? eik) => new()
         {
             CustomerType = CheckoutForm.Company,
@@ -159,30 +152,88 @@ public class CheckoutHandlerTests
         Assert.Empty(Validate(individual));
     }
 
+    private static List<ValidationResult> Validate(CheckoutForm form)
+    {
+        var results = new List<ValidationResult>();
+        Validator.TryValidateObject(form, new ValidationContext(form), results, validateAllProperties: true);
+        return results;
+    }
+
     [Fact]
     public void Required_fields_follow_customer_type_and_delivery()
     {
-        var results = new List<ValidationResult>();
-        var form = new CheckoutForm { CustomerType = CheckoutForm.Company, DeliveryMethod = CheckoutForm.Delivery };
-
-        Assert.False(Validator.TryValidateObject(form, new ValidationContext(form), results, true));
-
+        var company = Validate(new CheckoutForm { CustomerType = CheckoutForm.Company, DeliveryMethod = CheckoutForm.Delivery });
         Assert.Equal(
             [nameof(CheckoutForm.CompanyName), nameof(CheckoutForm.Eik), nameof(CheckoutForm.Mol),
              nameof(CheckoutForm.ContactPerson), nameof(CheckoutForm.ContactPhone), nameof(CheckoutForm.Address)],
-            results.Select(r => r.MemberNames.Single()));
-        Assert.All(results, r => Assert.Equal("Полето е задължително.", r.ErrorMessage));
+            company.Select(r => r.MemberNames.Single()));
+        Assert.All(company, r => Assert.Equal("Полето е задължително.", r.ErrorMessage));
 
-        results.Clear();
-        var individual = new CheckoutForm { CustomerType = CheckoutForm.Individual, DeliveryMethod = CheckoutForm.Pickup };
-        Validator.TryValidateObject(individual, new ValidationContext(individual), results, true);
-        Assert.Equal([nameof(CheckoutForm.FullName), nameof(CheckoutForm.Phone)], results.Select(r => r.MemberNames.Single()));
+        var individual = Validate(new CheckoutForm { CustomerType = CheckoutForm.Individual, DeliveryMethod = CheckoutForm.Pickup });
+        Assert.Equal([nameof(CheckoutForm.FullName), nameof(CheckoutForm.Phone)], individual.Select(r => r.MemberNames.Single()));
 
-        results.Clear();
-        var hostile = new CheckoutForm { CustomerType = 5, DeliveryMethod = null };
-        Validator.TryValidateObject(hostile, new ValidationContext(hostile), results, true);
-        Assert.Contains(results, r => r.ErrorMessage == "Моля, изберете тип клиент.");
-        Assert.Contains(results, r => r.ErrorMessage == "Моля, изберете метод на получаване.");
+        var hostile = Validate(new CheckoutForm { CustomerType = 5, DeliveryMethod = -1 });
+        Assert.Equal(["Моля, изберете тип клиент.", "Моля, изберете метод на получаване."], hostile.Select(r => r.ErrorMessage));
+    }
+
+    // Ruling R27: as in the old checkout, nothing is preselected and both choices are required.
+    [Fact]
+    public void Customer_type_and_delivery_must_be_chosen()
+    {
+        var start = CheckoutForm.Start();
+        Assert.Null(start.CustomerType);
+        Assert.Null(start.DeliveryMethod);
+        Assert.True(CheckoutGuard.IsToken(start.Token));
+
+        var nothing = Validate(start);
+        Assert.Equal(
+            [(nameof(CheckoutForm.CustomerType), "Моля, изберете тип клиент."),
+             (nameof(CheckoutForm.DeliveryMethod), "Моля, изберете метод на получаване.")],
+            nothing.Select(r => (r.MemberNames.Single(), r.ErrorMessage)));
+
+        // A chosen type is checked even while the delivery method is missing (the old form did the same).
+        var typeOnly = Validate(new CheckoutForm { CustomerType = CheckoutForm.Individual, FullName = "Иван" });
+        Assert.Equal([nameof(CheckoutForm.Phone), nameof(CheckoutForm.DeliveryMethod)], typeOnly.Select(r => r.MemberNames.Single()));
+    }
+
+    [Fact]
+    public void Lengths_match_the_database_columns()
+    {
+        static CheckoutForm Company() => new()
+        {
+            CustomerType = CheckoutForm.Company, DeliveryMethod = CheckoutForm.Delivery,
+            CompanyName = "Камък ООД", Eik = "123456789", Mol = "Петър Петров", ContactPerson = "Мария Иванова",
+            ContactPhone = "0888 000 111", Address = "ул. Камъка 5", FullName = "Иван", Phone = "0888"
+        };
+        Assert.Empty(Validate(Company()));
+
+        var limits = new (string Member, int Max, Action<CheckoutForm, string> Set)[]
+        {
+            (nameof(CheckoutForm.FullName), 200, (f, v) => f.FullName = v),
+            (nameof(CheckoutForm.Phone), 20, (f, v) => f.Phone = v),
+            (nameof(CheckoutForm.Address), 500, (f, v) => f.Address = v),
+            (nameof(CheckoutForm.CompanyName), 200, (f, v) => f.CompanyName = v),
+            (nameof(CheckoutForm.Mol), 200, (f, v) => f.Mol = v),
+            (nameof(CheckoutForm.ContactPerson), 200, (f, v) => f.ContactPerson = v),
+            (nameof(CheckoutForm.ContactPhone), 20, (f, v) => f.ContactPhone = v)
+        };
+        foreach (var (member, max, set) in limits)
+        {
+            var atMax = Company();
+            set(atMax, new string('1', max));
+            Assert.Empty(Validate(atMax));
+
+            var over = Company();
+            set(over, new string('1', max + 1));
+            var error = Assert.Single(Validate(over));
+            Assert.Equal([member], error.MemberNames);
+            Assert.Equal($"Полето може да съдържа най-много {max} знака.", error.ErrorMessage);
+        }
+
+        // ЕИК (nvarchar(13)) is bounded by its own check, which says what is wrong.
+        var eik = Company();
+        eik.Eik = new string('1', 14);
+        Assert.Equal(CheckoutForm.EikMessage, Assert.Single(Validate(eik)).ErrorMessage);
     }
 
     [Fact]
@@ -233,6 +284,34 @@ public class CheckoutHandlerTests
         Assert.True(second.Success);
         Assert.Equal(first.OrderNumber, second.OrderNumber);
         Assert.Equal(first.OrderNumber, afterClear.OrderNumber);
+        await using var check = CreateContext(name);
+        Assert.Equal(1, await check.Orders.CountAsync());
+    }
+
+    [Fact]
+    public async Task Replayed_token_clears_only_the_cart_it_ordered()
+    {
+        var name = await SeedAsync(P(1), P(2));
+        await using var db = CreateContext(name);
+        var guard = new CheckoutGuard();
+        var token = CheckoutGuard.NewToken();
+        var ordered = await CartAsync(db, new CartLine(1, 1m));
+        var form = Individual(token, CheckoutForm.Stamp(ordered));
+
+        var first = await Handler(db, guard).PlaceAsync(form, ordered);
+        // The double-click's second POST: the same cart, so it is cleared again.
+        var sameCart = await Handler(db, guard).PlaceAsync(form, ordered);
+        // A duplicated tab or restored form resubmitted after a new cart was filled: confirm, keep the new cart.
+        var newerCart = await Handler(db, guard).PlaceAsync(form, await CartAsync(db, new CartLine(2, 3m)));
+        var emptyCart = await Handler(db, guard).PlaceAsync(form, await CartAsync(db));
+
+        Assert.True(first.Success && first.ClearsCart);
+        Assert.True(sameCart.Success && sameCart.ClearsCart);
+        Assert.True(newerCart.Success);
+        Assert.False(newerCart.ClearsCart);
+        Assert.True(emptyCart.ClearsCart);
+        Assert.All([sameCart, newerCart, emptyCart], o => Assert.Equal(first.OrderNumber, o.OrderNumber));
+        Assert.False((await Handler(db, guard).PlaceAsync(Individual(), await CartAsync(db))).ClearsCart);
         await using var check = CreateContext(name);
         Assert.Equal(1, await check.Orders.CountAsync());
     }

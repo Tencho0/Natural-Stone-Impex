@@ -1811,14 +1811,14 @@
   display: inline-flex;
   align-items: center;
   min-height: var(--target-min);
-  margin-block: -10px; /* a 44px target without spreading the box */
+  margin-block: -12px; /* a 44px target without spreading the box */
 }
 
 /* Block links: 44px targets that also hold when a message wraps on a phone. */
 .checkout-problems__list a {
   display: block;
   min-height: var(--target-min);
-  padding-block: 10px;
+  padding-block: var(--space-3);
   color: var(--danger);
   text-decoration: underline;
   text-decoration-thickness: 1px;

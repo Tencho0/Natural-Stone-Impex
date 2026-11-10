@@ -22,10 +22,11 @@ public sealed class CheckoutGuard : IDisposable
 
     public static bool IsToken(string? token) => token is { Length: 32 } && token.All(char.IsAsciiHexDigitLower);
 
-    public async Task<CheckoutOutcome> RunOnceAsync(string? token, Func<Task<CheckoutOutcome>> place)
+    /// <returns>The outcome, and whether it is another request's (a replay of the token).</returns>
+    public async Task<(CheckoutOutcome Outcome, bool Replayed)> RunOnceAsync(string? token, Func<Task<CheckoutOutcome>> place)
     {
         if (!IsToken(token))
-            return await place();
+            return (await place(), false);
 
         Task<CheckoutOutcome>? first;
         var mine = new TaskCompletionSource<CheckoutOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -35,7 +36,7 @@ public sealed class CheckoutGuard : IDisposable
                 _outcomes.Set(token!, mine.Task, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = Lifetime, Size = 1 });
         }
         if (first is not null)
-            return await first;
+            return (await first, true);
 
         try
         {
@@ -43,7 +44,7 @@ public sealed class CheckoutGuard : IDisposable
             if (!outcome.Success)
                 Forget(token!, mine.Task);
             mine.SetResult(outcome);
-            return outcome;
+            return (outcome, false);
         }
         catch (Exception ex)
         {

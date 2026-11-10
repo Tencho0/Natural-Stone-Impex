@@ -1,12 +1,13 @@
-// Checkout (spec §7.5); the form works without JS. Here: switches show their groups ([data-when="name=value"])
-// at once; a submit sets aria-busy, disables the buttons and drops a second submit (the server token is the
+// Checkout (spec §7.5); the form works without JS. Here: switches show their groups at once
+// ([data-when="name=value"]; an empty value means any choice); a submit sets aria-busy, disables the buttons and drops a second submit (the server token is the
 // real guard); after a failed enhanced post focus moves to the problems box, whose links focus their field.
 const FORM = 'form[data-checkout]';
 
 function sync(form) {
   for (const group of form.querySelectorAll('[data-when]')) {
     const [name, value] = group.dataset.when.split('=');
-    group.hidden = form.querySelector(`input[name="${name}"]:checked`)?.value !== value;
+    const checked = form.querySelector(`input[name="${name}"]:checked`)?.value;
+    group.hidden = value ? checked !== value : checked === undefined;
   }
 }
 

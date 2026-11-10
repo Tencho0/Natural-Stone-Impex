@@ -63,13 +63,16 @@
                          ("Физическо лице", CheckoutForm.Individual), ("Фирма", CheckoutForm.Company)))
             </fieldset>
 
-            <fieldset class="checkout-section">
+            @* Nothing is preselected (R27): the customer fields appear once a type is chosen ("name=" means any value). *@
+            <fieldset class="checkout-section" data-when="Form.CustomerType=" hidden="@(Form.CustomerType is null)">
                 <legend class="checkout-section__title">Данни за клиента</legend>
-                <div class="checkout-fields" data-when="Form.CustomerType=@CheckoutForm.Individual" hidden="@Form.IsCompany">
+                <div class="checkout-fields" data-when="Form.CustomerType=@CheckoutForm.Individual"
+                     hidden="@(Form.CustomerType != CheckoutForm.Individual)">
                     @Field(nameof(CheckoutForm.FullName), Form.FullName, autocomplete: "name", maxLength: 200)
                     @Field(nameof(CheckoutForm.Phone), Form.Phone, type: "tel", autocomplete: "tel", maxLength: 20)
                 </div>
-                <div class="checkout-fields" data-when="Form.CustomerType=@CheckoutForm.Company" hidden="@(!Form.IsCompany)">
+                <div class="checkout-fields" data-when="Form.CustomerType=@CheckoutForm.Company"
+                     hidden="@(!Form.IsCompany)">
                     @Field(nameof(CheckoutForm.CompanyName), Form.CompanyName, autocomplete: "organization", maxLength: 200)
                     @Field(nameof(CheckoutForm.Eik), Form.Eik, inputMode: "numeric", maxLength: 13, help: "9 или 13 цифри")
                     @Field(nameof(CheckoutForm.Mol), Form.Mol, maxLength: 200)
@@ -189,7 +192,9 @@
         var outcome = await Handler.PlaceAsync(Form, _cart);
         if (outcome.Success)
         {
-            CartStore.Clear(); // before the redirect response starts
+            // Not when a replayed token meets a cart filled since that order (CheckoutHandler.PlaceAsync).
+            if (outcome.ClearsCart)
+                CartStore.Clear(); // before the redirect response starts
             Navigation.NavigateTo($"/order-confirmation/{outcome.OrderNumber}");
             return;
         }
@@ -212,6 +217,8 @@
             return;
         }
         _submitted = true;
+        // The page shows the cart as it is now, so the next submit is checked against that.
+        Form.CartStamp = CheckoutForm.Stamp(_cart);
     }
 
     private string? ErrorOf(string member) =>

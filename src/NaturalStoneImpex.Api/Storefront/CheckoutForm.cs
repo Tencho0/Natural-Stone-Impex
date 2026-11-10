@@ -9,9 +9,10 @@ namespace NaturalStoneImpex.Api.Storefront;
 
 /// <summary>
 /// The checkout form ([SupplyParameterFromForm] Form, form "checkout"), ported from the old Client checkout:
-/// the same fields, rules and Bulgarian messages, plus the ЕИК check (9 or 13 digits). The fields of the
-/// customer type that is not chosen, and the address on pickup, are kept for the re-render but never checked
-/// or sent.
+/// the same fields, rules and Bulgarian messages, plus the ЕИК check (9 or 13 digits) and the database column
+/// lengths. Nothing is preselected: the customer type and the delivery method must be chosen (ruling R27).
+/// The fields of the customer type that is not chosen, and the address on pickup, are kept for the re-render
+/// but never required or sent.
 /// </summary>
 public sealed partial class CheckoutForm : IValidatableObject
 {
@@ -22,23 +23,24 @@ public sealed partial class CheckoutForm : IValidatableObject
 
     public const string RequiredMessage = "Полето е задължително.";
     public const string EikMessage = "ЕИК трябва да съдържа 9 или 13 цифри.";
-    private const string CustomerTypeMessage = "Моля, изберете тип клиент.";
-    private const string DeliveryMethodMessage = "Моля, изберете метод на получаване.";
+    public const string CustomerTypeMessage = "Моля, изберете тип клиент.";
+    public const string DeliveryMethodMessage = "Моля, изберете метод на получаване.";
+    private const string LengthMessage = "Полето може да съдържа най-много {1} знака.";
 
-    [Required(ErrorMessage = CustomerTypeMessage), Range(Individual, Company, ErrorMessage = CustomerTypeMessage)]
+    // Checked in Validate, not by attributes: a missing choice must not hide the other errors (the old form
+    // showed them together).
     public int? CustomerType { get; set; }
-
-    [Required(ErrorMessage = DeliveryMethodMessage), Range(Pickup, Delivery, ErrorMessage = DeliveryMethodMessage)]
     public int? DeliveryMethod { get; set; }
 
-    public string? FullName { get; set; }
-    public string? Phone { get; set; }
-    public string? CompanyName { get; set; }
-    public string? Eik { get; set; }
-    public string? Mol { get; set; }
-    public string? ContactPerson { get; set; }
-    public string? ContactPhone { get; set; }
-    public string? Address { get; set; }
+    // Lengths as in AppDbContext (OrderCustomerInfo), so a long post is a field error, not a failed save.
+    [StringLength(200, ErrorMessage = LengthMessage)] public string? FullName { get; set; }
+    [StringLength(20, ErrorMessage = LengthMessage)] public string? Phone { get; set; }
+    [StringLength(200, ErrorMessage = LengthMessage)] public string? CompanyName { get; set; }
+    public string? Eik { get; set; } // nvarchar(13): bounded by the 9-or-13-digit check, whose message is clearer
+    [StringLength(200, ErrorMessage = LengthMessage)] public string? Mol { get; set; }
+    [StringLength(200, ErrorMessage = LengthMessage)] public string? ContactPerson { get; set; }
+    [StringLength(20, ErrorMessage = LengthMessage)] public string? ContactPhone { get; set; }
+    [StringLength(500, ErrorMessage = LengthMessage)] public string? Address { get; set; }
 
     /// <summary>One-time token from the GET (ruling R24): a repeated POST returns the first outcome.</summary>
     public string? Token { get; set; }
@@ -49,18 +51,15 @@ public sealed partial class CheckoutForm : IValidatableObject
     public bool IsCompany => CustomerType == Company;
     public bool IsDelivery => DeliveryMethod == Delivery;
 
-    /// <summary>The first render: an individual, pickup, and a new token. The page adds the cart stamp.</summary>
-    public static CheckoutForm Start() => new()
-    {
-        CustomerType = Individual,
-        DeliveryMethod = Pickup,
-        Token = CheckoutGuard.NewToken()
-    };
+    /// <summary>The first render: nothing chosen yet, and a new token. The page adds the cart stamp.</summary>
+    public static CheckoutForm Start() => new() { Token = CheckoutGuard.NewToken() };
 
-    // Runs only when CustomerType and DeliveryMethod passed their attributes, so both are 0 or 1 here.
+    // Runs once the length attributes pass. In form order: type, that type's fields, delivery, address.
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (IsCompany)
+        if (CustomerType is not (Individual or Company))
+            yield return new ValidationResult(CustomerTypeMessage, [nameof(CustomerType)]);
+        else if (IsCompany)
         {
             if (Missing(CompanyName)) yield return Required(nameof(CompanyName));
             if (Missing(Eik)) yield return Required(nameof(Eik));
@@ -75,7 +74,9 @@ public sealed partial class CheckoutForm : IValidatableObject
             if (Missing(Phone)) yield return Required(nameof(Phone));
         }
 
-        if (IsDelivery && Missing(Address))
+        if (DeliveryMethod is not (Pickup or Delivery))
+            yield return new ValidationResult(DeliveryMethodMessage, [nameof(DeliveryMethod)]);
+        else if (IsDelivery && Missing(Address))
             yield return Required(nameof(Address));
     }
 
@@ -85,8 +86,9 @@ public sealed partial class CheckoutForm : IValidatableObject
         var company = IsCompany;
         return new CreateOrderRequest
         {
-            CustomerType = CustomerType ?? Individual,
-            DeliveryMethod = DeliveryMethod ?? Pickup,
+            // Never null after validation; -1 would be rejected by OrderService, not guessed.
+            CustomerType = CustomerType ?? -1,
+            DeliveryMethod = DeliveryMethod ?? -1,
             CustomerInfo = new CreateOrderCustomerInfoRequest
             {
                 FullName = company ? null : FullName?.Trim(),
