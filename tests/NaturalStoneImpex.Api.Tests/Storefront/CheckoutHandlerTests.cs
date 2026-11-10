@@ -442,6 +442,7 @@ public class CheckoutHandlerTests
         public Task<object> SetDeliveryFeeAsync(int id, decimal deliveryFee) => throw new NotSupportedException();
         public Task<OrderStatsDto> GetStatsAsync() => throw new NotSupportedException();
         public Task<List<OrderListDto>> GetRecentAsync(int count) => throw new NotSupportedException();
+        public Task<List<InsufficientStockDetail>> GetStockShortagesAsync(int id) => throw new NotSupportedException();
     }
 
     private sealed class ThrowingOrderService : IOrderService
@@ -455,5 +456,6 @@ public class CheckoutHandlerTests
         public Task<object> SetDeliveryFeeAsync(int id, decimal deliveryFee) => throw new NotSupportedException();
         public Task<OrderStatsDto> GetStatsAsync() => throw new NotSupportedException();
         public Task<List<OrderListDto>> GetRecentAsync(int count) => throw new NotSupportedException();
+        public Task<List<InsufficientStockDetail>> GetStockShortagesAsync(int id) => throw new NotSupportedException();
     }
 }
