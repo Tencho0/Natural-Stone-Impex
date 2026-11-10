@@ -1092,3 +1092,327 @@
 .admin-ui .totals .totals__warn {
   color: var(--warn);
 }
+
+/* ---------- Products, product form and categories ---------- */
+
+/* Title and the page's primary action on one line; the action drops below on a narrow screen. */
+.admin-ui .page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.admin-ui .page-head h1 {
+  margin: 0;
+}
+
+/* Search and category filter: labels above, side by side from 640px. */
+.admin-ui .filter-bar {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+@media (min-width: 640px) {
+  .admin-ui .filter-bar {
+    grid-template-columns: minmax(0, 24rem) minmax(0, 16rem);
+  }
+}
+
+/* A product name with its thumbnail. */
+.admin-ui .cell-product {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.admin-ui .cell-product__text {
+  min-width: 0;
+}
+
+.admin-ui .thumb {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+/* An inactive product recedes: stone text and the square marker. */
+.admin-ui .data-table .row-inactive td,
+.admin-ui .data-table .row-inactive a {
+  color: var(--stone);
+}
+
+.admin-ui .data-table .row-inactive .thumb {
+  opacity: 0.6;
+}
+
+.admin-ui .data-table .row-inactive .status::before {
+  background: var(--danger);
+}
+
+.admin-ui .row-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  white-space: normal;
+}
+
+/* The confirm sits next to the edit button and takes the rest of the cell. */
+.admin-ui .data-table.has-actions .row-actions .inline-confirm {
+  width: auto;
+}
+
+/* Phones: stock stays under the name on the left; the row's actions take their own full-width line. */
+@media (max-width: 639.98px) {
+  .admin-ui .data-table.stack-sm td.num.stack-sm__main {
+    text-align: left;
+  }
+
+  .admin-ui .data-table.stack-sm.actions-row td.action-cell {
+    grid-column: 1 / 3;
+    grid-row: auto;
+    width: auto;
+    padding-top: var(--space-1);
+    text-align: left;
+  }
+
+  .admin-ui .data-table.stack-sm.actions-row .row-actions {
+    justify-content: flex-start;
+  }
+
+  /* With stock under the name, the price takes the top right corner. */
+  .admin-ui .data-table.stack-sm.actions-row td.num:not(.stack-sm__main) {
+    grid-area: 1 / 2;
+  }
+}
+
+/* Forms: one column, sections divided by a hairline. The helper and the error share one slot (.field-slot). */
+.admin-ui .form-section {
+  display: grid;
+  gap: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.admin-ui .form-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.admin-ui .form-section > .section-h {
+  margin: 0;
+}
+
+.admin-ui .field-slot {
+  display: grid;
+}
+
+.admin-ui .field-slot:empty {
+  display: none;
+}
+
+/* ValidationMessage renders nothing when valid, so an error simply replaces the helper that sits in the slot. */
+.admin-ui .field-slot:has(.validation-message, .field-error) .field-help {
+  display: none;
+}
+
+.admin-ui .form-section > .field-help {
+  min-height: 0;
+}
+
+.admin-ui textarea.field-input {
+  resize: vertical;
+}
+
+.admin-ui select.field-input {
+  appearance: auto;
+}
+
+/* A file chooser: the browser button takes the outline-button look. */
+.admin-ui input[type="file"].field-input {
+  padding: var(--space-2);
+  cursor: pointer;
+}
+
+.admin-ui input[type="file"].field-input::file-selector-button {
+  min-height: 36px;
+  margin-right: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.admin-ui .field-input:disabled {
+  color: var(--stone);
+  background: var(--paper);
+  cursor: not-allowed;
+}
+
+.admin-ui .preview {
+  display: block;
+  max-width: 100%;
+  max-height: 16rem;
+  object-fit: contain;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.admin-ui .preview--texture {
+  max-height: 9rem;
+}
+
+.admin-ui .check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--target-min);
+  cursor: pointer;
+}
+
+.admin-ui .check__input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.admin-ui .check__input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/*
+ * Save bar: sticks to the bottom edge while the form is taller than the screen. It sits after the last field in the
+ * flow, so it never covers a field or a message when scrolled to the end; the bottom padding of the main area
+ * keeps the page from ending flush against it.
+ */
+.admin-ui .save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--space-2);
+  max-width: 720px;
+  margin-top: var(--space-6);
+  padding: var(--space-3) 0;
+  background: var(--surface);
+  border-top: 1px solid var(--rule);
+}
+
+.admin-ui .save-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.admin-ui .save-bar__error {
+  margin: 0;
+  color: var(--danger);
+}
+
+/* Modal, drawn in the same tokens: 2px radius, hairlines, no shadow. */
+.modal-backdrop {
+  --bs-backdrop-bg: var(--ink);
+  --bs-backdrop-opacity: 0.5;
+}
+
+.admin-ui .modal {
+  --bs-modal-border-radius: var(--radius);
+  --bs-modal-inner-border-radius: var(--radius);
+  --bs-modal-bg: var(--surface);
+  --bs-modal-color: var(--ink);
+  --bs-modal-border-color: var(--rule);
+  --bs-modal-border-width: 1px;
+  --bs-modal-box-shadow: none;
+}
+
+.admin-ui .modal-content {
+  font-size: var(--text-14);
+  box-shadow: none;
+}
+
+.admin-ui .modal-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-ui .modal-title {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-16);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.admin-ui .modal-body {
+  padding: var(--space-5);
+}
+
+.admin-ui .modal-footer {
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.admin-ui .modal-footer > * {
+  margin: 0;
+}
+
+.admin-ui .modal .btn-close {
+  box-sizing: content-box;
+  width: 20px;
+  height: 20px;
+  padding: var(--space-3);
+  margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) auto;
+  border-radius: var(--radius);
+  opacity: 0.7;
+}
+
+.admin-ui .modal .btn-close:hover {
+  opacity: 1;
+}
+
+.admin-ui .modal .btn-close:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  box-shadow: none;
+}
+
+/* Two actions share the cell with the confirm on desktop, so the cell is wider and the actions stay on one line. */
+@media (min-width: 1024px) {
+  .admin-ui .data-table.actions-row.has-actions .action-cell {
+    width: 30rem;
+  }
+
+  .admin-ui .data-table.actions-row.has-actions .row-actions {
+    flex-wrap: nowrap;
+  }
+}
+
+/* app.css outlines validated inputs in green and red; here the border carries the error and focus keeps its ring. */
+.admin-ui .field-input.valid.modified:not(:focus-visible),
+.admin-ui .field-input.invalid:not(:focus-visible) {
+  outline: none;
+}
+
+.admin-ui .field-input.invalid {
+  border-color: var(--danger);
+}
