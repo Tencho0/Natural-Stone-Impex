@@ -1416,3 +1416,134 @@
 .admin-ui .field-input.invalid {
   border-color: var(--danger);
 }
+
+/* ---------- Deliveries (invoices) ---------- */
+
+/* The line editor needs more room than the 720px form column; header fields stay narrow. */
+.admin-ui .invoice-form {
+  display: grid;
+  gap: var(--space-6);
+  max-width: 960px;
+}
+
+.admin-ui .invoice-form .form-grid {
+  max-width: 720px;
+}
+
+.admin-ui .invoice-form .save-bar {
+  max-width: none;
+  margin-top: 0;
+}
+
+.admin-ui .line-section {
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-5);
+}
+
+.admin-ui .line-section > .field-error {
+  min-height: 0;
+}
+
+/* Phones: each line is a block, with its own labels. */
+.admin-ui .line-editor {
+  display: grid;
+}
+
+.admin-ui .line-head {
+  display: none;
+}
+
+.admin-ui .line {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "product product"
+    "qty price"
+    "total remove";
+  gap: var(--space-3) var(--space-3);
+  align-items: start;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-ui .line:first-of-type {
+  border-top: 1px solid var(--rule);
+}
+
+.admin-ui .line__product { grid-area: product; }
+.admin-ui .line__qty { grid-area: qty; }
+.admin-ui .line__price { grid-area: price; }
+.admin-ui .line__total { grid-area: total; }
+.admin-ui .line__remove { grid-area: remove; justify-self: end; }
+
+.admin-ui .line__total {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-ui .line__total-label {
+  font-size: var(--text-14);
+  font-weight: 500;
+}
+
+.admin-ui .line__total .num {
+  white-space: nowrap;
+}
+
+/* The line total and remove button stay on the baseline of the first row's inputs on tablet and up. */
+@media (min-width: 768px) {
+  .admin-ui .line-head,
+  .admin-ui .line {
+    grid-template-columns: minmax(0, 1fr) 8rem 9rem 7rem 6.5rem;
+    grid-template-areas: "product qty price total remove";
+    gap: var(--space-3);
+  }
+
+  .admin-ui .line-head {
+    display: grid;
+    padding-bottom: var(--space-2);
+    font-size: var(--text-13);
+    font-weight: 500;
+    color: var(--stone);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .admin-ui .line-head .num {
+    text-align: right;
+  }
+
+  .admin-ui .line:first-of-type {
+    border-top: 0;
+  }
+
+  /* The header names the columns, so each line's label is for screen readers only. */
+  .admin-ui .line .field-label,
+  .admin-ui .line__total-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-ui .line__total {
+    min-height: var(--target-min);
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .admin-ui .line__remove {
+    min-height: var(--target-min);
+    display: flex;
+    align-items: center;
+  }
+}
+
+.admin-ui .totals + .note {
+  margin-top: var(--space-6);
+}
