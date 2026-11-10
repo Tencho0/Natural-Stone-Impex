@@ -8,7 +8,8 @@
     <div class="product-tile__photo">
         @if (_hasImage)
         {
-            <img src="@Product.ImagePath" alt="@Product.Name" width="600" height="600" loading="lazy" decoding="async" />
+            <img src="@Product.ImagePath" alt="@Product.Name" width="600" height="600"
+                 loading="@(Priority ? null : "lazy")" fetchpriority="@(Priority ? "high" : null)" decoding="async" />
         }
         else
         {
@@ -46,7 +47,7 @@
                 <input type="hidden" name="quantity" value="1" />
                 <input type="hidden" name="returnUrl" value="@ReturnUrl" />
                 <button type="submit" class="add-button" aria-label="Добави @Product.Name в количката">
-                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    <Icon Name="plus-lg" />
                 </button>
             </form>
         }
@@ -60,6 +61,10 @@
     /// <summary>Local path the add form returns to, e.g. "/" or "/catalog?categoryId=2".</summary>
     [Parameter, EditorRequired]
     public string ReturnUrl { get; set; } = "/";
+
+    /// <summary>The card's photo is the likely LCP element (the catalog's first card): load it at once, at high priority.</summary>
+    [Parameter]
+    public bool Priority { get; set; }
 
     private bool _hasImage;
     private bool _onRequest;

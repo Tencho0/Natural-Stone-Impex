@@ -44,6 +44,15 @@ h1, h2, h3, h4, h5, h6,
   color: var(--on-accent);
 }
 
+/* The error bar's close control is a button (keyboard-reachable); it keeps the look of the old bare link. */
+#blazor-error-ui .dismiss {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

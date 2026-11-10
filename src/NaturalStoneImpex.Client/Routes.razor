@@ -7,7 +7,7 @@
                 </NotAuthorized>
             </AuthorizeRouteView>
             @* Interactive (WebAssembly) routing only. On static SSR pages blazor.web.js would focus the h1 on the
-               first load and skip the skip link; js/storefront/focus.js handles enhanced navigation there. *@
+               first load and skip the skip link; js/storefront/shell.js handles enhanced navigation there. *@
             @if (RendererInfo.IsInteractive)
             {
                 <FocusOnNavigate RouteData="@routeData" Selector="h1" />

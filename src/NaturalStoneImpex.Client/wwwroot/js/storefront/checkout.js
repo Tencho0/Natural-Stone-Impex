@@ -1,6 +1,6 @@
-// Checkout (spec §7.5); the form works without JS. Here: switches show their groups at once
-// ([data-when="name=value"]; an empty value means any choice); a submit sets aria-busy, disables the buttons and drops a second submit (the server token is the
-// real guard); after a failed enhanced post focus moves to the problems box, whose links focus their field.
+// Checkout (spec §7.5) works without JS. Here: switches show their groups at once ([data-when="name=value"],
+// an empty value means any choice); a submit sets aria-busy and drops a second one (the server token is the real
+// guard); after a failed post focus moves to the problems box, whose links focus their field.
 const FORM = 'form[data-checkout]';
 
 function sync(form) {

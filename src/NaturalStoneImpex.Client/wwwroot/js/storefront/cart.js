@@ -1,10 +1,7 @@
-// Cart rows (spec §7.4, §5.5). Without JS every row is an enhanced form: Enter posts the typed quantity,
-// − and + post step=-1 or 1, and the server redirects back to /cart. With JS:
-// - typing posts the row 400 ms after the last keystroke (never mid-IME-word, never an unparsable value);
-// - − and + change the field at once and post the same way, so quick presses become one request;
-// - one post at a time, so each request carries the cookie the previous one wrote. Edits made meanwhile
-//   wait, and are put back into their fields after the update.
-// Focus stays where it was: the post redirects to the same view, which focus.js leaves alone.
+// Cart rows (spec §7.4). Without JS each row is an enhanced form (Enter posts the quantity, − and + post a step).
+// With JS, typing posts 400 ms after the last key (not mid-IME-word, not an unparsable value); − and + edit the
+// field and post the same way, so quick presses become one request. One post at a time, so each carries the
+// cookie the last one wrote; edits made meanwhile wait and are put back after the update. Focus stays put.
 const DELAY = 400;
 const QTY = 'form[data-cart-qty]';
 const REMOVE = 'form[data-cart-remove]';
@@ -16,9 +13,8 @@ let inFlight = 0;        // when the current post started; 0 when idle
 let sent = '';           // "productId:cents" of the quantity post in flight
 let removeNext = null;   // productId whose remove was pressed during a post
 
-// "2,5" / "2.5" / "3," / "1 204,5" -> cents (250), or null when the server would not store it.
-// Same parsing as DecimalInput and the same rounding as CartCookie.Normalize (to cents, half away from
-// zero: "2.555" -> 256), done on the digits so floating point cannot turn 2.555 into 255.
+// "2,5" / "1 204,5" -> cents, or null when the server would not store it. DecimalInput's parsing and
+// CartCookie.Normalize's rounding (half away from zero), on the digits: "2.555" -> 256, never 255.
 function toCents(text, max) {
   const clean = String(text).replace(/[\s  ]/g, '').replace(',', '.');
   if (!/^(\d+(\.\d*)?|\.\d+)$/.test(clean)) return null;
@@ -124,9 +120,8 @@ function onClick(event) {
   edited(form);
 }
 
-// Enter in a quantity field and the remove button are native enhanced posts. Hold them while another
-// post is in flight; otherwise just keep the bookkeeping right. Enter fires "change" first, which may
-// already have sent the same value: that submit is dropped, not queued.
+// Enter in a quantity field and the remove button are native enhanced posts: held while another post is in
+// flight. Enter fires "change" first, which may already have sent the same value; that submit is dropped.
 function onSubmit(event) {
   const form = event.target instanceof HTMLFormElement ? event.target : null;
   if (sending || !form || !(form.matches(QTY) || form.matches(REMOVE))) return;

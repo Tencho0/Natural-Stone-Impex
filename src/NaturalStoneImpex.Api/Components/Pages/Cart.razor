@@ -203,14 +203,14 @@
                     <label class="visually-hidden" for="@qtyId">Количество на @p.Name, @p.UnitDisplay</label>
                     <button type="submit" class="cart-qty__step" name="step" value="-1"
                             aria-label="Намали количеството на @p.Name">
-                        <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                        <Icon Name="dash-lg" />
                     </button>
                     <input class="cart-qty__input num" id="@qtyId" name="quantity" type="text" inputmode="decimal"
                            value="@PriceFormat.Number(row.Quantity)" autocomplete="off" enterkeyhint="done"
                            aria-describedby="@(note is null ? null : noteId)" />
                     <button type="submit" class="cart-qty__step" name="step" value="1"
                             aria-label="Увеличи количеството на @p.Name">
-                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        <Icon Name="plus-lg" />
                     </button>
                     <span class="cart-qty__unit" aria-hidden="true">@p.UnitDisplay</span>
                 </form>

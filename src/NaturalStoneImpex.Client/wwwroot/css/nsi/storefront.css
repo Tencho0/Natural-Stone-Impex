@@ -1451,8 +1451,10 @@
   font-weight: 500;
 }
 
+/* --warn text is 4.4:1 on --paper, under the 4.5:1 floor, so the text stays ink and --warn marks it. */
 .cart-line__note--back {
-  color: var(--warn);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--warn);
 }
 
 /* Not orderable (no price, or out of sale): neutral ink, not an error. The price-0 reason carries the
@@ -1923,10 +1925,12 @@
   color: var(--stone);
 }
 
+/* Ink text with a --warn mark, as in the cart (--warn text fails 4.5:1 on --paper). */
 .checkout-item__note {
   grid-column: 1 / -1;
+  padding-left: var(--space-2);
   font-weight: 500;
-  color: var(--warn);
+  border-left: 2px solid var(--warn);
 }
 
 .checkout-totals > li > span:first-child {

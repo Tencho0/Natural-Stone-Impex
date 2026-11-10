@@ -22,7 +22,7 @@
                     }
                 </ul>
                 <a href="/cart" class="site-nav__link site-nav__cart @ActiveClass("/cart")" aria-current="@AriaCurrent("/cart")">
-                    <i class="bi bi-bag site-nav__cart-icon" aria-hidden="true"></i>
+                    <Icon Name="bag" Class="site-nav__cart-icon" />
                     <span class="site-nav__cart-label">Количка</span>
                     @if (_cartCount > 0)
                     {
@@ -89,10 +89,8 @@
     </footer>
 </div>
 
+@* The menu and the toast restart live in js/storefront/shell.js, which App.razor loads on every page. *@
 <Toast />
-
-<PageScript Src="js/storefront/menu.js" />
-<PageScript Src="js/storefront/toast.js" />
 
 @code {
     private sealed record HeaderLink(string Href, string Text, bool FullLoad = false);

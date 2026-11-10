@@ -25,9 +25,11 @@
             {
                 var product = _home.Board[i];
                 <li class="sample">
-                    @* Above the fold: no lazy loading, and the first photo is the likely LCP element. *@
+                    @* Above the fold, so no lazy loading. The first photo is the LCP element on desktop (the h1 is on
+                       phones). The other three load at low priority, after it, the CSS and the fonts: as four
+                       high-priority photos they took Lighthouse mobile LCP from about 2.5 s to 4.5 s (Task 14). *@
                     <img class="sample__photo" src="@product.ImagePath" alt="@product.Name" width="600" height="600"
-                         decoding="async" fetchpriority="@(i == 0 ? "high" : null)" />
+                         decoding="async" fetchpriority="@(i == 0 ? "high" : "low")" />
                     <p class="sample__caption">
                         <a class="sample__link" href="/products/@product.Id">@product.Name</a>
                         <span class="sample__category">@product.CategoryName</span>

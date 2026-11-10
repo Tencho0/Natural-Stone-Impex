@@ -3,7 +3,8 @@
 
 @* An index of stone types: thumbnail, name, product count. One column by default; a parent may lay it out
    in columns (see .cat-index-cols in storefront.css). "Всички" comes first, with a 2×2 mosaic of the first
-   category photos, which are the same files as the thumbnails below it. *@
+   category photos, which are the same files as the thumbnails below it. The thumbnails are full product
+   photos shown at 26 or 52px, so they load at low priority and never hold up the product photos. *@
 
 <ul class="cat-index">
     <li class="cat-index__item cat-index__item--all">
@@ -11,7 +12,7 @@
             <span class="cat-index__thumb cat-index__mosaic" aria-hidden="true">
                 @foreach (var src in _mosaic)
                 {
-                    <img src="@src" alt="" width="26" height="26" loading="lazy" decoding="async" />
+                    <img src="@src" alt="" width="26" height="26" loading="lazy" decoding="async" fetchpriority="low" />
                 }
             </span>
             <span class="cat-index__name">Всички</span>
@@ -26,7 +27,8 @@
                aria-current="@(current ? "page" : null)">
                 @if (Photos.TryGetValue(category.Id, out var photo))
                 {
-                    <img class="cat-index__thumb" src="@photo" alt="" width="52" height="52" loading="lazy" decoding="async" />
+                    <img class="cat-index__thumb" src="@photo" alt="" width="52" height="52" loading="lazy" decoding="async"
+                         fetchpriority="low" />
                 }
                 else
                 {

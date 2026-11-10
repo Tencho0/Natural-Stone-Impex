@@ -3,6 +3,16 @@
  * Tokens come from tokens.css. Radius 2px, hairlines, no shadows except --shadow-menu on floating menus.
  */
 
+/* ---------- Icons ---------- */
+
+/* Inline SVG (Icon.razor), sized and aligned like the Bootstrap Icons font glyphs it replaces. */
+.icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+
 /* ---------- Buttons ---------- */
 
 /* Used as "btn btn-primary" / "btn btn-outline"; the Bootstrap variables are set too, so .btn:hover and

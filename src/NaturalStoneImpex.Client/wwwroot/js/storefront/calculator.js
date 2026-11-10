@@ -1,7 +1,6 @@
-// Live result for the product calculator (spec §7.3). It mirrors DecimalInput and QuantityCalculator in
-// BigInt fixed point, so it is exact: 4 × 3 + 10% is 13.20, never 13.21. It only rewrites the result line
-// and the button label; the POST recalculates on the server, which stays authoritative. All copy comes from
-// the form's data-* templates (ProductView), so the script has no text of its own.
+// Live calculator result (spec §7.3): DecimalInput and QuantityCalculator in BigInt fixed point, so 4 × 3 + 10%
+// is exactly 13.20. It rewrites only the result line and the button label; the server recalculates on POST.
+// All copy comes from the form's data-* templates (ProductView).
 const FORM = 'form[data-calc]';
 const MAX = 10000n; // QuantityCalculator.MaxQuantity
 const DECIMAL_MAX = 79228162514264337593543950335n; // decimal.MaxValue: larger input does not parse in C#

@@ -1,6 +1,5 @@
-// Tap-to-zoom for the product photo (spec §7.3). The photo link names a <dialog> in aria-controls; with JS the
-// dialog opens as a modal, without JS the link opens the image file. Esc closes natively; a click on the
-// backdrop or on "Затвори" closes it too, and focus returns to the photo link.
+// Tap-to-zoom (spec §7.3): the photo link opens the <dialog> it names in aria-controls (without JS, the image
+// file). Esc, the backdrop and "Затвори" close it, and focus returns to the photo link.
 let trigger = null;
 
 function onClick(event) {

@@ -213,7 +213,7 @@
         var added = Cart.Add(_product.Id, _result.Quantity);
         Flash.Set(HttpContext.Response, added ? Flash.Added : Flash.Full);
 
-        // Post/Redirect/Get to the same view: focus.js keeps focus and scroll, the toast confirms.
+        // Post/Redirect/Get to the same view: shell.js keeps focus and scroll, the toast confirms.
         Navigation.NavigateTo($"/products/{_product.Id}");
     }
 

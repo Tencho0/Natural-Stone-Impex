@@ -1,0 +1,23 @@
+@* A Bootstrap Icons 1.11.3 glyph as inline SVG (MIT, lib/bootstrap-icons/LICENSE). The storefront uses three
+   icons, so it does not load the 130 KB icon font and its 86 KB stylesheet. 1em square, current colour,
+   aligned like the font's .bi glyphs. Decorative: the control around it carries the label. *@
+<svg class="icon @Class" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+    <path fill-rule="@(Name == "bag" ? null : "evenodd")" d="@PathData" />
+</svg>
+
+@code {
+    /// <summary>"bag", "plus-lg" or "dash-lg".</summary>
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = "";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    private string PathData => Name switch
+    {
+        "bag" => "M8 1a2.5 2.5 0 0 1 2.5 2.5V4h-5v-.5A2.5 2.5 0 0 1 8 1m3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H1v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4zM2 5h12v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z",
+        "plus-lg" => "M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2",
+        "dash-lg" => "M2 8a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11A.5.5 0 0 1 2 8",
+        _ => throw new ArgumentOutOfRangeException(nameof(Name), Name, "Unknown icon.")
+    };
+}

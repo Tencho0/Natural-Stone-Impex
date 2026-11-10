@@ -71,9 +71,11 @@
             else
             {
                 <ul class="product-grid product-grid--catalog">
-                    @foreach (var product in _result.Items)
+                    @* The first photo is the LCP element, so it is not lazy-loaded and goes first. The rest stay lazy:
+                       four eager photos competed with it and made LCP vary from 2.6 to 4.0 s (Task 14). *@
+                    @for (var i = 0; i < _result.Items.Count; i++)
                     {
-                        <li><ProductCard Product="product" ReturnUrl="@_canonical" /></li>
+                        <li><ProductCard Product="_result.Items[i]" ReturnUrl="@_canonical" Priority="i == 0" /></li>
                     }
                 </ul>
 
