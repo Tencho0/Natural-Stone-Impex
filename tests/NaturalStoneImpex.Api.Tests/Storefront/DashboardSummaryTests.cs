@@ -21,4 +21,10 @@ public class DashboardSummaryTests
     {
         Assert.Equal("1 чакаща · 1 потвърдена · 1 завършена · 1 продукт", DashboardSummary.Text(1, 1, 1, 1));
     }
+
+    [Fact]
+    public void Orders_line_leaves_out_products()
+    {
+        Assert.Equal("3 чакащи · 1 потвърдена · 41 завършени", DashboardSummary.Orders(3, 1, 41));
+    }
 }

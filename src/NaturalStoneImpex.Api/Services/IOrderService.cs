@@ -7,6 +7,7 @@ public interface IOrderService
     Task<CreateOrderResponse> CreateAsync(CreateOrderRequest request);
     Task<PaginatedResponse<OrderListDto>> GetAllAsync(int? status, int page, int pageSize);
     Task<OrderDetailDto> GetByIdAsync(int id);
+    Task<List<InsufficientStockDetail>> GetStockShortagesAsync(int id);
     Task<object> ConfirmAsync(int id);
     Task CompleteAsync(int id);
     Task CancelAsync(int id);

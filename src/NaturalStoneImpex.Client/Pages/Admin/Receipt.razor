@@ -1,32 +1,31 @@
 @page "/admin/orders/{Id:int}/receipt"
 @layout PrintLayout
 @attribute [Authorize]
+@using System.Net
+@using NaturalStoneImpex.Client.Formatting
 @inject IOrderService OrderService
 @inject IJSRuntime JS
 
-<PageTitle>Разписка | Natural Stone Impex</PageTitle>
+<PageTitle>@(_order is not null ? $"Разписка {_order.OrderNumber}" : "Разписка") · Natural Stone Impex</PageTitle>
 
 <style>
     @@media screen {
-        /* On screen the receipt is a sheet on the admin ground. Buttons come from admin.css. */
+        /* On screen the receipt is a sheet on the admin ground. Buttons and type come from admin.css. */
         .receipt-page {
             max-width: 800px;
             margin: 0 auto;
-            padding: 2.5rem 2rem;
-            font-family: Georgia, 'Times New Roman', serif;
-            color: #000;
+            padding: 40px 32px;
             background: var(--surface);
             border: 1px solid var(--rule);
             border-radius: var(--radius);
-            /* The 8-column table is wider than a phone; it scrolls inside the sheet, not the page. */
+            /* The 7-column table is wider than a phone; it scrolls inside the sheet, not the page. */
             overflow-x: auto;
         }
         .no-print {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin-bottom: 24px;
-            font-family: var(--font-text);
+            margin-bottom: 32px;
         }
     }
 
@@ -36,6 +35,130 @@
         }
     }
 
+    .receipt-page {
+        font-family: var(--font-text);
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .receipt-page .shop-name {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: 1.6em;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        text-align: center;
+    }
+
+    .receipt-page .shop-line {
+        margin: 2px 0;
+        font-size: 0.95em;
+        text-align: center;
+    }
+
+    .receipt-page .receipt-rule {
+        margin: 16px 0;
+        border: 0;
+        border-top: 1px solid var(--rule);
+        opacity: 1;
+    }
+
+    .receipt-page .doc-title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: 1.3em;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        line-height: 1.2;
+        text-align: center;
+    }
+
+    .receipt-page .doc-line {
+        margin: 2px 0;
+        text-align: center;
+    }
+
+    .receipt-page .customer {
+        margin: 24px 0;
+    }
+
+    .receipt-page .customer p {
+        margin: 0 0 2px;
+    }
+
+    .receipt-page .customer-label {
+        font-weight: 600;
+    }
+
+    .receipt-page .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9em;
+    }
+
+    .receipt-page .items-table th,
+    .receipt-page .items-table td {
+        padding: 5px 8px;
+        border: 1px solid var(--rule);
+    }
+
+    .receipt-page .items-table th {
+        font-weight: 600;
+        text-align: center;
+        vertical-align: bottom;
+    }
+
+    .receipt-page .items-table .num-col {
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .receipt-page .totals-section {
+        margin-top: 16px;
+        font-size: 0.95em;
+        text-align: right;
+    }
+
+    .receipt-page .totals-section p {
+        margin: 0 0 4px;
+    }
+
+    .receipt-page .totals-section .grand-total {
+        font-size: 1.1em;
+        font-weight: 600;
+    }
+
+    .receipt-page .signatures {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 72px;
+        font-size: 0.95em;
+    }
+
+    .receipt-page .receipt-footer {
+        margin-top: 32px;
+        font-size: 0.85em;
+        text-align: center;
+    }
+
+    .receipt-page .receipt-state h1 {
+        margin: 0 0 8px;
+        font-family: var(--font-display);
+        font-size: var(--text-22);
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+    }
+
+    .receipt-page .receipt-state p {
+        margin: 0;
+        color: var(--stone);
+    }
+
+    /* Print rules come last so they outrank the screen-agnostic receipt rules above. */
     @@media print {
         .no-print {
             display: none !important;
@@ -65,90 +188,21 @@
             max-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
-            font-family: Georgia, 'Times New Roman', serif;
-            color: #000;
             background: #fff;
+        }
+
+        .receipt-page .items-table th,
+        .receipt-page .items-table td {
+            border-color: #000;
+        }
+
+        .receipt-page .receipt-rule {
+            border-top-color: #000;
         }
 
         table {
             page-break-inside: avoid;
         }
-    }
-
-    .receipt-page h2 {
-        font-size: 1.6em;
-        font-weight: bold;
-        text-align: center;
-        margin: 0;
-        text-transform: uppercase;
-    }
-
-    .receipt-page .shop-address,
-    .receipt-page .shop-phone {
-        text-align: center;
-        margin: 2px 0;
-        font-size: 0.95em;
-    }
-
-    .receipt-page .doc-title {
-        text-align: center;
-        font-weight: bold;
-        font-size: 1.2em;
-        text-transform: uppercase;
-        margin: 0;
-    }
-
-    .receipt-page .doc-number,
-    .receipt-page .doc-date {
-        text-align: center;
-        margin: 2px 0;
-    }
-
-    .receipt-page .items-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9em;
-    }
-
-    .receipt-page .items-table th,
-    .receipt-page .items-table td {
-        border: 1px solid #000;
-        padding: 5px 8px;
-    }
-
-    .receipt-page .items-table th {
-        font-weight: bold;
-        text-align: center;
-        background: none;
-    }
-
-    .receipt-page .items-table .num-col {
-        text-align: right;
-    }
-
-    .receipt-page .totals-section {
-        text-align: right;
-        margin-top: 15px;
-        font-size: 0.95em;
-    }
-
-    .receipt-page .totals-section .grand-total {
-        font-weight: bold;
-        font-size: 1.1em;
-    }
-
-    .receipt-page .signatures {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 60px;
-        font-size: 0.95em;
-    }
-
-    .receipt-page .receipt-footer {
-        text-align: center;
-        font-style: italic;
-        font-size: 0.85em;
-        margin-top: 30px;
     }
 </style>
 
@@ -165,21 +219,42 @@ else if (_order is null)
     <div class="receipt-page">
         <div class="no-print">
             <a href="/admin/orders" class="btn btn-outline">
-                <i class="bi bi-arrow-left" aria-hidden="true"></i> Обратно към поръчките
+                <i class="bi bi-arrow-left" aria-hidden="true"></i> Към поръчките
             </a>
         </div>
-        <div class="alert alert-warning">Поръчката не е намерена.</div>
+        <div class="receipt-state" role="@(_notFound ? null : "alert")">
+            @if (_notFound)
+            {
+                <h1>Поръчката не е намерена</h1>
+                <p>Няма поръчка с този номер, затова няма и разписка.</p>
+            }
+            else
+            {
+                <h1>Разписката не е заредена</h1>
+                <p>Не успяхме да заредим поръчката. Опреснете страницата, за да опитате отново.</p>
+            }
+        </div>
     </div>
 }
-else if (_order.Status == 0 && !_order.IsCancelled)
+else if (_order.Status == 0 || _order.IsCancelled)
 {
     <div class="receipt-page">
         <div class="no-print">
             <a href="/admin/orders/@Id" class="btn btn-outline">
-                <i class="bi bi-arrow-left" aria-hidden="true"></i> Обратно към поръчката
+                <i class="bi bi-arrow-left" aria-hidden="true"></i> Към поръчката
             </a>
         </div>
-        <div class="alert alert-warning">Разписка може да се генерира само за потвърдени или завършени поръчки.</div>
+        <div class="receipt-state">
+            <h1>Още няма разписка</h1>
+            @if (_order.IsCancelled)
+            {
+                <p>Поръчката е отказана, затова за нея не се издава разписка.</p>
+            }
+            else
+            {
+                <p>Разписка се издава за потвърдени и завършени поръчки. Потвърдете поръчката и опитайте отново.</p>
+            }
+        </div>
     </div>
 }
 else
@@ -187,68 +262,58 @@ else
     <div class="receipt-page">
         @* Screen-only buttons *@
         <div class="no-print">
-            <button class="btn btn-primary" @onclick="PrintReceipt">
+            <button type="button" class="btn btn-primary" @onclick="PrintReceipt">
                 <i class="bi bi-printer" aria-hidden="true"></i> Принтирай
             </button>
             <a href="/admin/orders/@Id" class="btn btn-outline">
-                <i class="bi bi-arrow-left" aria-hidden="true"></i> Обратно към поръчката
+                <i class="bi bi-arrow-left" aria-hidden="true"></i> Към поръчката
             </a>
         </div>
 
         @* Header *@
-        <h2>NATURAL STONE IMPEX</h2>
-        <p class="shop-address">[Placeholder address]</p>
-        <p class="shop-phone">[Placeholder phone]</p>
-        <hr />
+        <p class="shop-name">Natural Stone Impex</p>
+        <p class="shop-line">[Placeholder address]</p>
+        <p class="shop-line">[Placeholder phone]</p>
+        <hr class="receipt-rule" />
 
-        @* Document Title *@
-        <h4 class="doc-title">СТОКОВА РАЗПИСКА</h4>
-        <p class="doc-number">№ @_order.OrderNumber</p>
-        <p class="doc-date">Дата: @GetReceiptDate()</p>
+        @* Document title *@
+        <h1 class="doc-title">Стокова разписка</h1>
+        <p class="doc-line">№ @_order.OrderNumber</p>
+        <p class="doc-line">Дата: @GetReceiptDate()</p>
 
-        <br />
-
-        @* Customer Info *@
-        @if (_order.CustomerType == 0)
-        {
-            <p style="margin-bottom: 2px;"><strong>Клиент:</strong> @_order.CustomerInfo.FullName</p>
-            <p style="margin-bottom: 2px;"><strong>Телефон:</strong> @_order.CustomerInfo.Phone</p>
+        @* Customer *@
+        <div class="customer">
+            @if (_order.CustomerType == 0)
+            {
+                <p><span class="customer-label">Клиент:</span> @_order.CustomerInfo.FullName</p>
+                <p><span class="customer-label">Телефон:</span> @_order.CustomerInfo.Phone</p>
+            }
+            else
+            {
+                <p><span class="customer-label">Фирма:</span> @_order.CustomerInfo.CompanyName</p>
+                <p><span class="customer-label">ЕИК:</span> @_order.CustomerInfo.Eik</p>
+                <p><span class="customer-label">МОЛ:</span> @_order.CustomerInfo.Mol</p>
+                <p><span class="customer-label">Лице за контакт:</span> @_order.CustomerInfo.ContactPerson</p>
+                <p><span class="customer-label">Телефон:</span> @_order.CustomerInfo.ContactPhone</p>
+            }
             @if (_order.DeliveryMethod == 1 && !string.IsNullOrWhiteSpace(_order.CustomerInfo.Address))
             {
-                <p style="margin-bottom: 2px;"><strong>Адрес:</strong> @_order.CustomerInfo.Address</p>
+                <p><span class="customer-label">Адрес:</span> @_order.CustomerInfo.Address</p>
             }
-        }
-        else
-        {
-            <p style="margin-bottom: 2px;"><strong>Фирма:</strong> @_order.CustomerInfo.CompanyName</p>
-            <p style="margin-bottom: 2px;"><strong>ЕИК:</strong> @_order.CustomerInfo.Eik</p>
-            <p style="margin-bottom: 2px;"><strong>МОЛ:</strong> @_order.CustomerInfo.Mol</p>
-            <p style="margin-bottom: 2px;"><strong>Лице за контакт:</strong> @_order.CustomerInfo.ContactPerson</p>
-            <p style="margin-bottom: 2px;"><strong>Телефон:</strong> @_order.CustomerInfo.ContactPhone</p>
-            @if (_order.DeliveryMethod == 1 && !string.IsNullOrWhiteSpace(_order.CustomerInfo.Address))
-            {
-                <p style="margin-bottom: 2px;"><strong>Адрес:</strong> @_order.CustomerInfo.Address</p>
-            }
-        }
-        <p style="margin-bottom: 2px;">
-            <strong>Метод:</strong>
-            @(_order.DeliveryMethod == 0 ? "Вземане от обекта" : "Доставка")
-        </p>
+            <p><span class="customer-label">Метод:</span> @_order.DeliveryMethodDisplay</p>
+        </div>
 
-        <br />
-
-        @* Items Table *@
+        @* Items *@
         <table class="items-table">
             <thead>
                 <tr>
-                    <th>№</th>
-                    <th>Продукт</th>
-                    <th>Мерна ед.</th>
-                    <th>Количество</th>
-                    <th>Ед. цена без ДДС</th>
-                    <th>ДДС</th>
-                    <th>Ед. цена с ДДС</th>
-                    <th>Общо с ДДС</th>
+                    <th scope="col">№</th>
+                    <th scope="col">Продукт</th>
+                    <th scope="col">Количество</th>
+                    <th scope="col">Ед. цена без ДДС</th>
+                    <th scope="col">ДДС</th>
+                    <th scope="col">Ед. цена с ДДС</th>
+                    <th scope="col">Общо с ДДС</th>
                 </tr>
             </thead>
             <tbody>
@@ -258,12 +323,11 @@ else
                     <tr>
                         <td class="num-col">@(i + 1)</td>
                         <td>@item.ProductName</td>
-                        <td>@item.UnitDisplay</td>
-                        <td class="num-col">@item.Quantity.ToString("F2")</td>
-                        <td class="num-col">@item.UnitPriceWithoutVat.ToString("F2") &euro;</td>
-                        <td class="num-col">@item.VatAmount.ToString("F2") &euro;</td>
-                        <td class="num-col">@item.UnitPriceWithVat.ToString("F2") &euro;</td>
-                        <td class="num-col">@item.RowTotalWithVat.ToString("F2") &euro;</td>
+                        <td class="num-col">@PriceFormat.Quantity(item.Quantity, item.UnitDisplay)</td>
+                        <td class="num-col">@PriceFormat.Money(item.UnitPriceWithoutVat)</td>
+                        <td class="num-col">@PriceFormat.Money(item.VatAmount)</td>
+                        <td class="num-col">@PriceFormat.Money(item.UnitPriceWithVat)</td>
+                        <td class="num-col">@PriceFormat.Money(item.RowTotalWithVat)</td>
                     </tr>
                 }
             </tbody>
@@ -271,28 +335,23 @@ else
 
         @* Totals *@
         <div class="totals-section">
-            <p style="margin-bottom: 4px;">Сума без ДДС: @_order.SubtotalWithoutVat.ToString("F2") &euro;</p>
-            <p style="margin-bottom: 4px;">Общо ДДС: @_order.TotalVat.ToString("F2") &euro;</p>
+            <p>Сума без ДДС: @PriceFormat.Money(_order.SubtotalWithoutVat)</p>
+            <p>Общо ДДС: @PriceFormat.Money(_order.TotalVat)</p>
             @if (_order.DeliveryFee.HasValue && _order.DeliveryFee.Value > 0)
             {
-                <p style="margin-bottom: 4px;">Цена за доставка: @_order.DeliveryFee.Value.ToString("F2") &euro;</p>
+                <p>Цена за доставка: @PriceFormat.Money(_order.DeliveryFee.Value)</p>
             }
-            <hr style="margin: 8px 0; border-color: #000;" />
-            <p class="grand-total">Обща сума: @_order.GrandTotal.ToString("F2") &euro;</p>
+            <hr class="receipt-rule" />
+            <p class="grand-total">Обща сума: @PriceFormat.Money(_order.GrandTotal)</p>
         </div>
 
-        <br /><br />
-
-        @* Signature Lines *@
+        @* Signature lines *@
         <div class="signatures">
             <span>Предал: ___________________</span>
             <span>Приел: ___________________</span>
         </div>
 
-        @* Footer *@
-        <p class="receipt-footer">
-            Стокова разписка. Не е официален данъчен документ.
-        </p>
+        <p class="receipt-footer">Стокова разписка. Не е официален данъчен документ.</p>
     </div>
 }
 
@@ -302,12 +361,17 @@ else
 
     private OrderDetailDto? _order;
     private bool _isLoading = true;
+    private bool _notFound;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             _order = await OrderService.GetByIdAsync(Id);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _notFound = true;
         }
         catch
         {

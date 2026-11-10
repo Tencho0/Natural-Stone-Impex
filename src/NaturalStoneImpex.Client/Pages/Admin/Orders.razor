@@ -1,140 +1,105 @@
 @page "/admin/orders"
 @layout AdminLayout
 @attribute [Authorize]
+@using NaturalStoneImpex.Client.Formatting
 @inject IOrderService OrderService
-@inject NavigationManager Navigation
 
-<PageTitle>Поръчки — Natural Stone Impex</PageTitle>
+<PageTitle>Поръчки · Natural Stone Impex</PageTitle>
 
-<!-- Page header -->
-<h1 class="page-heading mb-4">Поръчки</h1>
+<h1 tabindex="-1" @ref="_heading">Поръчки</h1>
 
-@if (_errorMessage is not null)
+@if (_stats is not null)
 {
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
-        <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
-    </div>
+    <p class="page-summary">@DashboardSummary.Orders(_stats.PendingOrders, _stats.ConfirmedOrders, _stats.CompletedOrders)</p>
 }
 
-<!-- Status summary cards -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3">
-        <div class="order-stat-mini order-stat-mini--warning">
-            <div class="order-stat-mini__value">@_stats.PendingOrders</div>
-            <div class="order-stat-mini__label">Чакащи</div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="order-stat-mini order-stat-mini--info">
-            <div class="order-stat-mini__value">@_stats.ConfirmedOrders</div>
-            <div class="order-stat-mini__label">Потвърдени</div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="order-stat-mini order-stat-mini--success">
-            <div class="order-stat-mini__value">@_stats.CompletedOrders</div>
-            <div class="order-stat-mini__label">Завършени</div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="order-stat-mini order-stat-mini--muted">
-            <div class="order-stat-mini__value">@(_stats.PendingOrders + _stats.ConfirmedOrders + _stats.CompletedOrders)</div>
-            <div class="order-stat-mini__label">Общо</div>
-        </div>
-    </div>
+<div class="segmented" role="group" aria-label="Покажи поръчки">
+    @foreach (var (status, label) in Filters)
+    {
+        <button type="button" class="segmented__btn" aria-pressed="@(_activeFilter == status ? "true" : "false")"
+                @onclick="() => OnFilterChangedAsync(status)">@label</button>
+    }
 </div>
 
-<!-- Status filter pills -->
-<div class="order-filter-pills mb-4">
-    <button class="order-filter-pill @(_activeFilter == null ? "order-filter-pill--active" : "")"
-            @onclick="() => OnFilterChanged(null)">
-        <i class="bi bi-list-ul"></i> Всички
-    </button>
-    <button class="order-filter-pill @(_activeFilter == 0 ? "order-filter-pill--active" : "")"
-            @onclick="() => OnFilterChanged(0)">
-        <i class="bi bi-clock"></i> Чакащи
-    </button>
-    <button class="order-filter-pill @(_activeFilter == 1 ? "order-filter-pill--active" : "")"
-            @onclick="() => OnFilterChanged(1)">
-        <i class="bi bi-check-circle"></i> Потвърдени
-    </button>
-    <button class="order-filter-pill @(_activeFilter == 2 ? "order-filter-pill--active" : "")"
-            @onclick="() => OnFilterChanged(2)">
-        <i class="bi bi-check-all"></i> Завършени
-    </button>
-</div>
+<p class="visually-hidden" role="status">@_announcement</p>
 
 @if (_isLoading)
 {
-    <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
-            <span class="visually-hidden">Зареждане...</span>
-        </div>
+    <div class="visually-hidden" role="status">Зареждане...</div>
+    <div class="table-scroll" aria-hidden="true">
+        <table class="data-table">
+            <tbody>
+                @for (var i = 0; i < 5; i++)
+                {
+                    <tr class="skeleton-row skeleton">
+                        <td><span class="skeleton-bar"></span></td>
+                        <td><span class="skeleton-bar"></span></td>
+                        <td><span class="skeleton-bar skeleton-bar--short"></span></td>
+                        <td class="num"><span class="skeleton-bar skeleton-bar--short"></span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else if (_loadError is not null)
+{
+    <div role="alert">
+        <p class="note note--error">@_loadError</p>
+        <button type="button" class="btn btn-outline btn-sm" @onclick="LoadAsync">Опитай отново</button>
     </div>
 }
 else if (_orders.Items.Count == 0)
 {
-    <div class="admin-empty-state">
-        <i class="bi bi-inbox admin-empty-icon"></i>
-        <p class="admin-empty-text mb-0">Няма поръчки с този статус.</p>
-    </div>
+    <p class="note">@EmptyText</p>
 }
 else
 {
-    <div class="table-container" style="overflow-x: auto;">
-        <table class="table table-hover align-middle mb-0">
+    <div class="table-scroll">
+        <table class="data-table stack-sm">
             <thead>
                 <tr>
-                    <th style="width: 50px;">№</th>
-                    <th>Номер</th>
-                    <th>Дата</th>
-                    <th>Клиент</th>
-                    <th>Тип</th>
-                    <th>Метод</th>
-                    <th>Статус</th>
-                    <th class="text-end">Обща сума</th>
-                    <th class="text-center" style="width: 80px;">Виж</th>
+                    <th scope="col">Номер</th>
+                    <th scope="col" class="hide-sm">Получена</th>
+                    <th scope="col">Клиент</th>
+                    <th scope="col" class="hide-md">Доставка</th>
+                    <th scope="col" class="hide-sm">Статус</th>
+                    <th scope="col" class="num">Сума</th>
+                    <th scope="col"><span class="visually-hidden">Действие</span></th>
                 </tr>
             </thead>
             <tbody>
-                @{ var rowNum = (_currentPage - 1) * PageSize; }
                 @foreach (var order in _orders.Items)
                 {
-                    rowNum++;
-                    <tr class="table-row-clickable" @onclick="() => NavigateToOrder(order.Id)">
-                        <td style="color: var(--nsi-gray);">@rowNum</td>
-                        <td>
-                            <span class="order-number-mono">@order.OrderNumber</span>
+                    var id = order.Id;
+                    var statusText = OrderFormat.StatusText(order.Status, order.IsCancelled);
+                    var statusCss = OrderFormat.StatusCss(order.Status, order.IsCancelled);
+                    <tr @key="id">
+                        <td class="nowrap"><a href="/admin/orders/@id" @ref="_links[id]">@order.OrderNumber</a></td>
+                        <td class="nowrap hide-sm">@OrderFormat.Timestamp(order.CreatedAt)</td>
+                        <td class="stack-sm__main">
+                            @order.CustomerName
+                            @* On phones the status column makes way, so the status sits under the name. *@
+                            <span class="cell-sub show-sm"><span class="@statusCss">@statusText</span></span>
                         </td>
-                        <td style="color: var(--nsi-gray-dark);">@order.CreatedAt.ToString("dd.MM.yyyy")</td>
-                        <td>
-                            <span class="fw-semibold" style="color: var(--nsi-dark);">@order.CustomerName</span>
-                        </td>
-                        <td>
-                            <span class="badge" style="background: var(--nsi-light); color: var(--nsi-gray-dark); font-weight: 500;">@order.CustomerTypeDisplay</span>
-                        </td>
-                        <td style="color: var(--nsi-gray-dark); font-size: 0.875rem;">@order.DeliveryMethodDisplay</td>
-                        <td>
-                            @if (order.IsCancelled)
+                        <td class="nowrap hide-md">@order.DeliveryMethodDisplay</td>
+                        <td class="hide-sm"><span class="@statusCss">@statusText</span></td>
+                        <td class="num">@PriceFormat.Money(order.TotalWithVat)</td>
+                        <td class="action-cell">
+                            @if (order.Status == 0 && !order.IsCancelled)
                             {
-                                <span class="badge badge-status-cancelled">Отказана</span>
+                                var orderNumber = order.OrderNumber;
+                                <InlineConfirm Label="Потвърди"
+                                               TriggerAriaLabel="@($"Потвърди поръчка {orderNumber}")"
+                                               TriggerClass="btn-outline btn-sm"
+                                               Question="Потвърди поръчката?"
+                                               Open="_openId == id"
+                                               OpenChanged="open => OnOpenChanged(id, open)"
+                                               Prepare="() => OrderConfirmPrompt.BuildAsync(OrderService, id)"
+                                               Action="() => OrderService.ConfirmAsync(id)"
+                                               FailureText="@OrderConfirmPrompt.FailureText"
+                                               Done="() => OnConfirmedAsync(id, orderNumber)" />
                             }
-                            else
-                            {
-                                <span class="badge @GetStatusBadgeClass(order.Status)">@order.StatusDisplay</span>
-                            }
-                        </td>
-                        <td class="text-end">
-                            <span class="fw-semibold" style="color: var(--nsi-accent-dark);">@order.TotalWithVat.ToString("F2") &euro;</span>
-                        </td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-nsi-table-action"
-                                    @onclick="() => NavigateToOrder(order.Id)"
-                                    @onclick:stopPropagation="true"
-                                    title="Преглед">
-                                <i class="bi bi-eye"></i>
-                            </button>
                         </td>
                     </tr>
                 }
@@ -142,71 +107,120 @@ else
         </table>
     </div>
 
-    <div class="mt-4">
-        <Pagination CurrentPage="_orders.Page" TotalPages="_orders.TotalPages" OnPageChanged="OnPageChanged" />
-    </div>
+    <Pagination CurrentPage="_orders.Page" TotalPages="_orders.TotalPages" OnPageChanged="OnPageChangedAsync" />
 }
 
 @code {
+    private const int PageSize = 20;
+
+    private static readonly (int? Status, string Label)[] Filters =
+    [
+        (null, "Всички"),
+        (0, "Чакащи"),
+        (1, "Потвърдени"),
+        (2, "Завършени")
+    ];
+
     private PaginatedResponse<OrderListDto> _orders = new();
-    private OrderStatsDto _stats = new();
+    private OrderStatsDto? _stats;
     private bool _isLoading = true;
-    private string? _errorMessage;
+    private string? _loadError;
     private int? _activeFilter;
     private int _currentPage = 1;
-    private const int PageSize = 20;
+    private int? _openId;
+    private string? _announcement;
+    private int? _focusOrderId;
+
+    private ElementReference _heading;
+    private readonly Dictionary<int, ElementReference> _links = new();
+
+    private string EmptyText => _activeFilter switch
+    {
+        0 => "Няма чакащи поръчки.",
+        1 => "Няма потвърдени поръчки.",
+        2 => "Няма завършени поръчки.",
+        _ => "Все още няма поръчки."
+    };
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDataAsync();
+        await LoadAsync();
     }
 
-    private async Task LoadDataAsync()
+    private async Task LoadAsync()
     {
         _isLoading = true;
+        await FetchAsync();
+        _isLoading = false;
+    }
 
+    // Reloads in place, without the skeleton, so focus and the live region survive a confirmation.
+    private async Task FetchAsync()
+    {
+        _openId = null;
+        _loadError = null;
         try
         {
             var statsTask = OrderService.GetStatsAsync();
             var ordersTask = OrderService.GetAllAsync(_activeFilter, _currentPage, PageSize);
             await Task.WhenAll(statsTask, ordersTask);
-
-            _stats = statsTask.Result;
-            _orders = ordersTask.Result;
+            _stats = await statsTask;
+            _orders = await ordersTask;
+            // A row kept by @key keeps its element and its @ref is not captured again, so clearing the map would
+            // lose it. Drop only the rows that left; new rows are captured when they render.
+            var ids = _orders.Items.Select(o => o.Id).ToHashSet();
+            foreach (var stale in _links.Keys.Where(k => !ids.Contains(k)).ToList())
+                _links.Remove(stale);
         }
         catch
         {
-            _errorMessage = "Възникна грешка при зареждане на поръчките.";
-        }
-        finally
-        {
-            _isLoading = false;
+            _loadError = "Не успяхме да заредим поръчките. Опитайте отново.";
         }
     }
 
-    private async Task OnFilterChanged(int? status)
+    private async Task OnFilterChangedAsync(int? status)
     {
+        if (_activeFilter == status)
+            return;
         _activeFilter = status;
         _currentPage = 1;
-        await LoadDataAsync();
+        _announcement = null;
+        await LoadAsync();
     }
 
-    private async Task OnPageChanged(int page)
+    private async Task OnPageChangedAsync(int page)
     {
         _currentPage = page;
-        await LoadDataAsync();
+        _announcement = null;
+        await LoadAsync();
     }
 
-    private void NavigateToOrder(int orderId)
+    // One open confirm at a time: opening a row closes any other.
+    private void OnOpenChanged(int id, bool open)
     {
-        Navigation.NavigateTo($"/admin/orders/{orderId}");
+        if (open)
+            _openId = id;
+        else if (_openId == id)
+            _openId = null;
     }
 
-    private static string GetStatusBadgeClass(int status) => status switch
+    private async Task OnConfirmedAsync(int id, string orderNumber)
     {
-        0 => "bg-warning text-dark",   // Чакаща
-        1 => "bg-info text-white",     // Потвърдена
-        2 => "bg-success text-white",  // Завършена
-        _ => "bg-secondary"
-    };
+        await FetchAsync();
+        _announcement = $"Поръчка {orderNumber} е потвърдена.";
+        _focusOrderId = id;
+    }
+
+    // Under "Всички" the confirmed row keeps its place, so focus goes to its number. Under "Чакащи" the row is
+    // gone, so focus goes to the heading.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusOrderId is not { } id)
+            return;
+        _focusOrderId = null;
+        if (_links.TryGetValue(id, out var link))
+            await link.FocusAsync();
+        else
+            await _heading.FocusAsync();
+    }
 }
