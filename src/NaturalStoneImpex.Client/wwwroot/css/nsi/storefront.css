@@ -1730,3 +1730,382 @@
     align-items: start;
   }
 }
+
+/* ---------- Checkout ---------- */
+
+/*
+ * Phones and tablets: the form, then the order summary, then a bar that keeps the total and the button at the
+ * bottom of the screen. From 1024px: the summary is a column on the right that stays in view, with its own button.
+ */
+.checkout {
+  padding-top: var(--space-7);
+}
+
+.checkout-head {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-6);
+}
+
+.checkout-head__title {
+  margin: 0;
+  font-size: var(--text-34);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.checkout-head__lead {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--stone);
+}
+
+.checkout-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-8);
+}
+
+.checkout-main {
+  display: grid;
+  gap: var(--space-7);
+  align-content: start;
+}
+
+/* Problems after a post: the summary of field errors, or why the order was not sent. */
+.checkout-problems {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+.checkout-problems:focus {
+  outline: none;
+}
+
+.checkout-problems__title {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-16);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--danger);
+}
+
+.checkout-problems__text {
+  max-width: 60ch;
+  margin: 0;
+}
+
+.checkout-problems__list {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.checkout-problems__cart {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  margin-block: -10px; /* a 44px target without spreading the box */
+}
+
+/* Block links: 44px targets that also hold when a message wraps on a phone. */
+.checkout-problems__list a {
+  display: block;
+  min-height: var(--target-min);
+  padding-block: 10px;
+  color: var(--danger);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.checkout-section {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-5) 0 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+/* The first section starts level with the summary's label, under the page head's space, not a hairline. */
+.checkout-section:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.checkout-section__title {
+  /* Floated, so it is an ordinary grid item and not drawn in the fieldset's top border. */
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-16);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.checkout-seg {
+  display: flex;
+  width: 100%;
+  max-width: 28rem;
+}
+
+.checkout-seg .seg-option {
+  flex: 1 1 0;
+  padding-inline: var(--space-2);
+  text-align: center;
+}
+
+.checkout-fields {
+  display: grid;
+  gap: var(--space-3) var(--space-5);
+}
+
+/* Summary */
+.checkout-summary {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.checkout-summary__title {
+  margin: 0 0 calc(var(--space-2) - var(--space-4));
+  font-family: var(--font-text);
+  font-size: var(--text-13);
+  font-weight: 400;
+  line-height: var(--leading-body);
+  letter-spacing: 0;
+  color: var(--stone);
+}
+
+.checkout-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.checkout-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--text-14);
+}
+
+.checkout-item:last-child {
+  border-bottom: 0; /* the totals' top hairline follows */
+}
+
+.checkout-item__name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.checkout-item__total {
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.checkout-item__qty {
+  grid-column: 1 / -1;
+  color: var(--stone);
+}
+
+.checkout-item__note {
+  grid-column: 1 / -1;
+  font-weight: 500;
+  color: var(--warn);
+}
+
+.checkout-totals > li > span:first-child {
+  color: var(--stone);
+}
+
+.checkout-totals > li.checkout-totals__grand > span {
+  font-size: var(--text-18);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.checkout-summary__note {
+  margin: 0;
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.btn-primary.checkout-summary__go {
+  display: none;
+  width: 100%;
+  min-height: 48px;
+}
+
+.checkout-summary__cart {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: var(--target-min);
+  font-size: var(--text-14);
+}
+
+/* The bottom bar on phones and tablets. */
+.checkout-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin: calc(var(--space-4) - var(--space-8)) calc(-1 * var(--gutter)) 0; /* 16px after the summary, edge to edge */
+  padding: var(--space-3) var(--gutter);
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+}
+
+.checkout-bar__total {
+  display: grid;
+  margin: 0;
+  font-size: var(--text-18);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.checkout-bar__label {
+  font-size: var(--text-13);
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.btn-primary.checkout-bar__go {
+  min-height: 48px;
+}
+
+/* Disabled while the order is being sent (checkout.js); not the greyed "cannot" look. */
+.checkout-body[aria-busy="true"] .btn-primary:disabled {
+  cursor: progress;
+  opacity: 0.8;
+}
+
+@media (min-width: 640px) {
+  .checkout-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .checkout-fields--one {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .checkout {
+    padding-top: var(--space-8);
+  }
+
+  .checkout-head {
+    padding-bottom: var(--space-7);
+  }
+
+  .checkout-head__title {
+    font-size: var(--text-48);
+  }
+}
+
+@media (min-width: 1024px) {
+  .checkout-body {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    column-gap: var(--space-9);
+    align-items: start;
+  }
+
+  .checkout-summary {
+    position: sticky;
+    top: var(--space-6);
+  }
+
+  .btn-primary.checkout-summary__go {
+    display: inline-flex;
+  }
+
+  .checkout-bar {
+    display: none;
+  }
+}
+
+/* ---------- Order confirmation ---------- */
+
+.confirm {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-8);
+}
+
+.confirm__title {
+  max-width: 22em;
+  margin: 0;
+  font-size: var(--text-26);
+  font-weight: 300;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.confirm__number {
+  white-space: nowrap;
+}
+
+.confirm__text {
+  max-width: 60ch;
+  margin: 0;
+  font-size: var(--text-16);
+}
+
+.confirm__shop {
+  display: grid;
+  gap: var(--space-4);
+  width: 100%;
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.confirm__shop dt {
+  font-size: var(--text-13);
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.confirm__shop dd {
+  margin: 0;
+}
+
+.confirm__more {
+  margin-top: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .confirm {
+    padding-top: var(--space-10);
+  }
+
+  .confirm__title {
+    font-size: var(--text-34);
+  }
+
+  .confirm__shop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-6);
+  }
+}

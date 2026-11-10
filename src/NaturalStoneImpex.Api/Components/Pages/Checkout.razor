@@ -1,0 +1,264 @@
+@page "/checkout"
+@attribute [ExcludeFromInteractiveRouting]
+@layout MainLayout
+@using NaturalStoneImpex.Client.Formatting
+@inject ICartStore CartStore
+@inject IStorefrontQueryService Storefront
+@inject CheckoutHandler Handler
+@inject NavigationManager Navigation
+
+@* Checkout (spec §7.5). One enhanced SSR form; CheckoutForm holds the old checkout's fields and rules.
+   Both customer-type groups and the address group are always in the form; the server hides the ones the posted
+   (or default) switches do not select, and checkout.js toggles them at once. Without JS the server re-renders
+   them after a post. Errors sit under their fields, and a summary at the top links to each one; after a failed
+   post focus moves to it (autofocus without JS, checkout.js after an enhanced post).
+   The order summary comes from CartViewModel, the same totals as the cart and the stored order. *@
+
+<SeoHead Title="Поръчка" Description="Данни за поръчката: клиент, начин на получаване и обобщение."
+         CanonicalPath="/checkout" NoIndex="true" />
+<PageScript Src="js/storefront/checkout.js" />
+
+<div class="wrap checkout">
+    <div class="checkout-head">
+        <h1 class="checkout-head__title">Поръчка</h1>
+        <p class="checkout-head__lead">Всички полета са задължителни. След поръчката ще ви се обадим, за да я потвърдим.</p>
+    </div>
+
+    <EditForm EditContext="_edit" FormName="checkout" Enhance OnValidSubmit="PlaceAsync" OnInvalidSubmit="Invalid"
+              class="checkout-body" data-checkout>
+        <DataAnnotationsValidator />
+        <input type="hidden" name="Form.Token" value="@Form.Token" />
+        <input type="hidden" name="Form.CartStamp" value="@Form.CartStamp" />
+
+        <div class="checkout-main">
+            @if (_error is not null || _submitted && _edit.GetValidationMessages().Any())
+            {
+                <div class="checkout-problems" id="checkout-problems" tabindex="-1" autofocus
+                     aria-labelledby="checkout-problems-title" data-checkout-problems>
+                    @if (_error is not null)
+                    {
+                        <h2 class="checkout-problems__title" id="checkout-problems-title">Поръчката не е изпратена</h2>
+                        <p class="checkout-problems__text">@_error</p>
+                        <a class="link-quiet checkout-problems__cart" href="/cart">Към количката</a>
+                    }
+                    else
+                    {
+                        <h2 class="checkout-problems__title" id="checkout-problems-title">Проверете данните</h2>
+                        <ul class="checkout-problems__list">
+                            @foreach (var field in Fields)
+                            {
+                                @foreach (var message in _edit.GetValidationMessages(new FieldIdentifier(Form, field.Member)))
+                                {
+                                    <li><a href="@($"{_path}#{field.Id}")" data-problem-link>@field.Label: @message</a></li>
+                                }
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+
+            <fieldset class="checkout-section">
+                <legend class="checkout-section__title">Тип клиент</legend>
+                @(Switch(nameof(CheckoutForm.CustomerType), Form.CustomerType,
+                         ("Физическо лице", CheckoutForm.Individual), ("Фирма", CheckoutForm.Company)))
+            </fieldset>
+
+            <fieldset class="checkout-section">
+                <legend class="checkout-section__title">Данни за клиента</legend>
+                <div class="checkout-fields" data-when="Form.CustomerType=@CheckoutForm.Individual" hidden="@Form.IsCompany">
+                    @Field(nameof(CheckoutForm.FullName), Form.FullName, autocomplete: "name", maxLength: 200)
+                    @Field(nameof(CheckoutForm.Phone), Form.Phone, type: "tel", autocomplete: "tel", maxLength: 20)
+                </div>
+                <div class="checkout-fields" data-when="Form.CustomerType=@CheckoutForm.Company" hidden="@(!Form.IsCompany)">
+                    @Field(nameof(CheckoutForm.CompanyName), Form.CompanyName, autocomplete: "organization", maxLength: 200)
+                    @Field(nameof(CheckoutForm.Eik), Form.Eik, inputMode: "numeric", maxLength: 13, help: "9 или 13 цифри")
+                    @Field(nameof(CheckoutForm.Mol), Form.Mol, maxLength: 200)
+                    @Field(nameof(CheckoutForm.ContactPerson), Form.ContactPerson, autocomplete: "name", maxLength: 200)
+                    @Field(nameof(CheckoutForm.ContactPhone), Form.ContactPhone, type: "tel", autocomplete: "tel", maxLength: 20)
+                </div>
+            </fieldset>
+
+            <fieldset class="checkout-section">
+                <legend class="checkout-section__title">Метод на получаване</legend>
+                @(Switch(nameof(CheckoutForm.DeliveryMethod), Form.DeliveryMethod,
+                         ("Вземане от обекта", CheckoutForm.Pickup), ("Доставка", CheckoutForm.Delivery)))
+                <div class="checkout-fields checkout-fields--one" data-when="Form.DeliveryMethod=@CheckoutForm.Delivery"
+                     hidden="@(!Form.IsDelivery)">
+                    @(Field(nameof(CheckoutForm.Address), Form.Address, autocomplete: "street-address", maxLength: 500,
+                            help: "Цената на доставката се уточнява по телефона."))
+                </div>
+            </fieldset>
+        </div>
+
+        <section class="checkout-summary" aria-labelledby="checkout-summary-title">
+            <h2 id="checkout-summary-title" class="checkout-summary__title">Обобщение</h2>
+            <ul class="checkout-items">
+                @foreach (var row in _cart.Rows.Where(r => r.Orderable))
+                {
+                    <li class="checkout-item">
+                        <span class="checkout-item__name">@row.Product.Name</span>
+                        <span class="checkout-item__total num">@PriceFormat.Money(row.LineTotal)</span>
+                        <span class="checkout-item__qty num">
+                            @PriceFormat.Quantity(row.Quantity, row.Product.UnitDisplay) × @PriceFormat.Money(row.Product.PriceWithVat)
+                        </span>
+                        @if (row.BackOrder)
+                        {
+                            <span class="checkout-item__note">@CartViewModel.BackOrderNote</span>
+                        }
+                    </li>
+                }
+            </ul>
+            <ul class="list-hairline list-hairline--pairs checkout-totals">
+                <li><span>Без ДДС</span><span class="num">@PriceFormat.Money(_cart.SubtotalWithoutVat)</span></li>
+                <li><span>ДДС</span><span class="num">@PriceFormat.Money(_cart.Vat)</span></li>
+                <li class="checkout-totals__grand"><span>Общо с ДДС</span><span class="num">@PriceFormat.Money(_cart.TotalWithVat)</span></li>
+            </ul>
+            @if (_cart.Rows.Any(r => !r.Orderable))
+            {
+                <p class="checkout-summary__note">Продукти без цена или извън продажба не влизат в поръчката.</p>
+            }
+            <p class="checkout-summary__note">Доставка: уточнява се по телефона</p>
+            <button type="submit" class="btn btn-primary checkout-summary__go">Изпрати поръчката</button>
+            <a class="link-quiet checkout-summary__cart" href="/cart">Промени количката</a>
+        </section>
+
+        @* Phones and tablets: the total and the button stay at the bottom of the screen while the form scrolls. *@
+        <div class="checkout-bar">
+            <p class="checkout-bar__total">
+                <span class="checkout-bar__label">Общо с ДДС</span>
+                <span class="num">@PriceFormat.Money(_cart.TotalWithVat)</span>
+            </p>
+            <button type="submit" class="btn btn-primary checkout-bar__go">Изпрати поръчката</button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private sealed record FieldInfo(string Member, string Id, string Label);
+
+    // Form order: the error summary lists problems in this order and links to these ids.
+    private static readonly FieldInfo[] Fields =
+    [
+        new(nameof(CheckoutForm.CustomerType), "checkout-CustomerType-0", "Тип клиент"),
+        new(nameof(CheckoutForm.FullName), "checkout-FullName", "Име и фамилия"),
+        new(nameof(CheckoutForm.Phone), "checkout-Phone", "Телефонен номер"),
+        new(nameof(CheckoutForm.CompanyName), "checkout-CompanyName", "Име на фирмата"),
+        new(nameof(CheckoutForm.Eik), "checkout-Eik", "ЕИК / Булстат"),
+        new(nameof(CheckoutForm.Mol), "checkout-Mol", "МОЛ"),
+        new(nameof(CheckoutForm.ContactPerson), "checkout-ContactPerson", "Лице за контакт"),
+        new(nameof(CheckoutForm.ContactPhone), "checkout-ContactPhone", "Телефон за контакт"),
+        new(nameof(CheckoutForm.DeliveryMethod), "checkout-DeliveryMethod-0", "Метод на получаване"),
+        new(nameof(CheckoutForm.Address), "checkout-Address", "Адрес за доставка")
+    ];
+
+    [SupplyParameterFromForm(FormName = "checkout")]
+    private CheckoutForm Form { get; set; } = default!;
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private CartViewModel _cart = CartViewModel.Build([], []);
+    private EditContext _edit = default!;
+    private bool _submitted;
+    private string? _error;
+    private string _path = "/checkout";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Before the first await: the page renders once before the cart is loaded.
+        var isPost = HttpContext is not null && HttpMethods.IsPost(HttpContext.Request.Method);
+        Form ??= CheckoutForm.Start();
+        _edit = new EditContext(Form);
+        // <base href="/"> would turn "#id" into "/#id"; the error links carry the path.
+        _path = "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0];
+
+        var lines = CartStore.Lines;
+        if (lines.Count > 0)
+            _cart = CartViewModel.Build(lines, await Storefront.GetByIdsAsync(lines.Select(l => l.ProductId).ToList()));
+        if (!isPost)
+            Form.CartStamp = CheckoutForm.Stamp(_cart);
+
+        // Nothing to order: back to the cart, which says why. A POST decides in its handler, because a repeated
+        // POST of an order that went through must still reach its confirmation.
+        if (!isPost && !_cart.HasOrderable)
+            Navigation.NavigateTo("/cart");
+    }
+
+    private async Task PlaceAsync()
+    {
+        var outcome = await Handler.PlaceAsync(Form, _cart);
+        if (outcome.Success)
+        {
+            CartStore.Clear(); // before the redirect response starts
+            Navigation.NavigateTo($"/order-confirmation/{outcome.OrderNumber}");
+            return;
+        }
+        if (outcome.Error == CheckoutHandler.EmptyCartError)
+        {
+            Navigation.NavigateTo("/cart");
+            return;
+        }
+
+        _error = outcome.Error;
+        // Show the cart as it is now; the next submit orders exactly this.
+        Form.CartStamp = CheckoutForm.Stamp(_cart);
+    }
+
+    private void Invalid()
+    {
+        if (!_cart.HasOrderable)
+        {
+            Navigation.NavigateTo("/cart");
+            return;
+        }
+        _submitted = true;
+    }
+
+    private string? ErrorOf(string member) =>
+        _submitted ? _edit.GetValidationMessages(new FieldIdentifier(Form, member)).FirstOrDefault() : null;
+
+    // A text field: label above, help or error below in the same slot (components.css .field).
+    private RenderFragment Field(string member, string? value, string type = "text", string? autocomplete = null,
+        string? inputMode = null, int? maxLength = null, string? help = null)
+    {
+        var info = Fields.Single(f => f.Member == member);
+        var error = ErrorOf(member);
+        var noteId = info.Id + "-note";
+        return @<div class="field">
+            <label class="field-label" for="@info.Id">@info.Label</label>
+            <input class="field-input" id="@info.Id" name="Form.@member" type="@type" value="@value"
+                   autocomplete="@(autocomplete ?? "off")" inputmode="@inputMode" maxlength="@maxLength"
+                   aria-describedby="@noteId" aria-invalid="@(error is null ? null : "true")" />
+            @if (error is not null)
+            {
+                <p class="field-error" id="@noteId">@error</p>
+            }
+            else
+            {
+                <p class="field-help" id="@noteId">@help</p>
+            }
+        </div>;
+    }
+
+    // A segmented switch of real radio inputs (keyboard-operable, 44px), with its error under it.
+    private RenderFragment Switch(string member, int? value, params (string Label, int Value)[] options)
+    {
+        var error = ErrorOf(member);
+        var errorId = $"checkout-{member}-error";
+        return @<text>
+            <div class="seg checkout-seg">
+                @foreach (var option in options)
+                {
+                    var id = $"checkout-{member}-{option.Value}";
+                    <input class="seg-input" type="radio" id="@id" name="Form.@member" value="@option.Value"
+                           checked="@(value == option.Value)" aria-describedby="@(error is null ? null : errorId)" />
+                    <label class="seg-option" for="@id">@option.Label</label>
+                }
+            </div>
+            @if (error is not null)
+            {
+                <p class="field-error" id="@errorId">@error</p>
+            }
+        </text>;
+    }
+}
