@@ -1,10 +1,10 @@
 @if (TotalPages > 1)
 {
-    <nav aria-label="Навигация по страници" class="nsi-pagination mt-4">
-        <ul class="pagination justify-content-center mb-0 gap-1">
-            <li class="page-item @(CurrentPage <= 1 ? "disabled" : "")">
-                <button class="page-link nsi-page-btn nsi-page-arrow" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage - 1)" disabled="@(CurrentPage <= 1)">
-                    <i class="bi bi-chevron-left"></i>
+    <nav aria-label="Навигация по страници" class="admin-pager">
+        <ul class="admin-pager__list">
+            <li>
+                <button type="button" class="admin-pager__btn" aria-label="Предишна страница" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage - 1)" disabled="@(CurrentPage <= 1)">
+                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
                 </button>
             </li>
 
@@ -12,21 +12,21 @@
             {
                 @if (pageNum == -1)
                 {
-                    <li class="page-item disabled">
-                        <span class="page-link nsi-page-btn nsi-page-ellipsis">&hellip;</span>
+                    <li>
+                        <span class="admin-pager__gap" aria-hidden="true">&hellip;</span>
                     </li>
                 }
                 else
                 {
-                    <li class="page-item @(pageNum == CurrentPage ? "active" : "")">
-                        <button class="page-link nsi-page-btn @(pageNum == CurrentPage ? "nsi-page-active" : "")" @onclick="() => OnPageChanged.InvokeAsync(pageNum)">@pageNum</button>
+                    <li>
+                        <button type="button" class="admin-pager__btn @(pageNum == CurrentPage ? "is-current" : null)" aria-label="Страница @pageNum" aria-current="@(pageNum == CurrentPage ? "page" : null)" @onclick="() => OnPageChanged.InvokeAsync(pageNum)">@pageNum</button>
                     </li>
                 }
             }
 
-            <li class="page-item @(CurrentPage >= TotalPages ? "disabled" : "")">
-                <button class="page-link nsi-page-btn nsi-page-arrow" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage + 1)" disabled="@(CurrentPage >= TotalPages)">
-                    <i class="bi bi-chevron-right"></i>
+            <li>
+                <button type="button" class="admin-pager__btn" aria-label="Следваща страница" @onclick="() => OnPageChanged.InvokeAsync(CurrentPage + 1)" disabled="@(CurrentPage >= TotalPages)">
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
                 </button>
             </li>
         </ul>

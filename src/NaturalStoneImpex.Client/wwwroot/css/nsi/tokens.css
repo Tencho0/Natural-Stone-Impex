@@ -92,6 +92,8 @@
   --bs-body-font-family: var(--font-text);
   --bs-border-color: var(--rule);
   --bs-link-color: var(--ink);
+  --bs-link-color-rgb: 28, 32, 35;
+  --bs-link-hover-color-rgb: 47, 74, 92;
   --bs-link-hover-color: var(--accent);
   --bs-primary: var(--accent);
   --bs-border-radius: 2px;

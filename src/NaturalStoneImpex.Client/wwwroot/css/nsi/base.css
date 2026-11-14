@@ -44,13 +44,59 @@ h1, h2, h3, h4, h5, h6,
   color: var(--on-accent);
 }
 
-/* The error bar's close control is a button (keyboard-reachable); it keeps the look of the old bare link. */
+/*
+ * Blazor's unhandled-error bar (App.razor). Blazor sets display:block when it fires; it shows on static SSR
+ * pages too, so it uses only tokens and no Bootstrap. The reload link and the close button are 44px targets.
+ */
+#blazor-error-ui {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1000;
+  display: none;
+  padding: var(--space-2) calc(var(--target-min) + var(--space-4)) var(--space-2) var(--gutter);
+  font-size: var(--text-15);
+  color: var(--ink);
+  background: var(--surface);
+  border-top: 2px solid var(--danger);
+}
+
+#blazor-error-ui .reload {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  margin-left: var(--space-3);
+  color: var(--ink);
+  text-underline-offset: 0.2em;
+}
+
+#blazor-error-ui .reload:hover {
+  color: var(--accent);
+}
+
+/* The close control is a button (keyboard-reachable). */
 #blazor-error-ui .dismiss {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--target-min);
+  height: var(--target-min);
   padding: 0;
   font: inherit;
   color: inherit;
+  cursor: pointer;
   background: none;
   border: 0;
+  border-radius: var(--radius);
+  transform: translateY(-50%);
+}
+
+#blazor-error-ui .dismiss:hover {
+  color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {

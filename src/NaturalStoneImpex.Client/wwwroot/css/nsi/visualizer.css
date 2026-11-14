@@ -44,18 +44,18 @@
  * (measured at 320 to 1440 px), so nothing below moves when the island replaces the skeleton.
  */
 .viz-host {
-  --viz-upload-h: 512px;
+  --viz-upload-h: 32rem;
 }
 
 @media (min-width: 360px) {
   .viz-host {
-    --viz-upload-h: 432px;
+    --viz-upload-h: 27rem;
   }
 }
 
 @media (min-width: 400px) {
   .viz-host {
-    --viz-upload-h: 400px;
+    --viz-upload-h: 25rem;
   }
 }
 
@@ -74,7 +74,7 @@
 
 @media (min-width: 576px) {
   .viz-host {
-    --viz-upload-h: 320px;
+    --viz-upload-h: 20rem;
   }
 
   .viz-upload {
@@ -112,14 +112,14 @@
 .viz-skeleton__bar {
   display: block;
   width: 90%;
-  height: 12px;
+  height: 0.75rem;
   background: var(--paper);
   border-radius: var(--radius);
 }
 
 .viz-skeleton__bar--title {
   width: 45%;
-  height: 22px;
+  height: 1.375rem;
 }
 
 .viz-skeleton__bar--short {
@@ -128,7 +128,7 @@
 
 .viz-skeleton__block {
   display: block;
-  width: 180px;
+  width: 11.25rem;
   height: var(--target-min);
   margin-top: var(--space-2);
   background: var(--paper);
@@ -277,6 +277,15 @@
   border-color: var(--accent);
 }
 
+/* Tool buttons keep the .btn-outline look; they only line up as a row and wrap their label. */
+.viz-tools__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+}
+
 .viz-tools__brush {
   display: grid;
   gap: var(--space-1);
@@ -309,7 +318,7 @@
   gap: var(--space-2);
   font-size: var(--text-15);
   color: var(--on-accent);
-  background: rgba(28, 32, 35, 0.6);
+  background: color-mix(in srgb, var(--ink) 60%, transparent);
 }
 
 .viz-handles {
@@ -322,14 +331,14 @@
 }
 
 .viz-grid-outline {
-  fill: rgba(47, 74, 92, 0.12);
+  fill: color-mix(in srgb, var(--accent) 12%, transparent);
   stroke: var(--on-accent);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
 
 .viz-grid-line {
-  stroke: rgba(244, 245, 243, 0.7);
+  stroke: color-mix(in srgb, var(--on-accent) 70%, transparent);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
