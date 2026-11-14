@@ -4,7 +4,7 @@ public static class StorefrontErrorPagesExtensions
 {
     /// <summary>
     /// Non-API requests get the designed /error and /not-found pages. Shared by Program.cs and the HEAD tests so the
-    /// pipeline order cannot drift; UseHeadAsGet and UseRouting must come after it.
+    /// pipeline order cannot drift; UseHeadAsGet must come before it and UseRouting after it.
     /// </summary>
     public static IApplicationBuilder UseStorefrontErrorPages(this IApplicationBuilder app, bool isDevelopment)
         => app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/api"), b =>

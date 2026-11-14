@@ -2,6 +2,7 @@
 // an empty value means any choice); a submit sets aria-busy and drops a second one (the server token is the real
 // guard); after a failed post focus moves to the problems box, whose links focus their field.
 const FORM = 'form[data-checkout]';
+const STUCK_MS = 10000; // a post that never answered (network error) leaves the buttons off; the server token guards a resend
 
 function sync(form) {
   for (const group of form.querySelectorAll('[data-when]')) {
@@ -23,6 +24,12 @@ function onSubmit(event) {
   if (form.ariaBusy === 'true') return event.preventDefault();
   form.ariaBusy = 'true';
   for (const button of form.querySelectorAll('button')) button.disabled = true;
+  setTimeout(() => release(form), STUCK_MS);
+}
+
+function release(form) {
+  form.ariaBusy = null;
+  for (const button of form.querySelectorAll('button')) button.disabled = false;
 }
 
 function onClick(event) {
@@ -42,8 +49,7 @@ export function onLoad() {
 export function onUpdate() {
   const form = document.querySelector(FORM);
   if (!form) return;
-  form.ariaBusy = null;
-  for (const button of form.querySelectorAll('button')) button.disabled = false;
+  release(form);
   sync(form);
   document.querySelector('[data-checkout-problems]')?.focus();
 }

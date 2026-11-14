@@ -1268,7 +1268,7 @@
 }
 
 .photo-zoom::backdrop {
-  background: rgba(28, 32, 35, 0.85);
+  background: color-mix(in srgb, var(--ink) 85%, transparent);
 }
 
 .photo-zoom__img {

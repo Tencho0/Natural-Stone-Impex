@@ -36,6 +36,8 @@ public class ProductService : IProductService
 
         var totalCount = await query.CountAsync();
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        // Past the last page returns the last page (and keeps (page - 1) * pageSize from overflowing int).
+        page = Math.Min(page, Math.Max(1, totalPages));
 
         var items = await query
             .OrderBy(p => p.Name)

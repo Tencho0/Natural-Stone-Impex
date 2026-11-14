@@ -162,6 +162,8 @@ public class OrderService : IOrderService
 
         var totalCount = await query.CountAsync();
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        // Past the last page returns the last page (and keeps (page - 1) * pageSize from overflowing int).
+        page = Math.Min(page, Math.Max(1, totalPages));
 
         var orders = await query
             .OrderByDescending(o => o.CreatedAt)

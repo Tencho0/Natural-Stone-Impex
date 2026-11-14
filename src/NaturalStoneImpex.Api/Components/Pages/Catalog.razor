@@ -128,12 +128,8 @@
 
         // includeInactive: false, so the storefront never lists a deactivated product.
         _result = await ProductService.GetAllAsync(_categoryId, _search, requested, CatalogPaging.PageSize, includeInactive: false);
-        _page = CatalogPaging.Clamp(requested, _result.TotalPages);
-        if (_page != requested)
-        {
-            // Past the last page: show the last page, and point the canonical at it.
-            _result = await ProductService.GetAllAsync(_categoryId, _search, _page, CatalogPaging.PageSize, includeInactive: false);
-        }
+        // ProductService returns the last page for a page past the end; the canonical then names the page shown.
+        _page = _result.Page;
 
         _isEmpty = _result.Items.Count == 0;
         // Links and the canonical carry the category only when it exists; an unknown id is dropped.
