@@ -1,0 +1,36 @@
+@page "/visualizer"
+@attribute [ExcludeFromInteractiveRouting]
+@layout MainLayout
+
+@* Visualizer (spec §7.8): a static SSR page with the title and intro (indexable), then the VisualizerApp island in
+   WebAssembly with prerender off. App.razor loads js/visualizer.js and css/nsi/visualizer.css on this path only.
+   The island renders nothing on the server, so the skeleton sits beside it and holds the uploader's height until the
+   island has loaded (visualizer.css hides it then). MainLayout makes every link on this page a full load. *@
+
+<SeoHead Title="Визуализатор на настилки"
+         Description="Качете снимка на двора или алеята си и вижте как ще изглежда с настилки от естествен камък на Natural Stone Impex."
+         CanonicalPath="/visualizer" />
+
+<div class="wrap viz-page">
+    <h1 class="viz-page__title">Визуализатор</h1>
+    <p class="viz-page__intro">Качете снимка на вашия двор или алея и вижте как ще изглежда с нашите настилки.</p>
+
+    <div class="viz-host">
+        @* Fully qualified: the Client's Components namespace also has a Pagination component. *@
+        <NaturalStoneImpex.Client.Components.VisualizerApp @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+
+        <div class="viz-upload viz-skeleton" aria-hidden="true">
+            <span class="viz-skeleton__bar viz-skeleton__bar--title"></span>
+            <span class="viz-skeleton__bar"></span>
+            <span class="viz-skeleton__bar viz-skeleton__bar--short"></span>
+            <span class="viz-skeleton__bar"></span>
+            <span class="viz-skeleton__bar"></span>
+            <span class="viz-skeleton__bar viz-skeleton__bar--short"></span>
+            <span class="viz-skeleton__block"></span>
+        </div>
+        @* Without scripting the content is parsed as elements, so visualizer.css can swap it for the skeleton. *@
+        <noscript>
+            <p class="viz-upload viz-upload--empty viz-noscript">Визуализаторът работи само с включен JavaScript.</p>
+        </noscript>
+    </div>
+</div>

@@ -1,37 +1,53 @@
+@using NaturalStoneImpex.Client.Formatting
 @using NaturalStoneImpex.Client.Models
 
-<div class="card">
-    <div class="card-header">Изберете настилка</div>
-    <div class="card-body p-2">
-        <input class="form-control form-control-sm mb-2" placeholder="Търсене…"
-               value="@_search" @oninput="e => _search = e.Value?.ToString() ?? string.Empty" />
-        <select class="form-select form-select-sm mb-2" @bind="_categoryId">
-            <option value="0">Всички категории</option>
-            @foreach (var category in Products.Select(p => new { p.CategoryId, p.CategoryName }).Distinct())
-            {
-                <option value="@category.CategoryId">@category.CategoryName</option>
-            }
-        </select>
-        <div class="viz-product-list list-group">
-            @foreach (var product in Filtered)
-            {
-                <button type="button"
-                        class="list-group-item list-group-item-action d-flex align-items-center gap-2 @(product.Id == SelectedId ? "active" : "")"
-                        disabled="@Disabled"
-                        @onclick="() => OnSelect.InvokeAsync(product)">
-                    <img src="@(product.ImagePath ?? product.TexturePath)" alt="@product.Name"
-                         class="viz-product-thumb" />
-                    <span class="flex-grow-1 text-start">@product.Name</span>
-                    <span class="text-nowrap">@product.PriceWithVat.ToString("F2") € / @product.UnitDisplay</span>
-                </button>
-            }
-            @if (!Filtered.Any())
-            {
-                <div class="text-muted small p-2">Няма продукти, отговарящи на търсенето.</div>
-            }
+@* Stone picker of the visualizer island. Styles: css/nsi/visualizer.css. *@
+
+<section class="viz-pick" aria-labelledby="viz-pick-title">
+    <h2 id="viz-pick-title" class="viz-pick__title">Изберете настилка</h2>
+
+    <div class="viz-pick__filters">
+        <div class="field">
+            <label class="field-label" for="viz-pick-search">Търсене по име</label>
+            <input class="field-input" id="viz-pick-search" type="search" autocomplete="off"
+                   value="@_search" @oninput="e => _search = e.Value?.ToString() ?? string.Empty" />
+        </div>
+        <div class="field">
+            <label class="field-label" for="viz-pick-category">Категория</label>
+            <select class="field-input" id="viz-pick-category" @bind="_categoryId">
+                <option value="0">Всички категории</option>
+                @foreach (var category in Products.Select(p => new { p.CategoryId, p.CategoryName }).Distinct())
+                {
+                    <option value="@category.CategoryId">@category.CategoryName</option>
+                }
+            </select>
         </div>
     </div>
-</div>
+
+    @if (Filtered.Any())
+    {
+        <ul class="viz-pick__list">
+            @foreach (var product in Filtered)
+            {
+                <li>
+                    <button type="button" class="viz-pick__item" aria-pressed="@(product.Id == SelectedId ? "true" : "false")"
+                            disabled="@Disabled" @onclick="() => OnSelect.InvokeAsync(product)">
+                        <img class="viz-pick__thumb" src="@(product.ImagePath ?? product.TexturePath)" alt=""
+                             width="48" height="48" loading="lazy" decoding="async" />
+                        <span class="viz-pick__name">@product.Name</span>
+                        <span class="viz-pick__price num">
+                            @(product.PriceWithVat > 0 ? $"{PriceFormat.Money(product.PriceWithVat)} / {product.UnitDisplay}" : "Цена при запитване")
+                        </span>
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p class="viz-pick__empty">Няма продукти, отговарящи на търсенето.</p>
+    }
+</section>
 
 @code {
     [Parameter] public List<VisualizerProductDto> Products { get; set; } = new();

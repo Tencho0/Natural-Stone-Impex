@@ -9,7 +9,8 @@
 @* <base href="/"> would turn a bare "#main" into "/#main", so the href carries the current path. *@
 <a class="skip-link" href="@_skipHref">Към съдържанието</a>
 
-<div class="site">
+@* On the visualizer every link out is a full page load (spec §7.8): data-enhance-nav="false" covers all links inside. *@
+<div class="site" data-enhance-nav="@(IsCurrent("/visualizer") ? "false" : null)">
     <header class="site-header">
         <div class="wrap site-header__bar">
             <a class="wordmark" href="/">Natural Stone Impex</a>
@@ -143,9 +144,11 @@
 
     private string? ActiveClass(string href) => NavMatch.IsActive(_path, href) ? "is-active" : null;
 
-    private string? AriaCurrent(string href)
+    private string? AriaCurrent(string href) => IsCurrent(href) ? "page" : null;
+
+    private bool IsCurrent(string href)
     {
         var path = _path.Split('?', '#')[0].TrimEnd('/');
-        return string.Equals(path, href, StringComparison.OrdinalIgnoreCase) ? "page" : null;
+        return string.Equals(path, href, StringComparison.OrdinalIgnoreCase);
     }
 }

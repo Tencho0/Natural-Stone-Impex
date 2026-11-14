@@ -13,19 +13,6 @@ public class OrderService : IOrderService
         _httpClient = httpClient;
     }
 
-    public async Task<(CreateOrderResponse? Response, string? Error)> PlaceOrderAsync(CreateOrderRequest request)
-    {
-        var response = await _httpClient.PostAsJsonAsync("api/orders", request);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            return (null, await ExtractErrorAsync(response));
-        }
-
-        var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
-        return (result, null);
-    }
-
     public async Task<PaginatedResponse<OrderListDto>> GetAllAsync(int? status, int page, int pageSize)
     {
         var url = $"api/orders?page={page}&pageSize={pageSize}";

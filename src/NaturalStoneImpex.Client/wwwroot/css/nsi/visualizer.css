@@ -1,0 +1,524 @@
+/*
+ * Visualizer page and its WebAssembly island (spec §7.8). Loaded on /visualizer only (App.razor), after
+ * components.css and storefront.css, whose buttons, fields, segmented switch and toast it reuses.
+ */
+
+/* ---------- Page ---------- */
+
+.viz-page {
+  padding-top: var(--space-7);
+  padding-bottom: var(--space-9);
+}
+
+.viz-page__title {
+  margin: 0;
+  font-size: var(--text-34);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.viz-page__intro {
+  max-width: 44rem;
+  margin: var(--space-3) 0 var(--space-6);
+  font-size: var(--text-16);
+  color: var(--stone);
+}
+
+@media (min-width: 768px) {
+  .viz-page__title {
+    font-size: var(--text-48);
+  }
+
+  .viz-page__intro {
+    font-size: var(--text-18);
+  }
+}
+
+/* ---------- Uploader and skeleton ---------- */
+
+/*
+ * The island renders nothing on the server (prerender off), so the page puts a skeleton next to it with the
+ * uploader's box. Both reserve --viz-upload-h, which is at least the uploader's tallest content at that width
+ * (measured at 320 to 1440 px), so nothing below moves when the island replaces the skeleton.
+ */
+.viz-host {
+  --viz-upload-h: 512px;
+}
+
+@media (min-width: 360px) {
+  .viz-host {
+    --viz-upload-h: 432px;
+  }
+}
+
+@media (min-width: 400px) {
+  .viz-host {
+    --viz-upload-h: 400px;
+  }
+}
+
+.viz-upload {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  max-width: 40rem;
+  min-height: var(--viz-upload-h);
+  margin: 0;
+  padding: var(--space-6) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+@media (min-width: 576px) {
+  .viz-host {
+    --viz-upload-h: 320px;
+  }
+
+  .viz-upload {
+    padding: var(--space-6);
+  }
+}
+
+/* Hidden once the island has loaded (its root loses --loading), or when scripting is off. */
+.viz-host:has(> .viz-app:not(.viz-app--loading)) > .viz-skeleton,
+.viz-host:has(.viz-noscript) > .viz-skeleton {
+  display: none;
+}
+
+/* Spec §6.6: shown only after 300 ms, so a fast start never flashes it. The box itself holds the space at once. */
+.viz-skeleton {
+  align-content: start;
+}
+
+.viz-skeleton > * {
+  opacity: 0;
+  animation: viz-skeleton-reveal 1ms linear 300ms forwards;
+}
+
+@keyframes viz-skeleton-reveal {
+  to { opacity: 1; }
+}
+
+/* base.css turns animations off under reduced motion; the reveal is not motion, so it is kept. */
+@media (prefers-reduced-motion: reduce) {
+  .viz-skeleton > * {
+    animation: viz-skeleton-reveal 1ms linear 300ms forwards !important;
+  }
+}
+
+.viz-skeleton__bar {
+  display: block;
+  width: 90%;
+  height: 12px;
+  background: var(--paper);
+  border-radius: var(--radius);
+}
+
+.viz-skeleton__bar--title {
+  width: 45%;
+  height: 22px;
+}
+
+.viz-skeleton__bar--short {
+  width: 60%;
+}
+
+.viz-skeleton__block {
+  display: block;
+  width: 180px;
+  height: var(--target-min);
+  margin-top: var(--space-2);
+  background: var(--paper);
+  border-radius: var(--radius);
+}
+
+.viz-upload--empty {
+  color: var(--stone);
+}
+
+.viz-upload__title {
+  margin: 0;
+  font-size: var(--text-22);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.viz-upload__text {
+  margin: 0;
+  color: var(--stone);
+}
+
+.viz-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.viz-consent__box {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.viz-consent__label {
+  font-size: var(--text-14);
+  cursor: pointer;
+}
+
+.viz-upload__file {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
+
+/* Visually hidden but focusable; the label after it is the visible button. */
+.viz-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.viz-file:focus-visible + .viz-file__button {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.viz-file:disabled + .viz-file__button {
+  cursor: not-allowed;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ---------- Editor ---------- */
+
+.viz-work {
+  display: grid;
+  gap: var(--space-7);
+}
+
+.viz-work__stage {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.viz-work__stage > .btn {
+  justify-self: start;
+}
+
+@media (min-width: 992px) {
+  .viz-work {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.viz-hint {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-14);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+/* The first step: what to do with the photo. */
+.viz-hint--lead {
+  border-color: var(--accent);
+}
+
+.viz-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.viz-tools__modes {
+  width: 100%;
+}
+
+.viz-tools__modes .seg-option {
+  flex: 1 1 auto;
+  padding: 0 var(--space-2);
+  white-space: nowrap;
+}
+
+.viz-tools__modes:disabled .seg-option,
+.viz-tools__modes .seg-input:disabled + .seg-option {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (min-width: 576px) {
+  .viz-tools__modes {
+    width: auto;
+  }
+
+  .viz-tools__modes .seg-option {
+    padding: 0 var(--space-4);
+  }
+}
+
+/* The perspective toggle: pressed reads like the selected segment. */
+.viz-tools .btn-outline[aria-pressed="true"] {
+  color: var(--on-accent);
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.viz-tools__brush {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 200px;
+}
+
+.viz-range {
+  width: 100%;
+  min-height: var(--target-min);
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ---------- Stage ---------- */
+
+.viz-stage {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+
+.viz-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--text-15);
+  color: var(--on-accent);
+  background: rgba(28, 32, 35, 0.6);
+}
+
+.viz-handles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Taps and brush strokes under the quad reach the edit canvas; only the handle circles stay draggable. */
+  pointer-events: none;
+}
+
+.viz-grid-outline {
+  fill: rgba(47, 74, 92, 0.12);
+  stroke: var(--on-accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.viz-grid-line {
+  stroke: rgba(244, 245, 243, 0.7);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.viz-handle {
+  fill: var(--accent);
+  stroke: var(--on-accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  cursor: grab;
+  pointer-events: all;
+}
+
+.viz-handle-hit {
+  fill: transparent;
+  cursor: grab;
+  pointer-events: all;
+}
+
+/* ---------- Adjustments and actions ---------- */
+
+.viz-adjust {
+  display: grid;
+  gap: var(--space-2) var(--space-5);
+}
+
+@media (min-width: 576px) {
+  .viz-adjust {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.viz-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding-top: var(--space-2);
+}
+
+.viz-actions__ask {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-height: var(--target-min);
+  margin: 0;
+  font-weight: 500;
+}
+
+.viz-actions__ask .link-quiet,
+.viz-actions__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  font-weight: 400;
+}
+
+.viz-actions__error {
+  min-height: 0;
+  font-size: var(--text-14);
+}
+
+.viz-disclaimer {
+  max-width: 44rem;
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--stone);
+}
+
+.viz-alert {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-14);
+  color: var(--danger);
+  background: var(--surface);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+/* ---------- Stone picker ---------- */
+
+.viz-pick__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-18);
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.viz-pick__filters {
+  display: grid;
+  gap: var(--space-3);
+}
+
+@media (min-width: 576px) and (max-width: 991.98px) {
+  .viz-pick__filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.viz-pick__list {
+  max-height: 480px;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.viz-pick__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-areas:
+    "thumb name"
+    "thumb price";
+  align-items: center;
+  column-gap: var(--space-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  transition: background-color var(--dur-hover) var(--ease);
+}
+
+.viz-pick__item:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.viz-pick__item:focus-visible {
+  outline-offset: -2px;
+}
+
+.viz-pick__item:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* The chosen stone: a 2px accent marker on the left and the name in the accent. */
+.viz-pick__item[aria-pressed="true"] {
+  background: var(--surface);
+}
+
+.viz-pick__item[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--accent);
+}
+
+.viz-pick__item[aria-pressed="true"] .viz-pick__name {
+  color: var(--accent);
+}
+
+.viz-pick__thumb {
+  grid-area: thumb;
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+
+.viz-pick__name {
+  grid-area: name;
+  align-self: end;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.viz-pick__price {
+  grid-area: price;
+  align-self: start;
+  font-size: var(--text-13);
+  color: var(--stone);
+}
+
+.viz-pick__empty {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-14);
+  color: var(--stone);
+}

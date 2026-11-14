@@ -1,7 +1,7 @@
 <CascadingAuthenticationState>
     <Router AppAssembly="@typeof(Routes).Assembly">
         <Found Context="routeData">
-            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(AdminLayout)">
                 <NotAuthorized>
                     <RedirectToLogin />
                 </NotAuthorized>
@@ -14,16 +14,16 @@
             }
         </Found>
         <NotFound>
+            @* Only reached during interactive (admin) navigation: full-page requests for unknown URLs get the server's
+               404 page (UseStorefrontErrorPages). No layout: AdminLayout would offer the admin links and "Изход"
+               to someone who may no longer be signed in. The link leaves WebAssembly routing, hence the full load. *@
             <PageTitle>Страницата не е намерена</PageTitle>
-            <LayoutView Layout="@typeof(MainLayout)">
-                <div class="container mt-5">
-                    <div class="alert alert-warning">
-                        <h4>Страницата не е намерена</h4>
-                        <p>Съжаляваме, но търсената от вас страница не съществува.</p>
-                        <a href="/" class="btn btn-primary">Към началната страница</a>
-                    </div>
+            <main class="admin-ui admin-shell">
+                <div class="admin-shell__main">
+                    <h1>Страницата не е намерена</h1>
+                    <p><a class="text-decoration-underline" href="/" target="_top" data-enhance-nav="false">Към началната страница</a></p>
                 </div>
-            </LayoutView>
+            </main>
         </NotFound>
     </Router>
 </CascadingAuthenticationState>

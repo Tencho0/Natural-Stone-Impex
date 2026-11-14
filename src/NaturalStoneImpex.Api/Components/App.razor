@@ -22,6 +22,11 @@
         @* Static SSR pages only, so the storefront components do not restyle the WebAssembly pages. *@
         <link rel="stylesheet" href="@Assets["css/nsi/components.css"]" />
         <link rel="stylesheet" href="@Assets["css/nsi/storefront.css"]" />
+        @if (IsVisualizer)
+        {
+            @* The visualizer page and its WebAssembly island only. *@
+            <link rel="stylesheet" href="@Assets["css/nsi/visualizer.css"]" />
+        }
         @* Every first view uses all four files: Cyrillic text, and the Latin files for spaces, digits, "м²" and
            the wordmark. Preloaded, they usually arrive before the first paint, so the text does not swap fonts
            and shift the page. Plain paths: they must match the url() in fonts.css, which is not fingerprinted. *@
