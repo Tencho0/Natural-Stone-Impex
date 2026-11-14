@@ -154,7 +154,7 @@ Returns all categories. Used by both public catalog (category filter) and admin 
 
 Creates a new category.
 
-**Auth**: Admin (Bearer token)
+**Auth**: Admin
 
 **Request Body:**
 ```json
@@ -798,10 +798,7 @@ Marks a confirmed order as completed.
 **Response 200:**
 ```json
 {
-  "message": "Поръчката е маркирана като завършена.",
-  "orderNumber": "NSI-20260218-0001",
-  "status": 2,
-  "statusDisplay": "Завършена"
+  "message": "Поръчката е маркирана като завършена."
 }
 ```
 
@@ -830,8 +827,7 @@ Cancels a pending order. Does NOT affect stock.
 **Response 200:**
 ```json
 {
-  "message": "Поръчката е отказана.",
-  "orderNumber": "NSI-20260218-0001"
+  "message": "Поръчката е отказана."
 }
 ```
 
@@ -1058,16 +1054,17 @@ Creates a new invoice and **automatically increments stock** for each item.
 `POST /api/visualizer/segment` responses: `200 { sessionToken, maskPng, width, height }`,
 `400` invalid photo/points, `429` daily quota reached, `503` visualizer disabled or busy.
 `POST /api/visualizer/segment/{sessionToken}` additionally returns `404` when the server-side
-embedding cache has expired (client re-uploads the photo). Photos are processed in memory and
-never stored; quotas are enforced per hashed IP per day (see `Visualizer` section in appsettings).
-Each segment or refine call writes one `VisualizationRequests` row (the quota log); rows older than
-90 days are deleted by a background service.
+embedding cache has expired (client re-uploads the photo), and `429` after 200 refines of one session.
+Photos are processed in memory and never stored; quotas are enforced per hashed IP per day (see
+`Visualizer` section in appsettings). Each `POST /api/visualizer/segment` that passes the quota check
+writes one `VisualizationRequests` row (the quota log); refine calls write none and are capped per
+session instead. Rows older than 90 days are deleted by a background service.
 
 ---
 
 ## 8. Cart
 
-The cart lives in the `nsi_cart` cookie: up to 50 `productId:quantity` pairs, no prices or names (HttpOnly, Secure, SameSite=Lax, 30 days sliding). Malformed or oversized cookies are discarded. Prices always come from the database when a page renders. A product can be added only if it is active and its price with VAT is above 0. Quantities must be above 0 and at most 10000.
+The cart lives in the `nsi_cart` cookie: up to 50 `productId:quantity` pairs, no prices or names (HttpOnly, Secure, SameSite=Lax). Malformed pairs are ignored and lines beyond 50 are dropped. Expiry is 30 days from the last change. Prices always come from the database when a page renders. A product can be added only if it is active and its price with VAT is above 0. Quantities must be above 0 and at most 10000.
 
 ### POST /api/cart/items
 

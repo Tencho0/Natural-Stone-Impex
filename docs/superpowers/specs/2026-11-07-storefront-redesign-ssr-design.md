@@ -394,7 +394,7 @@ Each phase ends with a working app.
 ### Needed from the owner before release
 
 Development can continue with placeholders; release needs these:
-- The real phone number, email, address and opening hours.
+- The real phone number, email, address and opening hours. The placeholder email in `ShopInfo` is misspelt (`info@naturalstonimpex.bg`, without the "e" of "stone"); take the real address from the owner, not from it.
 - A logo, if one exists. Otherwise the typeset wordmark is final.
 
 ### Owner decisions (07.11.2026)

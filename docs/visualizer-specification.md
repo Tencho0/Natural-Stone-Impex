@@ -87,6 +87,7 @@ Rejected alternatives (analyzed in v1 and in §5.5): enterprise SaaS (wrong size
 **Step 5 — Действия**
 - «Изтегли изображението» — client-side download of the rendered canvas.
 - «Добави в количката» — adds selected product via existing `CartService`.
+  _Superseded by the SSR redesign spec (docs/superpowers/specs/2026-11-07-storefront-redesign-ssr-design.md): the island posts to `POST /api/cart/items` (cookie cart); `CartService` is gone._
 - «Виж продукта» — link to product detail.
 - «Нова снимка» — reset to Step 1.
 

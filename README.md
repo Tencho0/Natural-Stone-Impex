@@ -30,7 +30,8 @@ Swagger is at `/swagger` in development.
 
 To check a production build: `dotnet publish src/NaturalStoneImpex.Api -c Release -o <dir>`, then run
 `NaturalStoneImpex.Api.exe --urls https://localhost:5001` from `<dir>` with `ASPNETCORE_ENVIRONMENT=Production`.
-The ONNX models are copied to `<dir>/MLModels`.
+The ONNX models are copied to `<dir>/MLModels`. Uploads (`wwwroot/uploads`) are runtime data and are not
+part of the publish: a deployment keeps its own folder, and a fresh, empty database gets the seed photos from `DbSeeder`.
 
 ## Product visualizer
 

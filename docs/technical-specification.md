@@ -37,7 +37,8 @@
 - Storefront forms (cart, checkout, product calculator) are enhanced form posts with antiforgery and Post/Redirect/Get. Every storefront page works without JavaScript.
 - Links between the storefront and the admin are full page loads (`data-enhance-nav="false"`), because the render mode of the whole page changes.
 - Missing or inactive products return HTTP 404 with the designed not-found page; other HTML errors show the designed error page. `/api` keeps the JSON error middleware.
-- Static assets (CSS, JS, fonts, the WebAssembly framework files) are served by `MapStaticAssets`: brotli or gzip, fingerprinted names, immutable caching. `UseStaticFiles` serves only runtime uploads under `/uploads`.
+- Build-time assets (CSS, JS, the WebAssembly framework files) are served by `MapStaticAssets`: brotli or gzip, fingerprinted names, immutable caching. Fonts are referenced by plain paths on purpose (they are preloaded) and are served `max-age=3600, must-revalidate`, uncompressed (woff2).
+- `wwwroot/uploads` is runtime data: it is excluded from the static web assets and from the publish (`Content Remove` in the Api csproj), and `UseUploadsStaticFiles` serves `/uploads` from disk. A file added at runtime is served at once; a deleted one returns 404. A deployment keeps its own uploads folder; `DbSeeder` copies the seed photos into it only when it seeds an empty database.
 
 ---
 
@@ -71,10 +72,8 @@
 - Each product shown as a card:
   - Product image (thumbnail)
   - Product name
-  - Price with ДДС (e.g., `24.00 €`)
-  - ДДС amount displayed (e.g., `вкл. 4.00 € ДДС`)
-  - Unit (кг or м²)
-  - "Добави в количката" (Add to cart) button
+  - Price with ДДС (e.g., `24.00 €`) and the note "за м², с ДДС" (or "за кг, с ДДС")
+  - A "+" icon button labelled "Добави {name} в количката" (priced 0: "Цена при запитване" and "обадете се за оферта", no button)
 - Search bar to filter products by name.
 - Pagination (24 products per page).
 - Stock never blocks ordering (owner decision, 07.11.2026). A product without stock can still be added; the cart and checkout note "Доставка по заявка."
@@ -106,7 +105,7 @@
 - "Към поръчката" (Proceed to checkout) button.
 - "Към каталога" (Continue shopping) link back to catalog.
 - Lines that cannot be ordered (inactive, priced 0) are marked with the reason and left out of the total and the order.
-- Cart state is a cookie, `nsi_cart`: up to 50 `productId:quantity` pairs, no prices or names. HttpOnly, Secure, SameSite=Lax, 30-day sliding expiry. Malformed cookies are discarded. Prices always come from the database (`GetByIdsAsync`). The cart survives refresh and is cleared after an order is placed.
+- Cart state is a cookie, `nsi_cart`: up to 50 `productId:quantity` pairs, no prices or names. HttpOnly, Secure, SameSite=Lax. Expiry is 30 days from the last change. Malformed pairs are ignored and lines beyond 50 are dropped. Prices always come from the database (`GetByIdsAsync`). The cart survives refresh and is cleared after an order is placed.
 - Each row posts its own change (`/cart/update`, `/cart/remove`); the visualizer island adds through `POST /api/cart/items`. The header cart count is rendered on the server from the cookie.
 
 ### 4.5 Checkout Page (Поръчка)
@@ -376,7 +375,7 @@ The admin UI signs in on the static SSR page `/admin/login` (cookie), not throug
 
 ### 8.1 Performance
 - Product catalog page should load within 2 seconds.
-- Pagination: default 12 items per page (catalog), 20 items per page (admin tables).
+- Pagination: 24 items per page (catalog), 20 items per page (admin tables).
 
 ### 8.2 Security
 - Admin password stored as bcrypt/PBKDF2 hash (ASP.NET Core Identity default).

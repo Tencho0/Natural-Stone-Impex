@@ -148,7 +148,7 @@ src/
 │   │   ├── Entities/         # EF Core entity classes
 │   │   └── DTOs/             # Request/response DTOs
 │   ├── Services/             # Business logic layer (Segmentation/ for the visualizer)
-│   └── wwwroot/uploads/      # Runtime uploads only (UseStaticFiles serves /uploads; all else is MapStaticAssets)
+│   └── wwwroot/uploads/      # Runtime data, gitignored, not a static web asset, not published; served from disk by UseUploadsStaticFiles
 │
 └── NaturalStoneImpex.Client/ # The Web App's WebAssembly project (not run on its own)
     ├── Program.cs            # WebAssembly services: HttpClient, auth state, API clients
