@@ -1,7 +1,7 @@
 /*
  * Admin variant, direction "Образец": the same tokens at a higher density (spec 6.7).
- * Loaded on the WebAssembly pages (App.razor) and on the SSR login (LoginLayout), never on the storefront.
- * The old Client public pages are WebAssembly pages too, so nothing here may leak onto them:
+ * Loaded on the interactive WebAssembly admin pages (App.razor) and on the SSR login (LoginLayout), never on
+ * the storefront or the visualizer page. The rules stay scoped all the same:
  * - component rules (buttons, fields, tables, statuses, skeletons) are scoped under .admin-ui, the root
  *   of AdminLayout and PrintLayout;
  * - the layout classes (.admin-shell*, .admin-bar*, .print-shell, .login-*) are used only by the admin

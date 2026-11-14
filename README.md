@@ -5,8 +5,10 @@ materials shop: a public storefront (catalog, cart, orders, product visualizer) 
 (products, categories, orders, invoices). All UI text is in Bulgarian.
 
 - **Host:** one ASP.NET Core 10 Blazor Web App — `src/NaturalStoneImpex.Api`. It serves the API
-  (EF Core 10, SQL Server, JWT), the storefront as static SSR Razor components (`Components/`) and
-  all static assets, on one origin.
+  (EF Core 10, SQL Server), the storefront as static SSR Razor components (`Components/`) and
+  all static assets, on one origin. The storefront loads no .NET WebAssembly; the cart is a cookie.
+- **Admin sign-in:** the static SSR page `/admin/login` sets an HttpOnly cookie, so refresh and deep
+  links stay signed in. API clients can still use JWT Bearer tokens from `POST /api/auth/login`.
 - **WebAssembly project:** `src/NaturalStoneImpex.Client` — admin pages (interactive WebAssembly
   routing), the visualizer island and their API client services. It is not run on its own.
 - **Tests:** xUnit — `tests/NaturalStoneImpex.Api.Tests`; manual visualizer harness — `tests/manual`
@@ -25,6 +27,10 @@ dotnet test
 
 The database is migrated and seeded on API start-up (admin user `admin` / `Admin123!` in development).
 Swagger is at `/swagger` in development.
+
+To check a production build: `dotnet publish src/NaturalStoneImpex.Api -c Release -o <dir>`, then run
+`NaturalStoneImpex.Api.exe --urls https://localhost:5001` from `<dir>` with `ASPNETCORE_ENVIRONMENT=Production`.
+The ONNX models are copied to `<dir>/MLModels`.
 
 ## Product visualizer
 

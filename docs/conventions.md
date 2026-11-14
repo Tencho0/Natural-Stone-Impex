@@ -25,7 +25,7 @@
 - Always snapshot product prices into OrderItem when creating an order.
 - Always use database transactions for operations that modify multiple tables (order confirmation, invoice creation).
 - Always return consistent error format: `{ "error": "Bulgarian message" }`.
-- Always include loading states and error handling in Blazor pages.
+- Always handle loading, empty and error states: interactive components (admin pages, the visualizer island) show a loading state and Bulgarian error alerts; static SSR storefront pages render their empty and error states on the server.
 - Always format dates as DD.MM.YYYY for display.
 - Always format currency as `XX.XX €` (space before €).
 - Always add `[Authorize]` attribute to admin API endpoints.

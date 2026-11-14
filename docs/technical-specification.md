@@ -17,11 +17,27 @@
 
 | Layer       | Technology                                      |
 |-------------|--------------------------------------------------|
-| Frontend    | Blazor WebAssembly (Standalone) + Bootstrap 5    |
-| Backend     | ASP.NET Core 10 Web API                          |
+| Host        | One ASP.NET Core 10 Blazor Web App (`NaturalStoneImpex.Api`): API controllers, Razor components and static assets on one origin |
+| Frontend    | Storefront: static SSR Razor components. Admin and visualizer: Blazor WebAssembly (`NaturalStoneImpex.Client`). Bootstrap 5 with the design tokens |
 | Database    | SQL Server + Entity Framework Core (Code First)  |
-| Auth        | JWT Bearer tokens (single admin user)            |
-| Images      | Local file storage (wwwroot/uploads on API)      |
+| Auth        | Admin cookie for the browser; JWT Bearer for API clients (single admin user) |
+| Images      | Local file storage (`wwwroot/uploads`)           |
+
+### 2.1 Render modes
+
+| Area | Mode |
+|---|---|
+| `/`, `/catalog`, `/products/{id}`, `/cart`, `/checkout`, `/order-confirmation/{OrderNumber}`, `/contacts`, `/not-found`, `/error` | Static SSR. Pages opt out of interactive routing with `@attribute [ExcludeFromInteractiveRouting]` |
+| `/visualizer` | Static SSR page with one WebAssembly island, `VisualizerApp` (prerender off) |
+| `/admin/login` | Static SSR form |
+| `/admin/**` (all other admin pages and the receipt) | Interactive WebAssembly routing, prerender off |
+
+- `App.razor` sets the render mode of `Routes` from the matched page, so the storefront ships no .NET runtime: storefront pages load `blazor.web.js` and small page scripts, never `dotnet.*.wasm` or assemblies.
+- Storefront pages call the API services (`IProductService`, `IOrderService`, ...) in-process; there is no HTTP hop. The WebAssembly pages call the API over HTTP on the same origin.
+- Storefront forms (cart, checkout, product calculator) are enhanced form posts with antiforgery and Post/Redirect/Get. Every storefront page works without JavaScript.
+- Links between the storefront and the admin are full page loads (`data-enhance-nav="false"`), because the render mode of the whole page changes.
+- Missing or inactive products return HTTP 404 with the designed not-found page; other HTML errors show the designed error page. `/api` keeps the JSON error middleware.
+- Static assets (CSS, JS, fonts, the WebAssembly framework files) are served by `MapStaticAssets`: brotli or gzip, fingerprinted names, immutable caching. `UseStaticFiles` serves only runtime uploads under `/uploads`.
 
 ---
 
@@ -29,11 +45,11 @@
 
 ### 3.1 Customer (Anonymous)
 - No login required.
-- Can browse catalog, view product details, add items to cart, place orders.
+- Can browse catalog, view product details, add items to cart, place orders. The cart is kept in a cookie (section 4.4).
 - Must provide personal or company information at checkout.
 
 ### 3.2 Admin (Single Account)
-- Logs in with username + password.
+- Logs in with username + password on `/admin/login`, which sets an HttpOnly cookie (section 5.1).
 - Credentials seeded into the database on first run.
 - Default credentials: `admin` / `Admin123!` (must be changed on first login — optional, can be a future feature).
 - Full access to inventory management, order management, invoice entry.
@@ -60,8 +76,9 @@
   - Unit (кг or м²)
   - "Добави в количката" (Add to cart) button
 - Search bar to filter products by name.
-- Pagination (e.g., 12 products per page).
-- If a product is out of stock (quantity = 0), show "Изчерпан" (Out of stock) instead of the add-to-cart button.
+- Pagination (24 products per page).
+- Stock never blocks ordering (owner decision, 07.11.2026). A product without stock can still be added; the cart and checkout note "Доставка по заявка."
+- A product priced 0 shows "Цена при запитване" and cannot be added to the cart.
 
 ### 4.3 Product Detail Page (Детайли за продукт)
 - Full product image (larger view).
@@ -72,8 +89,10 @@
 - **Price without ДДС**: e.g., `20.00 €`
 - **ДДС amount**: e.g., `4.00 €`
 - Unit of measurement (кг or м²).
-- Quantity input + "Добави в количката" button.
-- Stock availability indicator (e.g., "В наличност" / "Изчерпан").
+- Quantity calculator: by dimensions (length × width, with an optional 10% waste allowance, on by default) or a direct quantity. Decimal input accepts "4,5" and "4.5". The server computes the result on submit (`QuantityCalculator`); a small script mirrors it live.
+- "Добави ... в количката" button with the calculated quantity. Products priced 0 show an enquiry block with the shop phone instead.
+- Stock line: "В наличност: 12.00 м²" when stock > 0, otherwise "Доставка по заявка. Ще ви се обадим за срок."
+- JSON-LD `Product` with an `Offer` in EUR (no price for products priced 0).
 
 ### 4.4 Cart Page (Количка)
 - List of all items added to cart:
@@ -84,9 +103,11 @@
 - Remove item button per row.
 - **Subtotal** (sum of all row totals, with ДДС).
 - **Total ДДС** (sum of all VAT amounts).
-- "Продължи към поръчка" (Proceed to checkout) button.
-- "Продължи пазаруването" (Continue shopping) link back to catalog.
-- Cart state stored in browser memory (Blazor in-memory state or localStorage via JS interop). Cart is lost on page refresh unless persisted via localStorage.
+- "Към поръчката" (Proceed to checkout) button.
+- "Към каталога" (Continue shopping) link back to catalog.
+- Lines that cannot be ordered (inactive, priced 0) are marked with the reason and left out of the total and the order.
+- Cart state is a cookie, `nsi_cart`: up to 50 `productId:quantity` pairs, no prices or names. HttpOnly, Secure, SameSite=Lax, 30-day sliding expiry. Malformed cookies are discarded. Prices always come from the database (`GetByIdsAsync`). The cart survives refresh and is cleared after an order is placed.
+- Each row posts its own change (`/cart/update`, `/cart/remove`); the visualizer island adds through `POST /api/cart/items`. The header cart count is rendered on the server from the cookie.
 
 ### 4.5 Checkout Page (Поръчка)
 
@@ -119,11 +140,10 @@ The customer selects one of two options:
 - **Доставка** (Delivery) — delivery fee will be added by the admin after order placement. Display message: _"Цената за доставка ще бъде определена и добавена от нас след получаване на поръчката."_
 
 #### Step 4 — Order Summary & Confirmation
-- Display all cart items with prices.
-- Subtotal, total ДДС, grand total (without delivery fee — note that delivery fee is pending if delivery selected).
-- Customer information summary.
-- "Потвърди поръчката" (Confirm order) button.
-- On success: show confirmation message with order number. Clear the cart.
+- All steps are on one static SSR page (`/checkout`), validated on the server after submit; each error appears under its field and in a summary at the top.
+- An order-summary column (a sticky bottom bar on phones) shows the items, subtotal, total ДДС and grand total; delivery is priced later by phone.
+- "Изпрати поръчката" (Send order) button.
+- On success: clear the cart cookie and redirect to `/order-confirmation/{OrderNumber}`: "Поръчка NSI-YYYYMMDD-XXXX е получена. Ще ви се обадим в работно време на посочения телефон, за да я потвърдим.", with a copy button and the shop's contact details. There is no public order lookup.
 
 ### 4.6 Contacts Page (Контакти)
 - Shop name: Natural Stone Impex
@@ -131,26 +151,30 @@ The customer selects one of two options:
 - Phone number (placeholder).
 - Email (placeholder).
 - Working hours (placeholder).
-- Embedded Google Maps iframe (optional, placeholder coordinates).
+- Map link (placeholder coordinates).
+- A short note about the cart and admin cookies (strictly necessary, so there is no consent banner).
+- Contact details live in one place, `ShopInfo`.
 
 ---
 
 ## 5. Admin Panel
 
-All admin pages are under the `/admin` route prefix and require JWT authentication.
+All admin pages are under the `/admin` route prefix and carry `@attribute [Authorize]`. The server enforces it on every full page load (refresh, deep link) through the admin cookie, and redirects a signed-out visitor to `/admin/login?ReturnUrl=...`.
 
 ### 5.1 Admin Login (Вход в администрацията)
-- Simple login form: username + password.
-- On success: store JWT token, redirect to admin dashboard.
+- Simple login form: username + password. A static SSR page; credentials are checked by `IAuthService`.
+- On success: sign in the `nsi_admin` cookie (HttpOnly, Secure, SameSite=Strict, 8 hours sliding) and redirect to `ReturnUrl` if it is a local path, otherwise to `/admin`. Off-site values such as `https://example.com` or `//example.com` are ignored.
 - On failure: show error message "Невалидно потребителско име или парола."
+- The WebAssembly admin learns who is signed in from `GET /api/auth/me`; "Изход" calls `POST /api/auth/logout`.
 
 ### 5.2 Admin Dashboard (Табло)
 - Overview page with quick stats:
   - Total products count
   - Total orders count (pending / confirmed / completed)
   - Low stock alerts (products with quantity below a configurable threshold, e.g., 10)
-  - Recent orders (last 5)
-- Navigation sidebar with links to all admin sections.
+  - A one-line summary, e.g. "3 чакащи · 5 потвърдени · 41 завършени · 115 продукта".
+  - "Чакащи поръчки" (pending orders) and "Ниска наличност" (low stock, including negative stock in the danger colour).
+- A top bar with links to all admin sections.
 
 ### 5.3 Category Management (Категории)
 - List all categories in a table: ID, Name, Product Count.
@@ -289,7 +313,11 @@ Detailed specification in `api-endpoints.md`. Overview:
 ### Auth
 | Method | Endpoint          | Description       | Auth |
 |--------|-------------------|-------------------|------|
-| POST   | /api/auth/login   | Admin login       | No   |
+| POST   | /api/auth/login   | Admin login (JWT for API clients) | No   |
+| GET    | /api/auth/me      | Signed-in admin   | Admin |
+| POST   | /api/auth/logout  | Sign the admin cookie out | No |
+
+The admin UI signs in on the static SSR page `/admin/login` (cookie), not through `/api/auth/login`.
 
 ### Categories
 | Method | Endpoint              | Description          | Auth  |
@@ -308,6 +336,8 @@ Detailed specification in `api-endpoints.md`. Overview:
 | PUT    | /api/products/{id}          | Update product            | Admin |
 | DELETE | /api/products/{id}          | Soft-delete product       | Admin |
 | POST   | /api/products/{id}/image    | Upload product image      | Admin |
+| POST   | /api/products/{id}/texture  | Upload visualizer texture | Admin |
+| GET    | /api/products/low-stock     | Low-stock products        | Admin |
 
 ### Orders
 | Method | Endpoint                        | Description              | Auth  |
@@ -315,10 +345,13 @@ Detailed specification in `api-endpoints.md`. Overview:
 | GET    | /api/orders                     | List all orders          | Admin |
 | GET    | /api/orders/{id}                | Get order detail         | Admin |
 | POST   | /api/orders                     | Place new order          | No    |
-| PUT    | /api/orders/{id}/confirm        | Confirm order            | Admin |
+| GET    | /api/orders/{id}/stock-check    | Lines that would go below zero | Admin |
+| PUT    | /api/orders/{id}/confirm        | Confirm order (never blocked by stock) | Admin |
 | PUT    | /api/orders/{id}/complete       | Mark as completed        | Admin |
 | PUT    | /api/orders/{id}/cancel         | Cancel order             | Admin |
 | PUT    | /api/orders/{id}/delivery-fee   | Set delivery fee         | Admin |
+| GET    | /api/orders/stats               | Dashboard counts         | Admin |
+| GET    | /api/orders/recent              | Recent orders            | Admin |
 
 ### Invoices
 | Method | Endpoint             | Description           | Auth  |
@@ -326,6 +359,16 @@ Detailed specification in `api-endpoints.md`. Overview:
 | GET    | /api/invoices        | List all invoices     | Admin |
 | GET    | /api/invoices/{id}   | Get invoice detail    | Admin |
 | POST   | /api/invoices        | Create invoice (auto-updates stock) | Admin |
+
+### Cart, visualizer and SEO
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST   | /api/cart/items | Add to the cart cookie (visualizer) | No (needs `X-NSI-Request: 1`) |
+| POST   | /cart/add, /cart/update, /cart/remove | Storefront form posts (antiforgery, redirect) | No |
+| GET    | /api/visualizer/products | Visualizer-enabled products | No |
+| POST   | /api/visualizer/segment, /api/visualizer/segment/{sessionToken} | Segment a photo, refine the mask | No |
+| GET    | /sitemap.xml, /robots.txt | SEO | No |
+| GET    | /api/health | Health check | No |
 
 ---
 
@@ -337,18 +380,21 @@ Detailed specification in `api-endpoints.md`. Overview:
 
 ### 8.2 Security
 - Admin password stored as bcrypt/PBKDF2 hash (ASP.NET Core Identity default).
-- JWT tokens expire after 8 hours.
+- Admin cookie `nsi_admin`: HttpOnly, Secure, SameSite=Strict, 8-hour sliding expiry. JWT tokens (API clients) expire after 8 hours.
+- CSRF: cookie-authenticated state-changing `/api` calls and `POST /api/cart/items` require the `X-NSI-Request: 1` header; storefront forms carry antiforgery tokens.
+- `ReturnUrl` after login is accepted only as a local path.
 - API validates all input (DTOs with DataAnnotations).
-- CORS configured to allow only the Blazor client origin.
+- One origin: no CORS.
 - File upload validation: JPG/PNG only, max 5MB.
 
 ### 8.3 Error Handling
 - API returns consistent error responses: `{ "error": "message" }` with appropriate HTTP status codes.
-- Blazor client shows user-friendly Bulgarian error messages.
-- Global exception handler in API middleware.
+- The admin and the visualizer show user-friendly Bulgarian error messages; storefront forms show errors under each field.
+- Exception handler middleware for `/api` (JSON). HTML pages use the designed error page ("Нещо се обърка. Опитайте отново или ни се обадете.") and a 404 page ("Тази страница не съществува.").
 
 ### 8.4 Responsive Design
-- Customer-facing pages must be mobile-friendly (Bootstrap 5 responsive grid).
+- Customer-facing pages must be mobile-friendly (Bootstrap 5 responsive grid), checked at 375, 768, 1024 and 1440 px.
+- Storefront budget: under 250 KB of HTML, CSS, JS and fonts (compressed) per page, Lighthouse mobile Performance and Accessibility at least 90, CLS under 0.1.
 - Admin panel: desktop-first, but functional on tablets.
 
 ---
