@@ -130,7 +130,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles(); // runtime uploads (/uploads)
+app.UseUploadsStaticFiles(); // runtime uploads only; everything else is MapStaticAssets
 // Explicit, and after the error branch: re-executing /error and /not-found must route the new path.
 // (The implicit UseRouting runs first in the pipeline, before the branch, so re-execution would find no endpoint.)
 app.UseRouting();
