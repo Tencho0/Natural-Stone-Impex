@@ -29,6 +29,12 @@
     <ProjectReference Include="..\NaturalStoneImpex.Client\NaturalStoneImpex.Client.csproj" />
   </ItemGroup>
 
+  <!-- wwwroot/uploads holds runtime data (admin uploads, seeded product photos). Keep it out of the static web
+       assets and the publish: UseUploadsStaticFiles serves it from disk, and a deployment keeps its own folder. -->
+  <ItemGroup>
+    <Content Remove="wwwroot\uploads\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Include="SeedData\products\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Update="SeedData\products.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
