@@ -92,6 +92,7 @@
   --bs-body-font-family: var(--font-text);
   --bs-border-color: var(--rule);
   --bs-link-color: var(--ink);
+  /* RGB triplets of --ink and --accent (Bootstrap needs the split form); keep in sync with them. */
   --bs-link-color-rgb: 28, 32, 35;
   --bs-link-hover-color-rgb: 47, 74, 92;
   --bs-link-hover-color: var(--accent);

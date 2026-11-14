@@ -1602,7 +1602,7 @@
     border-color var(--dur-hover) var(--ease);
 }
 
-.admin-ui .admin-pager__btn:hover:not(:disabled) {
+.admin-ui .admin-pager__btn:hover:not(:disabled):not(.is-current) {
   color: var(--accent);
   border-color: var(--rule);
 }
