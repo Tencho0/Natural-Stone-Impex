@@ -1,6 +1,9 @@
-namespace NaturalStoneImpex.Api.Components;
+namespace NaturalStoneImpex.Client;
 
-/// <summary>Shop contact details shown in the footer, on Contacts and on the error page.</summary>
+/// <summary>
+/// Shop contact details: the storefront footer, Contacts, the error and confirmation pages, and the admin receipt.
+/// In the Client project so the server and WebAssembly share one source (like PriceFormat).
+/// </summary>
 public static class ShopInfo
 {
     // TODO(owner): real contact data. These are the placeholders from the old Contacts page.
