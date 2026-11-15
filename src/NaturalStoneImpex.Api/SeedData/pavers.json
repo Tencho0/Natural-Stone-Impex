@@ -48,18 +48,6 @@
     "textureWidthMeters": 0.84
   },
   {
-    "name": "Паваж Холанд 6K",
-    "category": "Павета",
-    "description": "Бетонов паваж, антрацит. Размери: 10 × 10 × 6 см.",
-    "unit": "Sqm",
-    "priceWithoutVat": 19.92,
-    "vatAmount": 3.98,
-    "priceWithVat": 23.9,
-    "image": "paver-holand-6k.png",
-    "texture": "holand-6k.jpg",
-    "textureWidthMeters": 0.8
-  },
-  {
     "name": "Паваж Холанд 6P",
     "category": "Павета",
     "description": "Бетонов паваж. Размери: 10 × 20 × 6 см.",
