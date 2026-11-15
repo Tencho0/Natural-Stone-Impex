@@ -2,38 +2,14 @@
   {
     "name": "Паваж Бехатон 6",
     "category": "Павета",
-    "description": "Бетонов паваж. Размери: 20 × 16 × 6 см.",
+    "description": "Бетонов паваж, червен. Размери: 20 × 16 × 6 см.",
     "unit": "Sqm",
     "priceWithoutVat": 16.58,
     "vatAmount": 3.32,
     "priceWithVat": 19.9,
     "image": "paver-behaton-6.png",
     "texture": "behaton-6.jpg",
-    "textureWidthMeters": 0.80
-  },
-  {
-    "name": "Паваж Бехатон 8",
-    "category": "Павета",
-    "description": "Бетонов паваж. Размери: 20 × 16 × 8 см.",
-    "unit": "Sqm",
-    "priceWithoutVat": 19.08,
-    "vatAmount": 3.82,
-    "priceWithVat": 22.9,
-    "image": "paver-behaton-8.png",
-    "texture": "behaton-8.jpg",
-    "textureWidthMeters": 0.80
-  },
-  {
-    "name": "Паваж Бехатон 10",
-    "category": "Павета",
-    "description": "Бетонов паваж. Размери: 20 × 16 × 10 см.",
-    "unit": "Sqm",
-    "priceWithoutVat": 23.25,
-    "vatAmount": 4.65,
-    "priceWithVat": 27.9,
-    "image": "paver-behaton-10.png",
-    "texture": "behaton-10.jpg",
-    "textureWidthMeters": 0.80
+    "textureWidthMeters": 0.8
   },
   {
     "name": "Паваж Хексагон 6D",
@@ -45,18 +21,6 @@
     "priceWithVat": 21.9,
     "image": "paver-heksagon-6d.png",
     "texture": "heksagon-6d.jpg",
-    "textureWidthMeters": 0.92
-  },
-  {
-    "name": "Паваж Хексагон 8D",
-    "category": "Павета",
-    "description": "Бетонов паваж. Размери: 13 × 23 × 8 см.",
-    "unit": "Sqm",
-    "priceWithoutVat": 20.75,
-    "vatAmount": 4.15,
-    "priceWithVat": 24.9,
-    "image": "paver-heksagon-8d.png",
-    "texture": "heksagon-8d.jpg",
     "textureWidthMeters": 0.92
   },
   {
@@ -74,14 +38,14 @@
   {
     "name": "Паваж Холанд 6K",
     "category": "Павета",
-    "description": "Бетонов паваж. Размери: 10 × 10 × 6 см.",
+    "description": "Бетонов паваж, антрацит. Размери: 10 × 10 × 6 см.",
     "unit": "Sqm",
     "priceWithoutVat": 19.92,
     "vatAmount": 3.98,
     "priceWithVat": 23.9,
     "image": "paver-holand-6k.png",
     "texture": "holand-6k.jpg",
-    "textureWidthMeters": 0.80
+    "textureWidthMeters": 0.8
   },
   {
     "name": "Паваж Холанд 6P",
@@ -93,7 +57,7 @@
     "priceWithVat": 18.9,
     "image": "paver-holand-6p.png",
     "texture": "holand-6p.jpg",
-    "textureWidthMeters": 0.80
+    "textureWidthMeters": 0.85
   },
   {
     "name": "Паваж Холанд 6",
@@ -105,18 +69,42 @@
     "priceWithVat": 18.9,
     "image": "paver-holand-6.png",
     "texture": "holand-6.jpg",
-    "textureWidthMeters": 0.80
+    "textureWidthMeters": 0.8
   },
   {
     "name": "Паваж Холанд 6B",
     "category": "Павета",
-    "description": "Бетонов паваж. Размери: 30 × 20 × 6 см.",
+    "description": "Бетонов паваж, червено и черно. Размери: 30 × 20 × 6 см.",
     "unit": "Sqm",
     "priceWithoutVat": 17.42,
     "vatAmount": 3.48,
     "priceWithVat": 20.9,
     "image": "paver-holand-6b.png",
     "texture": "holand-6b.jpg",
-    "textureWidthMeters": 0.90
+    "textureWidthMeters": 1.5
+  },
+  {
+    "name": "Тротоарна плоча 40",
+    "category": "Павета",
+    "description": "Бетонова тротоарна плоча. Размери: 40 × 40 × 5 см.",
+    "unit": "Sqm",
+    "priceWithoutVat": 12.42,
+    "vatAmount": 2.48,
+    "priceWithVat": 14.9,
+    "image": "paver-trotoarna-plocha-40.png",
+    "texture": "trotoarna-plocha-40.jpg",
+    "textureWidthMeters": 0.8
+  },
+  {
+    "name": "Паркинг елемент",
+    "category": "Павета",
+    "description": "Бетонова тревна решетка за паркинг и алеи. Размери: 40 × 60 × 10 см.",
+    "unit": "Sqm",
+    "priceWithoutVat": 22.42,
+    "vatAmount": 4.48,
+    "priceWithVat": 26.9,
+    "image": "paver-parking-element.png",
+    "texture": "parking-element.jpg",
+    "textureWidthMeters": 1.2
   }
 ]

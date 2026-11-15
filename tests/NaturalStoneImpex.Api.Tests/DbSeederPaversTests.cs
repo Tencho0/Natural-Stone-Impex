@@ -24,8 +24,8 @@ public class DbSeederPaversTests : IDisposable
         var pavers = await check.Products.Include(p => p.Category)
             .Where(p => p.Category.Name == "Павета").ToListAsync();
 
-        Assert.Equal(10, pavers.Count);
-        Assert.Equal(10, pavers.Select(p => p.Name).Distinct().Count());
+        Assert.Equal(9, pavers.Count);
+        Assert.Equal(9, pavers.Select(p => p.Name).Distinct().Count());
         Assert.All(pavers, p =>
         {
             Assert.Equal(UnitType.Sqm, p.Unit);
@@ -52,8 +52,8 @@ public class DbSeederPaversTests : IDisposable
         }
 
         await using var check = Context();
-        Assert.Equal(10, await check.Products.CountAsync(p => p.Category.Name == "Павета"));
-        Assert.Equal(11, await check.Products.CountAsync()); // the full seed catalog is skipped: products exist
+        Assert.Equal(9, await check.Products.CountAsync(p => p.Category.Name == "Павета"));
+        Assert.Equal(10, await check.Products.CountAsync()); // the full seed catalog is skipped: products exist
     }
 
     public void Dispose()
