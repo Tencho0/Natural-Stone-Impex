@@ -145,6 +145,9 @@ This leads to:
 | Product search on catalog         | Customer |
 | Cart persistence (localStorage)   | Customer |
 
+_Superseded by the SSR redesign spec (docs/superpowers/specs/2026-11-07-storefront-redesign-ssr-design.md): the cart is the `nsi_cart` cookie, not localStorage._
+
+
 ### Future (V2+)
 | Feature                               |
 |----------------------------------------|
@@ -170,8 +173,9 @@ This leads to:
 - Stock is tracked per product as a decimal number (supports fractional units like 2.5 кг).
 - **Stock increases** when a new invoice/delivery is entered.
 - **Stock decreases** when an admin confirms an order (not when the customer places it).
-- If stock is insufficient to confirm an order, the system blocks confirmation and shows an error.
+- Stock never blocks confirming an order (owner decision, 07.11.2026). Confirmation may take stock below zero; the admin sees an inline warning with the resulting amount before confirming.
 - Out-of-stock products are shown in the catalog with an "Изчерпан" label and no add-to-cart option.
+  _Superseded by the SSR redesign spec (docs/superpowers/specs/2026-11-07-storefront-redesign-ssr-design.md): stock never blocks ordering; only products priced 0 cannot be added._
 
 ### Orders
 - Orders go through three statuses: **Чакаща** (Pending) → **Потвърдена** (Confirmed) → **Завършена** (Completed).

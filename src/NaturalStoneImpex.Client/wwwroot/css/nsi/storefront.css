@@ -1,0 +1,2208 @@
+/*
+ * Storefront shell: page frame, header, phone menu, footer and the not-found / error state.
+ * Loaded on static SSR pages only (App.razor). Page-specific rules join this file in later tasks.
+ */
+
+/* ---------- Frame ---------- */
+
+.site {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.site-main {
+  flex: 1 0 auto;
+}
+
+/* Focus targets for the skip link and enhanced navigation; they are not controls, so no ring. */
+.site-main:focus,
+.site-main h1[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.wrap {
+  width: 100%;
+  max-width: calc(var(--container-max) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* ---------- Header ---------- */
+
+.site-header {
+  position: relative;
+  z-index: 1000;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-header__bar {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-3);
+  min-height: var(--space-9);
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  margin-right: auto;
+  font-family: var(--font-display);
+  font-size: var(--text-15);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.wordmark:hover {
+  color: var(--ink);
+}
+
+.site-nav {
+  display: flex;
+  align-items: stretch;
+}
+
+.site-nav__links {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  height: 100%;
+  padding: 0 var(--space-3);
+  font-size: var(--text-15);
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+  transition: color var(--dur-hover) var(--ease);
+}
+
+.site-nav__link:hover {
+  color: var(--accent);
+}
+
+/* The active marker sits on the header's hairline. */
+.site-nav__link::after {
+  content: "";
+  position: absolute;
+  right: var(--space-3);
+  bottom: -1px;
+  left: var(--space-3);
+  height: 2px;
+  background: transparent;
+  transition: background-color var(--dur-hover) var(--ease);
+}
+
+.site-nav__link.is-active::after {
+  background: var(--accent);
+}
+
+/* On phones the cart sits flush between the wordmark and the menu toggle. */
+.site-nav__cart {
+  padding-inline: 0;
+}
+
+.site-nav__cart::after {
+  right: 0;
+  left: 0;
+}
+
+/* The word "Количка" shows from 420px; narrower phones get an outline bag, and the word stays for
+   screen readers, so the wordmark, the cart count and "Меню" fit on one line down to 320px. */
+.site-nav__cart-icon {
+  display: none;
+  font-size: var(--text-18);
+  line-height: 1;
+}
+
+@media (max-width: 419px) {
+  .site-nav__cart-icon {
+    display: inline-block;
+  }
+
+  .site-nav__cart-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 359px) {
+  .site-header__bar {
+    gap: var(--space-2);
+  }
+
+  .menu__toggle {
+    padding-left: var(--space-2);
+  }
+
+  .menu__toggle::after {
+    content: none;
+  }
+}
+
+.cart-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-6);
+  height: var(--space-6);
+  padding: 0 var(--space-1);
+  font-size: var(--text-13);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--on-accent);
+  background: var(--accent);
+  border-radius: var(--radius);
+}
+
+/* ---------- Phone menu ---------- */
+
+.menu {
+  display: flex;
+}
+
+.menu__toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: 0 0 0 var(--space-3);
+  font-size: var(--text-15);
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+/* Hairline between the cart and the menu toggle. */
+.menu__toggle::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1px;
+  height: 20px;
+  background: var(--rule);
+  transform: translateY(-50%);
+}
+
+.menu__toggle::-webkit-details-marker {
+  display: none;
+}
+
+.menu__toggle::marker {
+  content: "";
+}
+
+/* A small chevron that turns when the menu opens. */
+.menu__toggle::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-top: -4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--dur-menu) var(--ease), margin var(--dur-menu) var(--ease);
+}
+
+.menu[open] .menu__toggle::after {
+  margin-top: var(--space-1);
+  transform: rotate(225deg);
+}
+
+.menu__panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  box-shadow: var(--shadow-menu);
+}
+
+.menu[open] .menu__panel {
+  animation: menu-open var(--dur-menu) var(--ease);
+}
+
+@keyframes menu-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.menu__links {
+  margin: 0;
+  padding: 0 var(--gutter);
+  list-style: none;
+}
+
+.menu__links li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.menu__links .site-nav__link {
+  display: flex;
+  min-height: var(--space-9);
+  padding: 0;
+  font-size: var(--text-16);
+}
+
+.menu__links .site-nav__link::after {
+  content: none;
+}
+
+.menu__links .site-nav__link.is-active {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .site-header__bar {
+    gap: var(--space-6);
+  }
+
+  .wordmark {
+    font-size: var(--text-18);
+  }
+
+  .site-nav__links {
+    display: flex;
+  }
+
+  /* A hairline divides the cart from the section links. */
+  .site-nav__cart {
+    margin-left: var(--space-3);
+    padding-left: var(--space-5);
+    padding-right: 0;
+  }
+
+  .site-nav__cart::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 1px;
+    height: 20px;
+    background: var(--rule);
+    transform: translateY(-50%);
+  }
+
+  .site-nav__cart::after {
+    left: var(--space-5);
+  }
+
+  .menu {
+    display: none;
+  }
+}
+
+/* ---------- Footer ---------- */
+
+/* Columns share a first baseline. */
+.shop-footer {
+  margin-top: var(--space-10);
+  padding-top: var(--space-8);
+  font-size: var(--text-14);
+  color: var(--ink);
+  border-top: 1px solid var(--rule);
+}
+
+.shop-footer p {
+  margin: 0;
+}
+
+.shop-footer__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6) var(--space-7);
+  align-items: baseline;
+}
+
+.shop-footer__name {
+  font-family: var(--font-display);
+  font-size: var(--text-18);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.shop-footer__label {
+  font-size: var(--text-13);
+  color: var(--stone);
+}
+
+/* Rows that hold a link are 44px tall (target size); plain text keeps the body line-height,
+   so the two lines of opening hours read as one block. */
+.shop-footer__row {
+  display: flex;
+  align-items: center;
+  min-height: var(--target-min);
+}
+
+.shop-footer__row a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+}
+
+/* Lines the first text line up with the text centred in a neighbouring 44px link row. */
+.shop-footer .shop-footer__text {
+  margin-top: var(--space-3);
+  line-height: var(--leading-body);
+}
+
+.shop-footer .shop-footer__name + .shop-footer__text {
+  margin-top: var(--space-1);
+}
+
+.shop-footer .shop-footer__base {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 var(--space-6);
+  margin-top: var(--space-7);
+  padding: var(--space-2) 0 var(--space-5);
+  font-size: var(--text-13);
+  color: var(--stone);
+  border-top: 1px solid var(--rule);
+}
+
+.shop-footer__links {
+  display: flex;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shop-footer__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  font-size: var(--text-14);
+}
+
+@media (min-width: 768px) {
+  .shop-footer__grid {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 3fr) minmax(0, 3fr);
+  }
+}
+
+/* ---------- Not found and error ---------- */
+
+.state {
+  display: grid;
+  gap: var(--space-6);
+  padding-top: var(--space-8);
+}
+
+.state__title {
+  max-width: 12ch;
+  color: var(--ink);
+  margin: 0;
+  font-size: var(--text-34);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.state__body {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
+}
+
+.state__text {
+  margin: 0;
+  font-size: var(--text-18);
+  line-height: var(--leading-body);
+  max-width: 60ch; /* text measure under 70 characters */
+}
+
+.state__path {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.state__phone {
+  margin: var(--space-4) 0 var(--space-1);
+  font-family: var(--font-display);
+  font-size: var(--text-26);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.state__phone a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.18em;
+  transition: color var(--dur-hover) var(--ease), text-decoration-color var(--dur-hover) var(--ease);
+}
+
+.state__phone a:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+.state__hours {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-7);
+}
+
+@media (min-width: 768px) {
+  .state {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: var(--space-7);
+    padding-top: var(--space-10);
+  }
+
+  .state__title {
+    grid-column: 1 / span 7;
+    font-size: var(--text-48);
+  }
+
+  .state__body {
+    grid-column: 8 / -1;
+    margin-top: var(--space-2);
+  }
+}
+
+/* ---------- Home ---------- */
+
+.home-hero {
+  display: grid;
+  gap: var(--space-7);
+  padding-top: var(--space-7);
+}
+
+.home-hero__title {
+  max-width: 16ch;
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-hero);
+  font-weight: 300;
+  line-height: 1.06;
+  letter-spacing: -0.028em;
+  color: var(--ink);
+}
+
+.home-hero__lead {
+  max-width: 34ch;
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-16);
+  color: var(--stone);
+}
+
+/* The 2×2 sample board: square photos, captions under them (name left, category right). */
+.sample-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sample {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+}
+
+.sample__photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* Narrow columns stack the caption (name, then category); from 1024px they share one line. */
+.sample__caption {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-size: var(--text-13);
+  line-height: 1.4;
+}
+
+.sample__link {
+  color: var(--ink);
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+}
+
+.sample__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+}
+
+.sample__link:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.sample__link:focus-visible {
+  outline: none;
+}
+
+.sample__link:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.sample__category {
+  flex: none;
+  color: var(--stone);
+}
+
+.home-section {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+}
+
+/* Visualizer band: a full-width surface panel between hairlines. */
+.home-band {
+  margin-top: var(--space-9);
+  background: var(--surface);
+  border-block: 1px solid var(--rule);
+}
+
+.home-band__inner {
+  display: grid;
+  gap: var(--space-6);
+  padding-block: var(--space-7);
+}
+
+.home-band__photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.home-band__title {
+  max-width: 18ch;
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-26);
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+
+/* Contact strip: an intro, then the four ways to reach the shop. */
+.home-contact {
+  display: grid;
+  gap: var(--space-6);
+  margin-top: var(--space-9);
+}
+
+.home-contact__lead {
+  max-width: 46ch;
+  margin: var(--space-3) 0 0;
+  color: var(--stone);
+}
+
+.home-contact__list {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.home-contact__item {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.home-contact__item dt {
+  font-size: var(--text-13);
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.home-contact__item dd {
+  margin: 0;
+}
+
+.home-contact__item dd a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+}
+
+.home-contact__phone {
+  font-family: var(--font-display);
+  font-size: var(--text-26);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.18em;
+  transition: color var(--dur-hover) var(--ease), text-decoration-color var(--dur-hover) var(--ease);
+}
+
+.home-contact__phone:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+@media (min-width: 768px) {
+  .home-hero {
+    padding-top: var(--space-8);
+  }
+
+  .home-hero__title {
+    margin-bottom: var(--space-5);
+  }
+
+  .home-hero__lead {
+    margin-bottom: var(--space-7);
+  }
+
+  /* Tablets: the board runs as one row of four under the text. */
+  .sample-board {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+
+  .home-section {
+    gap: var(--space-5);
+    margin-top: var(--space-9);
+  }
+
+  .home-band {
+    margin-top: var(--space-10);
+  }
+
+  .home-band__inner {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: center;
+    gap: var(--space-8);
+    padding-block: var(--space-8);
+  }
+
+  .home-band--text .home-band__inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-band__title {
+    font-size: var(--text-34);
+  }
+
+  .home-contact {
+    margin-top: var(--space-10);
+  }
+
+  .home-contact__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-7);
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    align-items: center;
+    gap: var(--space-8);
+    padding-top: var(--space-9);
+  }
+
+  .home-hero--text {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sample-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5) var(--space-4);
+  }
+
+  .sample__caption {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .home-contact {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    column-gap: var(--space-8);
+    align-items: start;
+  }
+}
+
+/* ---------- Catalog ---------- */
+
+.catalog {
+  padding-top: var(--space-7);
+}
+
+.catalog-head {
+  display: grid;
+  gap: var(--space-5);
+  padding-bottom: var(--space-6);
+}
+
+.catalog-head__title {
+  margin: 0;
+  font-size: var(--text-34);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.catalog-search {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.catalog-search__row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.catalog-search__row .field-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.catalog-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* the category strip scrolls inside the column, not the page */
+  gap: var(--space-6);
+}
+
+.catalog-cats__title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-text);
+  font-size: var(--text-14);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--stone);
+}
+
+.catalog-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.catalog-status__text {
+  margin: 0;
+  font-size: var(--text-14);
+  color: var(--stone);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Empty: the status line becomes the message. */
+.catalog-status__text--empty {
+  font-family: var(--font-display);
+  font-size: var(--text-22);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.catalog-status__clear {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  font-size: var(--text-14);
+}
+
+.catalog-noresults {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.catalog-noresults__hint {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--stone);
+}
+
+.catalog-noresults__action {
+  margin: 0;
+}
+
+.catalog-noresults__index {
+  margin-top: var(--space-4);
+}
+
+.catalog .product-grid--catalog + .pager {
+  margin-top: var(--space-8);
+}
+
+/* Phones and tablets: the categories scroll sideways above the grid, edge to edge. */
+@media (max-width: 1023.98px) {
+  .catalog-cats__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* position: relative keeps the visually hidden counts inside the scroller; otherwise they widen the page. */
+  .catalog-cats .cat-index {
+    position: relative;
+    display: flex;
+    gap: var(--space-5);
+    margin-inline: calc(-1 * var(--gutter));
+    padding-inline: var(--gutter);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .catalog-cats .cat-index::-webkit-scrollbar {
+    display: none;
+  }
+
+  .catalog-cats .cat-index__item {
+    flex: none;
+    border-bottom: 0;
+  }
+
+  .catalog-cats .cat-index__link {
+    grid-template-columns: 40px auto auto;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+  }
+
+  .catalog-cats .cat-index__thumb {
+    width: 40px;
+    height: 40px;
+  }
+
+  .catalog-cats .cat-index__name {
+    white-space: nowrap;
+  }
+
+  /* Nothing found: the full list under the message replaces the strip. */
+  .catalog--empty .catalog-cats {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .catalog {
+    padding-top: var(--space-8);
+  }
+
+  .catalog-head {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+    align-items: end;
+    column-gap: var(--space-8);
+    padding-bottom: var(--space-7);
+  }
+
+  .catalog-head__title {
+    font-size: var(--text-48);
+  }
+
+  .product-grid--catalog {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Desktop: the category index on the left, the grid on the right. */
+@media (min-width: 1024px) {
+  .catalog-body {
+    grid-template-columns: 240px minmax(0, 1fr);
+    column-gap: var(--space-8);
+    align-items: start;
+  }
+
+  .catalog-noresults__index {
+    display: none;
+  }
+}
+
+@media (min-width: 1280px) {
+  .product-grid--catalog {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Product ---------- */
+
+/* Phones: crumbs, photo, then the purchase block. From 768px: photo left, purchase block right. */
+.product-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  padding-top: var(--space-4);
+}
+
+.product-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-13);
+  color: var(--stone);
+}
+
+/* The separator ends the previous item, so a wrapped line never starts with "/". */
+.product-crumbs li:not(:last-child)::after {
+  content: "/" / "";
+  margin-left: var(--space-2);
+  color: var(--stone);
+}
+
+.product-crumbs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  color: var(--stone);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.2em;
+  transition: color var(--dur-hover) var(--ease), text-decoration-color var(--dur-hover) var(--ease);
+}
+
+.product-crumbs a:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+.product-crumbs [aria-current] {
+  color: var(--ink);
+}
+
+/* The photo at 4:3, the hint under it. */
+.product-photo {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+
+.product-photo__zoom {
+  display: block;
+  border-radius: var(--radius);
+  cursor: zoom-in;
+}
+
+.product-photo__zoom img,
+.product-photo__none {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.product-photo__none {
+  display: grid;
+  place-items: center;
+  font-size: var(--text-13);
+  color: var(--stone);
+  border: 1px solid var(--rule);
+}
+
+.product-photo__hint {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--stone);
+}
+
+.product-info {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  min-width: 0;
+}
+
+.product-info__head {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.product-info__kind {
+  margin: 0;
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.product-info__title {
+  margin: 0;
+  font-size: var(--text-34);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.product-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.product-price__amount {
+  font-size: var(--text-26);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.product-price__note {
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.product-stock {
+  margin: 0;
+  font-size: var(--text-14);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Priced 0: no availability and no calculator. One body sentence with the shop phone, in the calculator's
+   hairline group (R21). */
+.product-ask {
+  margin: 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+  font-size: var(--text-16);
+}
+
+/* Same size as the sentence. The block padding takes the hit area to 44px without moving the line. */
+.product-ask__phone {
+  padding-block: 12px;
+  font-weight: 500;
+  white-space: nowrap; /* never split the number */
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.18em;
+  transition: color var(--dur-hover) var(--ease), text-decoration-color var(--dur-hover) var(--ease);
+}
+
+.product-ask__phone:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+/* Calculator: mode switch, fields, waste allowance, result line, the button that names the amount. */
+.product-calc {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.product-calc__title,
+.product-desc__title {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-15);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.product-calc .seg {
+  justify-self: start;
+}
+
+.product-calc__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+/* Without JS too: the checked mode shows its fields. Both groups stay in the form; the server reads one. */
+.product-calc:has(#calc-mode-dims:checked) .product-calc__fields--area,
+.product-calc:has(#calc-mode-area:checked) .product-calc__fields--dims {
+  display: none;
+}
+
+.product-calc__waste {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  justify-self: start;
+  min-height: var(--target-min);
+  font-size: var(--text-14);
+  cursor: pointer;
+}
+
+.product-calc__waste input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.product-calc__note {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--stone);
+}
+
+.product-calc__result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  min-height: calc(var(--space-4) + 1.75rem);
+  margin: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
+  font-variant-numeric: tabular-nums;
+}
+
+.product-calc__qty {
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.product-calc__total {
+  font-size: var(--text-22);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.btn-primary.product-calc__submit {
+  width: 100%;
+  min-height: 48px;
+}
+
+.product-after {
+  max-width: 60ch;
+  margin: 0;
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+/* The description holds codes and notes; plain text with its line breaks. */
+.product-desc {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.product-desc__text {
+  max-width: 60ch;
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* Full-size photo (zoom.js): a modal dialog, the caption and the close button under the photo.
+   --zoom-bar is the caption bar's height (hairline, padding, 44px button), which the photo leaves free. */
+.photo-zoom {
+  --zoom-bar: calc(1px + 2 * var(--space-3) + var(--target-min));
+  max-width: calc(100vw - 2 * var(--gutter));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: 0;
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--radius);
+}
+
+.photo-zoom::backdrop {
+  background: color-mix(in srgb, var(--ink) 85%, transparent);
+}
+
+.photo-zoom__img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: calc(100dvh - 2 * var(--gutter) - var(--zoom-bar));
+  margin-inline: auto;
+}
+
+.photo-zoom__bar {
+  box-sizing: border-box;
+  min-height: var(--zoom-bar);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--rule);
+}
+
+.photo-zoom__title {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-14);
+}
+
+.photo-zoom__close {
+  flex: none;
+}
+
+@media (min-width: 768px) {
+  .product-page {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    column-gap: var(--space-8);
+    row-gap: var(--space-5);
+    align-items: start;
+    padding-top: var(--space-5);
+  }
+
+  .product-crumbs {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1024px) {
+  .product-page {
+    column-gap: var(--space-9);
+  }
+}
+
+/* ---------- Cart ---------- */
+
+/*
+ * Phones: each line is photo + name block, then the quantity control and the line total, under a hairline.
+ * From 768px: one row per line (photo, name block, quantity, total) under quiet column labels.
+ * From 1024px: the summary sits to the right of the lines.
+ */
+.cart {
+  padding-top: var(--space-7);
+}
+
+.cart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  padding-bottom: var(--space-6);
+}
+
+.cart-head__title {
+  margin: 0;
+  font-size: var(--text-34);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.cart-head__count {
+  margin: 0;
+  font-size: var(--text-15);
+  color: var(--stone);
+}
+
+.cart-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-8);
+}
+
+.cart-cols {
+  display: none;
+}
+
+.cart-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.cart-line {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "photo info info"
+    "qty   qty  total";
+  gap: var(--space-3) var(--space-4);
+  align-items: center;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.cart-line__photo {
+  grid-area: photo;
+  align-self: start;
+  width: 64px;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.cart-line__photo:empty {
+  border: 1px solid var(--rule);
+}
+
+.cart-line__photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cart-line__info {
+  grid-area: info;
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+  min-width: 0;
+}
+
+.cart-line__name {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-16);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.cart-line__name a {
+  color: var(--ink);
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+}
+
+.cart-line__name a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+
+.cart-line__price {
+  margin: 0;
+  font-size: var(--text-14);
+}
+
+.cart-line__price span,
+.cart-line__price--off {
+  color: var(--stone);
+}
+
+.cart-line__note {
+  margin: 0;
+  font-size: var(--text-14);
+  font-weight: 500;
+}
+
+/* --warn text is 4.4:1 on --paper, under the 4.5:1 floor, so the text stays ink and --warn marks it. */
+.cart-line__note--back {
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--warn);
+}
+
+/* Not orderable (no price, or out of sale): neutral ink, not an error. The price-0 reason carries the
+   shop phone, styled as on the product page (.product-ask__phone). */
+.cart-line__note--off {
+  color: var(--ink);
+}
+
+/* The remove form sits under the name: a tertiary link whose hit area reaches 44px without adding height. */
+.cart-line__remove {
+  margin: 0;
+}
+
+.cart-remove {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  margin-block: -10px;
+  padding: 0;
+  font-size: var(--text-14);
+  color: var(--stone);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  transition: color var(--dur-hover) var(--ease), text-decoration-color var(--dur-hover) var(--ease);
+}
+
+.cart-remove:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+/* Quantity: −, the field and + as one joined control, then the unit. */
+.cart-qty {
+  grid-area: qty;
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.cart-qty__step {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--target-min);
+  height: var(--target-min);
+  padding: 0;
+  font-size: var(--text-16);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease),
+    transform var(--dur-press) var(--ease);
+}
+
+.cart-qty__step:hover {
+  color: var(--accent);
+  border-color: var(--stone);
+}
+
+.cart-qty__step:active {
+  transform: translateY(1px);
+}
+
+.cart-qty__input {
+  width: 6.5em;
+  height: var(--target-min);
+  margin-inline: -1px; /* share the borders with the buttons */
+  padding: 0 var(--space-2);
+  font-family: var(--font-text);
+  font-size: var(--text-16); /* 16px stops iOS from zooming into the field */
+  text-align: center;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+}
+
+.cart-qty__step:focus-visible,
+.cart-qty__input:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-color: var(--accent);
+}
+
+.cart-qty__unit {
+  margin-left: var(--space-2);
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.cart-line__total {
+  grid-area: total;
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Lines that cannot be ordered: muted, the reason in the name block, no control and no total. On phones
+   there is no second row (the 768px rule below restores the full template). */
+.cart-line--off {
+  grid-template-areas: "photo info info";
+}
+
+.cart-line--off .cart-line__photo img {
+  opacity: 0.55;
+}
+
+.cart-line--off .cart-line__name {
+  color: var(--stone);
+}
+
+/* Summary */
+.cart-summary {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+/* A quiet label like the column labels, so on desktop both hairlines start on one line. */
+.cart-summary__title {
+  margin: 0 0 calc(var(--space-2) - var(--space-4));
+  font-family: var(--font-text);
+  font-size: var(--text-13);
+  font-weight: 400;
+  line-height: var(--leading-body);
+  letter-spacing: 0;
+  color: var(--stone);
+}
+
+.cart-totals {
+  font-size: var(--text-15);
+}
+
+.cart-totals > li > span:first-child {
+  color: var(--stone);
+}
+
+.cart-totals > li.cart-totals__grand > span {
+  font-size: var(--text-18);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.cart-summary__note,
+.cart-summary__delivery,
+.cart-summary__blocked {
+  margin: 0;
+  font-size: var(--text-14);
+}
+
+.cart-summary__note {
+  margin-top: var(--space-3);
+  color: var(--stone);
+}
+
+.cart-summary__blocked {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule);
+  color: var(--ink);
+}
+
+.btn-primary.cart-summary__go {
+  width: 100%;
+  min-height: 48px;
+}
+
+.cart-summary__more {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: var(--target-min);
+  font-size: var(--text-14);
+}
+
+/* Empty cart */
+.cart-empty {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.cart-empty__lead {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.cart-empty__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-26);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.cart-empty__text {
+  max-width: 60ch;
+  margin: 0 0 var(--space-3);
+  color: var(--stone);
+}
+
+.cart-empty__cats-title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-text);
+  font-size: var(--text-14);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--stone);
+}
+
+@media (min-width: 768px) {
+  .cart {
+    padding-top: var(--space-8);
+  }
+
+  .cart-head {
+    padding-bottom: var(--space-7);
+  }
+
+  .cart-head__title {
+    font-size: var(--text-48);
+  }
+
+  .cart-cols,
+  .cart-line {
+    grid-template-columns: 88px minmax(0, 1fr) 15rem 7.5rem;
+    column-gap: var(--space-6);
+  }
+
+  .cart-cols {
+    display: grid;
+    padding-bottom: var(--space-2);
+    font-size: var(--text-13);
+    color: var(--stone);
+  }
+
+  .cart-cols > :first-child {
+    grid-column: 1 / 3;
+  }
+
+  .cart-cols > :last-child {
+    text-align: right;
+  }
+
+  .cart-line {
+    grid-template-areas: "photo info qty total";
+    padding: var(--space-5) 0;
+  }
+
+  .cart-line__photo {
+    width: 88px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .cart-body {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    column-gap: var(--space-9);
+    align-items: start;
+  }
+}
+
+/* ---------- Checkout ---------- */
+
+/*
+ * Phones and tablets: the form, then the order summary, then a bar that keeps the total and the button at the
+ * bottom of the screen. From 1024px: the summary is a column on the right that stays in view, with its own button.
+ */
+.checkout {
+  padding-top: var(--space-7);
+}
+
+.checkout-head {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-6);
+}
+
+.checkout-head__title {
+  margin: 0;
+  font-size: var(--text-34);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.checkout-head__lead {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--stone);
+}
+
+.checkout-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-8);
+}
+
+.checkout-main {
+  display: grid;
+  gap: var(--space-7);
+  align-content: start;
+}
+
+/* Problems after a post: the summary of field errors, or why the order was not sent. */
+.checkout-problems {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+.checkout-problems:focus {
+  outline: none;
+}
+
+.checkout-problems__title {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-16);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--danger);
+}
+
+.checkout-problems__text {
+  max-width: 60ch;
+  margin: 0;
+}
+
+.checkout-problems__list {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.checkout-problems__cart {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  margin-block: -12px; /* a 44px target without spreading the box */
+}
+
+/* Block links: 44px targets that also hold when a message wraps on a phone. */
+.checkout-problems__list a {
+  display: block;
+  min-height: var(--target-min);
+  padding-block: var(--space-3);
+  color: var(--danger);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.checkout-section {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-5) 0 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+/* The first section starts level with the summary's label, under the page head's space, not a hairline. */
+.checkout-section:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.checkout-section__title {
+  /* Floated, so it is an ordinary grid item and not drawn in the fieldset's top border. */
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-text);
+  font-size: var(--text-16);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.checkout-seg {
+  display: flex;
+  width: 100%;
+  max-width: 28rem;
+}
+
+.checkout-seg .seg-option {
+  flex: 1 1 0;
+  padding-inline: var(--space-2);
+  text-align: center;
+}
+
+.checkout-fields {
+  display: grid;
+  gap: var(--space-3) var(--space-5);
+}
+
+/* Summary */
+.checkout-summary {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.checkout-summary__title {
+  margin: 0 0 calc(var(--space-2) - var(--space-4));
+  font-family: var(--font-text);
+  font-size: var(--text-13);
+  font-weight: 400;
+  line-height: var(--leading-body);
+  letter-spacing: 0;
+  color: var(--stone);
+}
+
+.checkout-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.checkout-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--text-14);
+}
+
+.checkout-item:last-child {
+  border-bottom: 0; /* the totals' top hairline follows */
+}
+
+.checkout-item__name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.checkout-item__total {
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.checkout-item__qty {
+  grid-column: 1 / -1;
+  color: var(--stone);
+}
+
+/* Ink text with a --warn mark, as in the cart (--warn text fails 4.5:1 on --paper). */
+.checkout-item__note {
+  grid-column: 1 / -1;
+  padding-left: var(--space-2);
+  font-weight: 500;
+  border-left: 2px solid var(--warn);
+}
+
+.checkout-totals > li > span:first-child {
+  color: var(--stone);
+}
+
+.checkout-totals > li.checkout-totals__grand > span {
+  font-size: var(--text-18);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.checkout-summary__note {
+  margin: 0;
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.btn-primary.checkout-summary__go {
+  display: none;
+  width: 100%;
+  min-height: 48px;
+}
+
+.checkout-summary__cart {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: var(--target-min);
+  font-size: var(--text-14);
+}
+
+/* The bottom bar on phones and tablets. */
+.checkout-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin: calc(var(--space-4) - var(--space-8)) calc(-1 * var(--gutter)) 0; /* 16px after the summary, edge to edge */
+  padding: var(--space-3) var(--gutter);
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+}
+
+.checkout-bar__total {
+  display: grid;
+  margin: 0;
+  font-size: var(--text-18);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.checkout-bar__label {
+  font-size: var(--text-13);
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.btn-primary.checkout-bar__go {
+  min-height: 48px;
+}
+
+/* Disabled while the order is being sent (checkout.js); not the greyed "cannot" look. */
+.checkout-body[aria-busy="true"] .btn-primary:disabled {
+  cursor: progress;
+  opacity: 0.8;
+}
+
+@media (min-width: 640px) {
+  .checkout-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .checkout-fields--one {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .checkout {
+    padding-top: var(--space-8);
+  }
+
+  .checkout-head {
+    padding-bottom: var(--space-7);
+  }
+
+  .checkout-head__title {
+    font-size: var(--text-48);
+  }
+}
+
+@media (min-width: 1024px) {
+  .checkout-body {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    column-gap: var(--space-9);
+    align-items: start;
+  }
+
+  .checkout-summary {
+    position: sticky;
+    top: var(--space-6);
+  }
+
+  .btn-primary.checkout-summary__go {
+    display: inline-flex;
+  }
+
+  .checkout-bar {
+    display: none;
+  }
+}
+
+/* ---------- Order confirmation ---------- */
+
+.confirm {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-8);
+}
+
+.confirm__title {
+  max-width: 22em;
+  margin: 0;
+  font-size: var(--text-26);
+  font-weight: 300;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.confirm__number {
+  white-space: nowrap;
+}
+
+.confirm__text {
+  max-width: 60ch;
+  margin: 0;
+  font-size: var(--text-16);
+}
+
+.confirm__shop {
+  display: grid;
+  gap: var(--space-4);
+  width: 100%;
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.confirm__shop dt {
+  font-size: var(--text-13);
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.confirm__shop dd {
+  margin: 0;
+}
+
+.confirm__more {
+  margin-top: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .confirm {
+    padding-top: var(--space-10);
+  }
+
+  .confirm__title {
+    font-size: var(--text-34);
+  }
+
+  .confirm__shop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-6);
+  }
+}
+
+/* ---------- Contacts ---------- */
+
+.contacts {
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-9);
+}
+
+.contacts__title {
+  margin: 0 0 var(--space-7);
+  font-size: var(--text-34);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.contacts__list {
+  margin: 0;
+  max-width: 44rem;
+  border-top: 1px solid var(--rule);
+}
+
+.contacts__row {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.contacts__label {
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+.contacts__value {
+  margin: 0;
+  font-size: var(--text-18);
+  line-height: var(--leading-body);
+}
+
+.contacts__value--lead {
+  font-family: var(--font-display);
+  font-size: var(--text-26);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.contacts__address {
+  font-style: normal;
+}
+
+.contacts__map {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* target size */
+  font-size: var(--text-16);
+}
+
+.contacts__hours {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contacts__note {
+  max-width: 44rem;
+  margin: var(--space-6) 0 0;
+  font-size: var(--text-14);
+  color: var(--stone);
+}
+
+@media (min-width: 768px) {
+  .contacts {
+    padding-top: var(--space-10);
+  }
+
+  .contacts__title {
+    font-size: var(--text-48);
+  }
+
+  .contacts__row {
+    grid-template-columns: 12rem minmax(0, 1fr);
+    column-gap: var(--space-6);
+    align-items: baseline;
+  }
+}

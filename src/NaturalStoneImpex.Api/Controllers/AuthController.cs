@@ -1,4 +1,7 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NaturalStoneImpex.Api.Auth;
 using NaturalStoneImpex.Api.Models.DTOs;
 using NaturalStoneImpex.Api.Services;
 
@@ -21,8 +24,20 @@ public class AuthController : ControllerBase
         var response = await _authService.LoginAsync(request);
 
         if (response is null)
-            return Unauthorized(new { error = "Невалидно потребителско иметo или парола." });
+            return Unauthorized(new { error = "Невалидно потребителско име или парола." });
 
         return Ok(response);
+    }
+
+    [Authorize]
+    [HttpGet("me")]
+    public IActionResult Me()
+        => Ok(new { username = User.FindFirst("username")?.Value ?? User.Identity!.Name });
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        await HttpContext.SignOutAsync(AuthSchemes.Cookie);
+        return NoContent();
     }
 }

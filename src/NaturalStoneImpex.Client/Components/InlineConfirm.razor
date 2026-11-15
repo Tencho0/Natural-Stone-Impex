@@ -1,0 +1,192 @@
+@* An action button that asks in place before it acts, with no modal (spec 7.9). Styles: .inline-confirm in admin.css.
+   The parent owns Open, so a page can keep only one confirm open at a time.
+   Keyboard: opening moves focus to "Не", the safe answer, so a stray Enter never acts; the group is labelled by the
+   question and described by the warnings, so screen readers read both on entry. Escape or "Не" closes it and
+   returns focus to the trigger. While "Да" runs, both answers and Escape are ignored. *@
+
+@if (!Open)
+{
+    <button type="button" class="btn @TriggerClass" @ref="_trigger" @onclick="OpenAsync"
+            aria-label="@TriggerAriaLabel" aria-disabled="@(_preparing ? "true" : null)">
+        @if (_preparing)
+        {
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+        }
+        @Label
+    </button>
+}
+else
+{
+    <div class="inline-confirm" role="group" aria-labelledby="@_questionId"
+         aria-describedby="@(_prompt.Warnings.Count > 0 ? _warningsId : null)" @onkeydown="OnKeyDownAsync">
+        @if (_prompt.Warnings.Count > 0)
+        {
+            <div class="inline-confirm__warnings" id="@_warningsId">
+                @foreach (var warning in _prompt.Warnings)
+                {
+                    <p class="inline-confirm__text inline-confirm__text--warn">@warning</p>
+                }
+            </div>
+        }
+        <p class="inline-confirm__text" id="@_questionId">@_prompt.Question</p>
+        <span class="inline-confirm__actions">
+            <button type="button" class="btn btn-primary btn-sm" @onclick="YesAsync" aria-disabled="@(_busy ? "true" : null)">
+                @if (_busy)
+                {
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                }
+                Да
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" @ref="_no" @onclick="CancelAsync" aria-disabled="@(_busy ? "true" : null)">Не</button>
+        </span>
+        <span class="visually-hidden" role="status">@(_busy ? "Изчакайте." : null)</span>
+        @if (_error is not null)
+        {
+            <p class="inline-confirm__error" role="alert">@_error</p>
+        }
+    </div>
+}
+
+@code {
+    private static int _nextId;
+    private readonly string _questionId = $"ic-q-{++_nextId}";
+    private readonly string _warningsId = $"ic-w-{_nextId}";
+
+    private ElementReference _trigger;
+    private ElementReference _no;
+    private ConfirmPrompt _prompt = new(string.Empty);
+    private bool _preparing;
+    private bool _busy;
+    private string? _error;
+    private bool _focusNo;
+    private bool _focusTrigger;
+
+    /// <summary>The trigger's visible text, e.g. "Потвърди".</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+
+    /// <summary>Accessible name when the visible label repeats across rows, e.g. "Потвърди поръчка NSI-…".</summary>
+    [Parameter] public string? TriggerAriaLabel { get; set; }
+
+    [Parameter] public string TriggerClass { get; set; } = "btn-primary";
+
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The question when <see cref="Prepare"/> is not set or fails.</summary>
+    [Parameter] public string Question { get; set; } = string.Empty;
+
+    /// <summary>Optional: builds the prompt when the trigger is pressed (for example, after a stock check).</summary>
+    [Parameter] public Func<Task<ConfirmPrompt>>? Prepare { get; set; }
+
+    /// <summary>Runs on "Да". Returns null on success, or a Bulgarian error that is shown inline.</summary>
+    [Parameter, EditorRequired] public Func<Task<string?>> Action { get; set; } = default!;
+
+    /// <summary>Shown inline when <see cref="Action"/> throws.</summary>
+    [Parameter] public string FailureText { get; set; } = "Действието не беше изпълнено. Проверете връзката и опитайте отново.";
+
+    /// <summary>Raised after a successful action while the confirm is still open and busy; it closes once this completes.</summary>
+    [Parameter] public EventCallback Done { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!Open)
+        {
+            _busy = false;
+            _error = null;
+        }
+    }
+
+    private async Task OpenAsync()
+    {
+        if (_preparing)
+            return;
+
+        _error = null;
+        _prompt = new ConfirmPrompt(Question);
+        if (Prepare is not null)
+        {
+            _preparing = true;
+            try
+            {
+                _prompt = await Prepare();
+            }
+            catch
+            {
+                // Prepare only adds detail; the question still stands without it.
+            }
+            finally
+            {
+                _preparing = false;
+            }
+        }
+
+        _focusNo = true;
+        await OpenChanged.InvokeAsync(true);
+    }
+
+    private async Task YesAsync()
+    {
+        if (_busy)
+            return;
+
+        _busy = true;
+        _error = null;
+        string? error;
+        try
+        {
+            error = await Action();
+        }
+        catch
+        {
+            error = FailureText;
+        }
+
+        if (error is not null)
+        {
+            _busy = false;
+            _error = error;
+            return;
+        }
+
+        // Stay busy until Done (the parent's refresh) completes, then close. Closing first would bring the trigger
+        // back over stale data, where it could be pressed again against stock that is already reduced.
+        try
+        {
+            await Done.InvokeAsync();
+        }
+        finally
+        {
+            _busy = false;
+            await OpenChanged.InvokeAsync(false);
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        if (_busy)
+            return;
+
+        _focusTrigger = true;
+        await OpenChanged.InvokeAsync(false);
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+            await CancelAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusNo && Open)
+        {
+            _focusNo = false;
+            await _no.FocusAsync();
+        }
+        else if (_focusTrigger && !Open)
+        {
+            _focusTrigger = false;
+            await _trigger.FocusAsync();
+        }
+    }
+}

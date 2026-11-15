@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NaturalStoneImpex.Api.Data;
 using NaturalStoneImpex.Api.Models.DTOs;
 using NaturalStoneImpex.Api.Models.Entities;
+using NaturalStoneImpex.Api.Storefront;
 
 namespace NaturalStoneImpex.Api.Services;
 
@@ -86,6 +87,10 @@ public class OrderService : IOrderService
 
             if (!product.IsActive)
                 throw new InvalidOperationException($"Продукт '{product.Name}' не е наличен.");
+
+            // m² sell in whole units (the storefront rounds up before it gets here).
+            if (SaleUnits.IsWhole((int)product.Unit) && item.Quantity != decimal.Truncate(item.Quantity))
+                throw new InvalidOperationException(SaleUnits.NotWholeError);
         }
 
         // Generate order number
@@ -162,6 +167,8 @@ public class OrderService : IOrderService
 
         var totalCount = await query.CountAsync();
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        // Past the last page returns the last page (and keeps (page - 1) * pageSize from overflowing int).
+        page = Math.Min(page, Math.Max(1, totalPages));
 
         var orders = await query
             .OrderByDescending(o => o.CreatedAt)
@@ -194,6 +201,41 @@ public class OrderService : IOrderService
         return MapToDetailDto(order);
     }
 
+    public async Task<List<InsufficientStockDetail>> GetStockShortagesAsync(int id)
+    {
+        var order = await _context.Orders
+            .AsNoTracking()
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order is null)
+            throw new KeyNotFoundException("Поръчката не е намерена.");
+
+        var productIds = order.Items.Select(i => i.ProductId).Distinct().ToList();
+        var products = await _context.Products
+            .AsNoTracking()
+            .Where(p => productIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id);
+
+        // Sum per product so two lines of the same product are checked together.
+        return order.Items
+            .Where(i => products.ContainsKey(i.ProductId))
+            .GroupBy(i => i.ProductId)
+            .Select(g =>
+            {
+                var product = products[g.Key];
+                return new InsufficientStockDetail
+                {
+                    ProductName = product.Name,
+                    Ordered = g.Sum(i => i.Quantity),
+                    Available = product.StockQuantity,
+                    Unit = product.Unit == UnitType.Kg ? "кг" : "м²"
+                };
+            })
+            .Where(d => d.Available - d.Ordered < 0)
+            .ToList();
+    }
+
     public async Task<object> ConfirmAsync(int id)
     {
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -217,39 +259,14 @@ public class OrderService : IOrderService
             .Where(p => productIds.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id);
 
-        // Check stock for ALL items, collect all shortages
-        var shortages = new List<InsufficientStockDetail>();
-        foreach (var item in order.Items)
-        {
-            if (products.TryGetValue(item.ProductId, out var product))
-            {
-                if (product.StockQuantity < item.Quantity)
-                {
-                    shortages.Add(new InsufficientStockDetail
-                    {
-                        ProductName = item.ProductName,
-                        Ordered = item.Quantity,
-                        Available = product.StockQuantity,
-                        Unit = item.Unit == UnitType.Kg ? "кг" : "м²"
-                    });
-                }
-            }
-        }
-
-        if (shortages.Count > 0)
-        {
-            return new OrderConfirmErrorDto
-            {
-                Error = "Недостатъчна наличност за следните продукти:",
-                Details = shortages
-            };
-        }
-
+        // Stock may go below zero: confirmation never blocks (owner decision, 07.11.2026).
+        // The admin sees the shortages beforehand through GetStockShortagesAsync.
         // Decrement stock
         var now = DateTime.UtcNow;
         foreach (var item in order.Items)
         {
-            var product = products[item.ProductId];
+            if (!products.TryGetValue(item.ProductId, out var product))
+                continue;
             product.StockQuantity -= item.Quantity;
             product.UpdatedAt = now;
         }

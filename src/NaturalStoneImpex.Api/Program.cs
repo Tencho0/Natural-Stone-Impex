@@ -1,10 +1,12 @@
 using System.Text;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using NaturalStoneImpex.Api.Auth;
+using NaturalStoneImpex.Api.Components;
 using NaturalStoneImpex.Api.Data;
 using NaturalStoneImpex.Api.Data.Seed;
+using NaturalStoneImpex.Api.Endpoints;
 using NaturalStoneImpex.Api.Middleware;
 using NaturalStoneImpex.Api.Models.Entities;
 using NaturalStoneImpex.Api.Services;
@@ -16,30 +18,45 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// CORS
-var clientUrl = builder.Configuration["ClientUrl"] ?? "https://localhost:5002";
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("BlazorClient", policy =>
-    {
-        policy.WithOrigins(clientUrl)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-    });
-});
-
-// JWT Authentication
+// Authentication: admin cookie for the browser, JWT Bearer for API clients and Swagger.
+// The policy scheme picks Bearer when an "Authorization: Bearer ..." header is present.
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"]
     ?? throw new InvalidOperationException("JwtSettings:SecretKey is not configured.");
 
-builder.Services.AddAuthentication(options =>
+builder.Services.AddAuthentication(AuthSchemes.Policy)
+.AddPolicyScheme(AuthSchemes.Policy, null, options =>
+    options.ForwardDefaultSelector = AuthSchemes.Select)
+.AddCookie(AuthSchemes.Cookie, options =>
 {
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.Cookie.Name = "nsi_admin";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = true;
+    options.LoginPath = "/admin/login";
+    options.AccessDeniedPath = "/admin/login";
+
+    // API calls get a status code, not a redirect to the login page.
+    options.Events.OnRedirectToLogin = context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        else
+            context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        else
+            context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
 })
-.AddJwtBearer(options =>
+.AddJwtBearer(AuthSchemes.Bearer, options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -76,7 +93,15 @@ builder.Services.AddSingleton<ISamModel>(sp =>
 builder.Services.AddScoped<ISegmentationService, SegmentationService>();
 builder.Services.AddHostedService<VisualizationRequestCleanupService>();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<NaturalStoneImpex.Api.Storefront.ICartStore, NaturalStoneImpex.Api.Storefront.CartStore>();
+builder.Services.AddScoped<NaturalStoneImpex.Api.Storefront.IStorefrontQueryService, NaturalStoneImpex.Api.Storefront.StorefrontQueryService>();
+builder.Services.AddSingleton<NaturalStoneImpex.Api.Storefront.CheckoutGuard>();
+builder.Services.AddScoped<NaturalStoneImpex.Api.Storefront.CheckoutHandler>();
+
 builder.Services.AddControllers();
+builder.Services.AddRazorComponents()
+    .AddInteractiveWebAssemblyComponents();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -90,8 +115,13 @@ using (var scope = app.Services.CreateScope())
     await DbSeeder.SeedAsync(db, app.Environment.WebRootPath);
 }
 
-// Exception handling middleware
-app.UseMiddleware<ExceptionHandlingMiddleware>();
+// Errors: /api keeps its JSON middleware; everything else gets the designed error and not-found pages.
+app.UseWhen(ctx => ctx.Request.Path.StartsWithSegments("/api"),
+    b => b.UseMiddleware<ExceptionHandlingMiddleware>());
+// R11: HEAD to a storefront page runs as GET without a body. Outside the error pages, so the re-executed
+// /not-found and /error pages run under it too and their bodies are dropped as well.
+app.UseHeadAsGet();
+app.UseStorefrontErrorPages(app.Environment.IsDevelopment());
 
 if (app.Environment.IsDevelopment())
 {
@@ -100,18 +130,23 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles(new StaticFileOptions
-{
-    // Product/texture images are public; allow the Blazor client (different port)
-    // to load them into WebGL without tainting the canvas.
-    OnPrepareResponse = ctx =>
-        ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*")
-});
-app.UseCors("BlazorClient");
+app.UseUploadsStaticFiles(); // runtime uploads only; everything else is MapStaticAssets
+// Explicit, and after the error branch: re-executing /error and /not-found must route the new path.
+// (The implicit UseRouting runs first in the pipeline, before the branch, so re-execution would find no endpoint.)
+app.UseRouting();
 app.UseAuthentication();
+app.UseMiddleware<AdminCsrfHeaderMiddleware>();
 app.UseAuthorization();
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveWebAssemblyRenderMode()
+    .AddAdditionalAssemblies(typeof(NaturalStoneImpex.Client._Imports).Assembly);
 
 app.MapControllers();
+app.MapCartEndpoints();
+app.MapSeoEndpoints();
 
 // Health check endpoint
 app.MapGet("/api/health", () => Results.Ok(new

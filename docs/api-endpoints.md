@@ -2,11 +2,17 @@
 
 ## Overview
 
-Base URL: `https://localhost:5001/api`
+Base URL: `https://localhost:5001/api`. The API, the storefront and the admin are served by one host on one origin (no CORS).
 
 All endpoints return JSON. All request bodies are JSON (`Content-Type: application/json`) unless specified otherwise (image upload uses `multipart/form-data`).
 
-**Authentication**: Admin endpoints require `Authorization: Bearer {jwt_token}` header. Public endpoints require no authentication.
+**Authentication** ("Admin" below): either the admin cookie or a JWT. A policy scheme picks JWT Bearer when the request has an `Authorization: Bearer {jwt_token}` header, and the cookie otherwise.
+- **Cookie** `nsi_admin` (HttpOnly, Secure, SameSite=Strict, 8 hours sliding). The admin UI signs in on the static SSR page `/admin/login`, which sets it. A signed-out API call gets `401`, never a redirect.
+- **JWT**: `POST /api/auth/login` still issues tokens for API clients, tests and Swagger.
+
+Public endpoints require no authentication.
+
+**CSRF header**: state-changing `/api` calls (POST, PUT, PATCH, DELETE) that are authenticated by the cookie, and every `POST /api/cart/items`, must send `X-NSI-Request: 1`. Without it the response is `400 { "error": "Невалидна заявка." }`. The WebAssembly client always sends it. Bearer-authenticated and anonymous calls (other than the cart) do not need it.
 
 **Error Response Format** (consistent across all endpoints):
 ```json
@@ -87,6 +93,35 @@ Authenticates the admin user and returns a JWT token.
 
 ---
 
+### GET /api/auth/me
+
+Returns the signed-in admin. The WebAssembly `AuthenticationStateProvider` calls it to know who is signed in.
+
+**Auth**: Admin (cookie or Bearer)
+
+**Response 200:**
+```json
+{
+  "username": "admin"
+}
+```
+
+**Response 401:** not signed in (no body).
+
+---
+
+### POST /api/auth/logout
+
+Signs the admin cookie out. Always succeeds.
+
+**Auth**: None. With the cookie, the request needs the `X-NSI-Request: 1` header (see Overview).
+
+**Request Body:** None.
+
+**Response 204:** No content.
+
+---
+
 ## 3. Categories
 
 ### GET /api/categories
@@ -119,7 +154,7 @@ Returns all categories. Used by both public catalog (category filter) and admin 
 
 Creates a new category.
 
-**Auth**: Admin (Bearer token)
+**Auth**: Admin
 
 **Request Body:**
 ```json
@@ -214,7 +249,7 @@ Deletes a category. Fails if the category contains products.
 
 ### GET /api/products
 
-Returns a paginated list of products. Public access returns only active products. Admin access (with token) returns all products including inactive.
+Returns a paginated list of products. Public access returns only active products. Admin access (cookie or token) returns all products including inactive.
 
 **Auth**: None (public) / Optional Admin (sees inactive too)
 
@@ -427,7 +462,7 @@ Returns products with stock at or below a threshold. Used for admin dashboard al
 
 ### POST /api/orders
 
-Places a new customer order. Public endpoint — no auth.
+Places a new customer order. Public endpoint, no auth. The storefront checkout (`/checkout`, static SSR) does not call it over HTTP: it calls the same `IOrderService.CreateAsync` in-process, with prices taken from the database and the lines taken from the cart cookie.
 
 **Auth**: None
 
@@ -670,6 +705,33 @@ Sets or updates the delivery fee for an order.
 
 ---
 
+### GET /api/orders/{id}/stock-check
+
+Lists the lines of an order that would leave stock below zero if the order were confirmed now. Lines of the same product are summed. Read-only.
+
+**Auth**: Admin
+
+**Response 200** (empty array when stock is enough):
+```json
+[
+  {
+    "productName": "Металик 5L",
+    "ordered": 8.20,
+    "available": 0.00,
+    "unit": "м²"
+  }
+]
+```
+
+**Response 404:**
+```json
+{
+  "error": "Поръчката не е намерена."
+}
+```
+
+---
+
 ### PUT /api/orders/{id}/confirm
 
 Confirms a pending order. **Decrements stock** for all order items.
@@ -682,14 +744,13 @@ Confirms a pending order. **Decrements stock** for all order items.
 - Order must exist
 - Order status must be `Pending` (0)
 - Order must not be cancelled
-- **Stock check**: for each item, `Product.StockQuantity >= OrderItem.Quantity`. If any product has insufficient stock, return error with details.
+- Stock never blocks confirmation (owner decision, 07.11.2026). Stock may go below zero. The admin UI warns beforehand through `GET /api/orders/{id}/stock-check`.
 
 **Business Logic (within a database transaction):**
-1. Verify all stock levels are sufficient.
-2. For each OrderItem: `Product.StockQuantity -= OrderItem.Quantity`
-3. Set `Order.Status = Confirmed`
-4. Set `Order.ConfirmedAt = DateTime.UtcNow`
-5. Save all changes.
+1. For each OrderItem: `Product.StockQuantity -= OrderItem.Quantity`
+2. Set `Order.Status = Confirmed`
+3. Set `Order.ConfirmedAt = DateTime.UtcNow`
+4. Save all changes.
 
 **Response 200:**
 ```json
@@ -701,25 +762,17 @@ Confirms a pending order. **Decrements stock** for all order items.
 }
 ```
 
-**Response 400 (insufficient stock):**
-```json
-{
-  "error": "Недостатъчна наличност за следните продукти:",
-  "details": [
-    {
-      "productName": "Цимент 25кг",
-      "ordered": 100.00,
-      "available": 50.00,
-      "unit": "кг"
-    }
-  ]
-}
-```
-
 **Response 400 (wrong status):**
 ```json
 {
   "error": "Само чакащи поръчки могат да бъдат потвърдени."
+}
+```
+
+**Response 400 (cancelled order):**
+```json
+{
+  "error": "Отказана поръчка не може да бъде потвърдена."
 }
 ```
 
@@ -745,10 +798,7 @@ Marks a confirmed order as completed.
 **Response 200:**
 ```json
 {
-  "message": "Поръчката е маркирана като завършена.",
-  "orderNumber": "NSI-20260218-0001",
-  "status": 2,
-  "statusDisplay": "Завършена"
+  "message": "Поръчката е маркирана като завършена."
 }
 ```
 
@@ -777,8 +827,7 @@ Cancels a pending order. Does NOT affect stock.
 **Response 200:**
 ```json
 {
-  "message": "Поръчката е отказана.",
-  "orderNumber": "NSI-20260218-0001"
+  "message": "Поръчката е отказана."
 }
 ```
 
@@ -1005,8 +1054,63 @@ Creates a new invoice and **automatically increments stock** for each item.
 `POST /api/visualizer/segment` responses: `200 { sessionToken, maskPng, width, height }`,
 `400` invalid photo/points, `429` daily quota reached, `503` visualizer disabled or busy.
 `POST /api/visualizer/segment/{sessionToken}` additionally returns `404` when the server-side
-embedding cache has expired (client re-uploads the photo). Photos are processed in memory and
-never stored; quotas are enforced per hashed IP per day (see `Visualizer` section in appsettings).
+embedding cache has expired (client re-uploads the photo), and `429` after 200 refines of one session.
+Photos are processed in memory and never stored; quotas are enforced per hashed IP per day (see
+`Visualizer` section in appsettings). Each `POST /api/visualizer/segment` that passes the quota check
+writes one `VisualizationRequests` row (the quota log); refine calls write none and are capped per
+session instead. Rows older than 90 days are deleted by a background service.
+
+---
+
+## 8. Cart
+
+The cart lives in the `nsi_cart` cookie: up to 50 `productId:quantity` pairs, no prices or names (HttpOnly, Secure, SameSite=Lax). Malformed pairs are ignored and lines beyond 50 are dropped. Expiry is 30 days from the last change. Prices always come from the database when a page renders. A product can be added only if it is active and its price with VAT is above 0. Quantities must be above 0 and at most 10000.
+
+### POST /api/cart/items
+
+Adds a product to the cart cookie. Used by the visualizer island. Quantities of a product already in the cart are added together.
+
+**Auth**: None. Requires the `X-NSI-Request: 1` header (see Overview).
+
+**Request Body:**
+```json
+{
+  "productId": 22,
+  "quantity": 1
+}
+```
+
+**Response 204:** added.
+
+**Response 400:**
+```json
+{ "error": "Невалидно количество." }
+```
+```json
+{ "error": "Продуктът не е наличен." }
+```
+```json
+{ "error": "Количката е пълна. Максимум 50 продукта." }
+```
+
+### Storefront form posts (not under `/api`)
+
+The static SSR storefront changes the cart with plain HTML form posts. They are form-encoded, validate the antiforgery token, and always answer `302` to a local page (Post/Redirect/Get). Invalid input is ignored.
+
+| Method | Path | Form fields | Redirects to |
+|--------|------|-------------|--------------|
+| POST | `/cart/add` | `productId`, `quantity` (optional, default 1; "4,5" and "4.5" both accepted), `returnUrl` (local paths only) | `returnUrl`, else `/cart` |
+| POST | `/cart/update` | `productId`, `quantity`, `step` (`-1` or `1` for the − and + buttons) | `/cart` |
+| POST | `/cart/remove` | `productId` | `/cart` |
+
+---
+
+## 9. SEO (not under `/api`)
+
+| Method | Path | Response |
+|--------|------|----------|
+| GET | `/sitemap.xml` | `application/xml`: home, catalog, contacts, visualizer and every active product, with absolute URLs for the request host. `Cache-Control: public, max-age=3600`. |
+| GET | `/robots.txt` | `text/plain`: disallows `/admin`, `/cart`, `/checkout`, `/order-confirmation` and `/api`, and points to the sitemap. Same cache header. |
 
 ---
 
@@ -1016,8 +1120,8 @@ never stored; quotas are enforced per hashed IP per day (see `Visualizer` sectio
 |------|----------------------------------|-------------------------------------------|
 | 200  | OK                               | Successful GET, PUT                       |
 | 201  | Created                          | Successful POST (create)                  |
-| 204  | No Content                       | Successful DELETE                         |
-| 400  | Bad Request                      | Validation errors, business rule violations|
-| 401  | Unauthorized                     | Missing or invalid JWT token              |
+| 204  | No Content                       | Successful DELETE, logout, cart add       |
+| 400  | Bad Request                      | Validation errors, business rule violations, missing `X-NSI-Request` header |
+| 401  | Unauthorized                     | Not signed in (no admin cookie, or missing or invalid JWT) |
 | 404  | Not Found                        | Entity not found by ID                    |
 | 500  | Internal Server Error            | Unhandled exceptions (via middleware)      |

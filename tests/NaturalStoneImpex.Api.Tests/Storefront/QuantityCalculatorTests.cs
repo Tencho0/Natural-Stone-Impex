@@ -1,0 +1,121 @@
+using NaturalStoneImpex.Api.Storefront;
+
+namespace NaturalStoneImpex.Api.Tests.Storefront;
+
+public class QuantityCalculatorTests
+{
+    private static QuantityInput Dims(string? l, string? w, bool waste) =>
+        new(QuantityMode.Dimensions, l, w, null, null, waste);
+
+    private static QuantityInput Area(string? a, bool waste) =>
+        new(QuantityMode.Area, null, null, a, null, waste);
+
+    private static QuantityInput Kg(string? k, bool waste) =>
+        new(QuantityMode.Kilograms, null, null, null, k, waste);
+
+    [Fact]
+    public void Dimensions_with_waste_4x3_rounds_13_20_up_to_14()
+    {
+        var r = QuantityCalculator.Calculate(Dims("4,00", "3,00", true));
+        Assert.True(r.IsValid);
+        Assert.Equal(14m, r.Quantity);
+    }
+
+    [Fact]
+    public void Area_without_waste_rounds_up_to_whole_square_metre()
+    {
+        var r = QuantityCalculator.Calculate(Area("12,5", false));
+        Assert.True(r.IsValid);
+        Assert.Equal(13m, r.Quantity);
+    }
+
+    [Fact]
+    public void Whole_area_stays_as_typed()
+    {
+        var r = QuantityCalculator.Calculate(Area("12", false));
+        Assert.True(r.IsValid);
+        Assert.Equal(12m, r.Quantity);
+    }
+
+    [Fact]
+    public void Kilograms_keep_hundredths()
+    {
+        var r = QuantityCalculator.Calculate(Kg("2,5", false));
+        Assert.True(r.IsValid);
+        Assert.Equal(2.5m, r.Quantity);
+    }
+
+    [Fact]
+    public void Dimensions_without_waste_4x3_is_12()
+    {
+        var r = QuantityCalculator.Calculate(Dims("4,00", "3,00", false));
+        Assert.True(r.IsValid);
+        Assert.Equal(12.00m, r.Quantity);
+    }
+
+    [Fact]
+    public void Area_with_waste_rounds_up_to_whole_square_metre()
+    {
+        var r = QuantityCalculator.Calculate(Area("10,01", true)); // 11.011
+        Assert.True(r.IsValid);
+        Assert.Equal(12m, r.Quantity);
+    }
+
+    [Fact]
+    public void Kilograms_ignore_waste()
+    {
+        var r = QuantityCalculator.Calculate(Kg("25", true));
+        Assert.True(r.IsValid);
+        Assert.Equal(25m, r.Quantity);
+    }
+
+    [Fact]
+    public void Missing_width_reports_width_field()
+    {
+        var r = QuantityCalculator.Calculate(Dims("4", "", false));
+        Assert.False(r.IsValid);
+        Assert.Equal("Width", r.ErrorField);
+        Assert.Equal("Въведете ширина в метри.", r.Error);
+    }
+
+    [Fact]
+    public void Zero_or_negative_is_invalid()
+    {
+        var r = QuantityCalculator.Calculate(Area("0", false));
+        Assert.False(r.IsValid);
+        Assert.Equal("Area", r.ErrorField);
+    }
+
+    [Fact]
+    public void Above_max_is_invalid()
+    {
+        var r = QuantityCalculator.Calculate(Area("20000", false));
+        Assert.False(r.IsValid);
+        Assert.Equal("Количеството е твърде голямо.", r.Error);
+    }
+
+    [Fact]
+    public void Huge_length_is_rejected_without_exception()
+    {
+        var r = QuantityCalculator.Calculate(Dims("79228162514264337593543950335", "9", true));
+        Assert.False(r.IsValid);
+        Assert.Equal("Length", r.ErrorField);
+        Assert.Equal("Количеството е твърде голямо.", r.Error);
+    }
+
+    [Fact]
+    public void Huge_area_is_rejected_without_exception()
+    {
+        var r = QuantityCalculator.Calculate(Area("79228162514264337593543950335", true));
+        Assert.False(r.IsValid);
+        Assert.Equal("Area", r.ErrorField);
+    }
+
+    [Fact]
+    public void Dimensions_product_above_max_is_invalid()
+    {
+        var r = QuantityCalculator.Calculate(Dims("200", "100", true));
+        Assert.False(r.IsValid);
+        Assert.Equal("Количеството е твърде голямо.", r.Error);
+    }
+}

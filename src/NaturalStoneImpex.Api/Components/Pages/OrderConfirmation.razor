@@ -1,0 +1,66 @@
+@page "/order-confirmation/{OrderNumber}"
+@attribute [ExcludeFromInteractiveRouting]
+@layout MainLayout
+@using System.Text.RegularExpressions
+@inject NavigationManager Navigation
+
+@* Confirmation (spec §7.6). States the real process and nothing more: no order lookup (there is no public one),
+   so the number from the URL is only checked for its shape and shown as text. *@
+
+@if (_valid)
+{
+    <SeoHead Title="Поръчката е получена" Description="Потвърждение, че поръчката е получена."
+             CanonicalPath="@($"/order-confirmation/{OrderNumber}")" NoIndex="true" />
+    <PageScript Src="js/storefront/copy.js" />
+
+    <section class="wrap confirm" aria-labelledby="confirm-title">
+        <h1 class="confirm__title" id="confirm-title">Поръчка <span class="confirm__number num">@OrderNumber</span> е получена.</h1>
+        <p class="confirm__text">Ще ви се обадим в работно време на посочения телефон, за да я потвърдим.</p>
+        @* Shown by copy.js only where the clipboard can be written. *@
+        <button type="button" class="btn btn-outline confirm__copy" data-copy="@OrderNumber" hidden>
+            <span data-copy-label>Копирай номера</span>
+        </button>
+        <span class="visually-hidden" role="status" data-copy-status></span>
+
+        <dl class="confirm__shop">
+            <div>
+                <dt>Телефон</dt>
+                <dd class="num"><a class="link-quiet" href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a></dd>
+            </div>
+            <div>
+                <dt>Адрес</dt>
+                <dd>@ShopInfo.Address</dd>
+            </div>
+            <div>
+                <dt>Работно време</dt>
+                <dd class="num">
+                    @for (var i = 0; i < ShopInfo.Hours.Count; i++)
+                    {
+                        if (i > 0)
+                        {
+                            <br />
+                        }
+                        <text>@ShopInfo.Hours[i]</text>
+                    }
+                </dd>
+            </div>
+        </dl>
+
+        <a class="btn btn-primary confirm__more" href="/catalog">Към каталога</a>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public string OrderNumber { get; set; } = string.Empty;
+
+    private bool _valid;
+
+    protected override void OnInitialized()
+    {
+        // The format OrderService generates (NSI-YYYYMMDD-XXXX). Anything else is not a confirmation: 404.
+        _valid = Regex.IsMatch(OrderNumber, @"^NSI-\d{8}-\d{4}$", RegexOptions.ECMAScript);
+        if (!_valid)
+            Navigation.NotFound();
+    }
+}

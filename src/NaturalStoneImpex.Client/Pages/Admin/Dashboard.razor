@@ -1,292 +1,227 @@
 @page "/admin"
 @layout AdminLayout
 @attribute [Authorize]
+@using NaturalStoneImpex.Client.Formatting
 @using NaturalStoneImpex.Client.Models
 @using NaturalStoneImpex.Client.Services
 @inject IOrderService OrderService
 @inject IProductService ProductService
-@inject NavigationManager Navigation
 
-<PageTitle>Табло — Natural Stone Impex</PageTitle>
+<PageTitle>Табло · Natural Stone Impex</PageTitle>
 
-<h1 class="dash-page-title mb-4">Табло</h1>
+<h1>Табло</h1>
 
-@* Row 1 — Stat Cards *@
-<div class="row g-3 mb-4">
-    @if (_statsLoading)
-    {
-        <div class="col-12 text-center py-4">
-            <div class="spinner-border" role="status" style="color: var(--nsi-primary);">
-                <span class="visually-hidden">Зареждане...</span>
-            </div>
-        </div>
-    }
-    else if (_statsError is not null)
-    {
-        <div class="col-12">
-            <div class="alert alert-danger">@_statsError</div>
-        </div>
-    }
-    else if (_stats is not null)
-    {
-        <div class="col-6 col-lg-3">
-            <div class="dash-stat-card dash-stat-primary">
-                <div class="dash-stat-icon">
-                    <i class="bi bi-box-seam"></i>
-                </div>
-                <div class="dash-stat-value" style="color: var(--nsi-primary);">@_stats.TotalProducts</div>
-                <div class="dash-stat-label">Общо продукти</div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="dash-stat-card dash-stat-warning">
-                <div class="dash-stat-icon">
-                    <i class="bi bi-hourglass-split"></i>
-                </div>
-                <div class="dash-stat-value @(_stats.PendingOrders > 0 ? "fw-bold" : "")" style="color: var(--nsi-warning);">@_stats.PendingOrders</div>
-                <div class="dash-stat-label">Чакащи поръчки</div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="dash-stat-card dash-stat-accent">
-                <div class="dash-stat-icon">
-                    <i class="bi bi-check2-circle"></i>
-                </div>
-                <div class="dash-stat-value" style="color: var(--nsi-accent);">@_stats.ConfirmedOrders</div>
-                <div class="dash-stat-label">Потвърдени поръчки</div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="dash-stat-card dash-stat-success">
-                <div class="dash-stat-icon">
-                    <i class="bi bi-check2-all"></i>
-                </div>
-                <div class="dash-stat-value" style="color: var(--nsi-success);">@_stats.CompletedOrders</div>
-                <div class="dash-stat-label">Завършени поръчки</div>
-            </div>
-        </div>
-    }
-</div>
-
-@* Row 2 — Recent Orders + Low Stock *@
-<div class="row">
-    @* Left column — Recent Orders *@
-    <div class="col-lg-7 mb-4">
-        <div class="dash-card h-100">
-            <div class="dash-card-header">
-                <h5 class="dash-card-title">
-                    <i class="bi bi-clock-history me-2"></i>Последни поръчки
-                </h5>
-            </div>
-            <div class="dash-card-body">
-                @if (_recentLoading)
-                {
-                    <div class="text-center py-4">
-                        <div class="spinner-border" role="status" style="color: var(--nsi-primary);">
-                            <span class="visually-hidden">Зареждане...</span>
-                        </div>
-                    </div>
-                }
-                else if (_recentError is not null)
-                {
-                    <div class="alert alert-danger">@_recentError</div>
-                }
-                else if (_recentOrders is null || _recentOrders.Count == 0)
-                {
-                    <p class="text-muted mb-0">Няма поръчки.</p>
-                }
-                else
-                {
-                    <div class="table-container">
-                        <table class="table table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Номер</th>
-                                    <th>Дата</th>
-                                    <th>Клиент</th>
-                                    <th>Статус</th>
-                                    <th class="text-end">Сума</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var order in _recentOrders)
-                                {
-                                    <tr style="cursor: pointer;" @onclick="() => NavigateToOrder(order.Id)">
-                                        <td>@order.OrderNumber</td>
-                                        <td>@order.CreatedAt.ToString("dd.MM.yyyy")</td>
-                                        <td>@order.CustomerName</td>
-                                        <td>
-                                            <span class="badge rounded-pill @GetStatusBadgeClass(order)">@order.StatusDisplay</span>
-                                        </td>
-                                        <td class="text-end">@order.TotalWithVat.ToString("F2") &euro;</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="mt-3">
-                        <a href="/admin/orders" class="dash-link">
-                            Виж всички поръчки <i class="bi bi-arrow-right ms-1"></i>
-                        </a>
-                    </div>
-                }
-            </div>
-        </div>
+@if (_stats is not null)
+{
+    <p class="dash-summary">@DashboardSummary.Text(_stats.PendingOrders, _stats.ConfirmedOrders, _stats.CompletedOrders, _stats.TotalProducts)</p>
+}
+else if (_statsError is not null)
+{
+    <div class="dash-summary" role="alert">
+        <p class="dash-error">@_statsError</p>
+        <button type="button" class="btn btn-outline btn-sm" @onclick="LoadStatsAsync">Опитай отново</button>
     </div>
+}
+else
+{
+    <p class="dash-summary skeleton" aria-hidden="true"><span class="skeleton-bar"></span></p>
+}
 
-    @* Right column — Low Stock *@
-    <div class="col-lg-5 mb-4">
-        <div class="dash-card dash-card-warning h-100">
-            <div class="dash-card-header">
-                <h5 class="dash-card-title">
-                    <i class="bi bi-exclamation-triangle me-2" style="color: var(--nsi-warning);"></i>Ниска наличност
-                </h5>
+<div class="dash-cols">
+    <section aria-labelledby="dash-pending">
+        <h2 id="dash-pending" class="dash-h">Чакащи поръчки</h2>
+        @if (_pendingLoading)
+        {
+            <div class="visually-hidden" role="status">Зареждане...</div>
+            <div class="table-scroll" aria-hidden="true">
+                <table class="data-table">
+                    <tbody>
+                        @for (var i = 0; i < 3; i++)
+                        {
+                            <tr class="skeleton-row skeleton">
+                                <td><span class="skeleton-bar"></span></td>
+                                <td><span class="skeleton-bar"></span></td>
+                                <td><span class="skeleton-bar"></span></td>
+                                <td class="num"><span class="skeleton-bar skeleton-bar--short"></span></td>
+                                <td><span class="skeleton-bar skeleton-bar--short"></span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
-            <div class="dash-card-body">
-                @if (_lowStockLoading)
-                {
-                    <div class="text-center py-4">
-                        <div class="spinner-border" role="status" style="color: var(--nsi-primary);">
-                            <span class="visually-hidden">Зареждане...</span>
-                        </div>
-                    </div>
-                }
-                else if (_lowStockError is not null)
-                {
-                    <div class="alert alert-danger">@_lowStockError</div>
-                }
-                else if (_lowStockProducts is null || _lowStockProducts.Count == 0)
-                {
-                    <div class="dash-success-note mb-0">
-                        <i class="bi bi-check-circle me-2"></i>Всички продукти са с достатъчна наличност.
-                    </div>
-                }
-                else
-                {
-                    <div class="dash-warning-note mb-3">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        <strong>Внимание:</strong> @_lowStockProducts.Count продукт(а) с ниска наличност
-                    </div>
-                    <div class="table-container">
-                        <table class="table table-sm mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Продукт</th>
-                                    <th>Категория</th>
-                                    <th class="text-end">Наличност</th>
-                                    <th>Мерна ед.</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var product in _lowStockProducts)
-                                {
-                                    <tr>
-                                        <td>
-                                            <a href="/admin/products/@product.Id/edit" class="dash-link">@product.Name</a>
-                                        </td>
-                                        <td>@product.CategoryName</td>
-                                        <td class="text-end fw-bold" style="color: var(--nsi-danger);">@product.StockQuantity.ToString("F2")</td>
-                                        <td>@product.UnitDisplay</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
+        }
+        else if (_pendingError is not null)
+        {
+            <div role="alert">
+                <p class="dash-error">@_pendingError</p>
+                <button type="button" class="btn btn-outline btn-sm" @onclick="LoadPendingAsync">Опитай отново</button>
             </div>
-        </div>
-    </div>
+        }
+        else if (_pendingOrders.Count == 0)
+        {
+            <p class="dash-empty">Няма чакащи поръчки.</p>
+        }
+        else
+        {
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Номер</th>
+                            <th scope="col">Клиент</th>
+                            <th scope="col" class="dash-hide-sm">Получена</th>
+                            <th scope="col" class="num">Сума</th>
+                            <th scope="col" class="dash-hide-sm"><span class="visually-hidden">Действие</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in _pendingOrders)
+                        {
+                            <tr>
+                                <td class="nowrap"><a href="/admin/orders/@order.Id">@order.OrderNumber</a></td>
+                                <td>@order.CustomerName</td>
+                                <td class="nowrap dash-hide-sm">@FormatReceived(order.CreatedAt)</td>
+                                <td class="num">@PriceFormat.Money(order.TotalWithVat)</td>
+                                <td class="num dash-hide-sm"><a href="/admin/orders/@order.Id" aria-label="Отвори поръчка @order.OrderNumber">Отвори</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <p class="dash-more"><a href="/admin/orders">@(_pendingTotal > 20 ? $"Всички поръчки ({_pendingTotal})" : "Всички поръчки")</a></p>
+        }
+    </section>
+
+    <section aria-labelledby="dash-low">
+        <h2 id="dash-low" class="dash-h">Ниска наличност</h2>
+        @if (_lowLoading)
+        {
+            <div class="visually-hidden" role="status">Зареждане...</div>
+            <div class="table-scroll" aria-hidden="true">
+                <table class="data-table">
+                    <tbody>
+                        @for (var i = 0; i < 3; i++)
+                        {
+                            <tr class="skeleton-row skeleton">
+                                <td><span class="skeleton-bar"></span></td>
+                                <td class="num"><span class="skeleton-bar skeleton-bar--short"></span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (_lowError is not null)
+        {
+            <div role="alert">
+                <p class="dash-error">@_lowError</p>
+                <button type="button" class="btn btn-outline btn-sm" @onclick="LoadLowStockAsync">Опитай отново</button>
+            </div>
+        }
+        else if (_lowStock.Count == 0)
+        {
+            <p class="dash-empty">Няма продукти с ниска наличност.</p>
+        }
+        else
+        {
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Продукт</th>
+                            <th scope="col" class="num">Наличност</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var product in _lowStock.Take(LowStockLimit))
+                        {
+                            <tr>
+                                <td><a href="/admin/products/@product.Id/edit">@product.Name</a></td>
+                                <td class="num @(product.StockQuantity < 0 ? "dash-negative" : null)">@PriceFormat.Signed(product.StockQuantity, product.UnitDisplay)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (_lowStock.Count > LowStockLimit)
+            {
+                var more = _lowStock.Count - LowStockLimit;
+                <p class="dash-more">и още @more @(more == 1 ? "продукт" : "продукта") · <a href="/admin/products">Всички продукти</a></p>
+            }
+        }
+    </section>
 </div>
 
 @code {
+    private const int LowStockLimit = 10;
     private OrderStatsDto? _stats;
-    private List<OrderListDto>? _recentOrders;
-    private List<ProductListDto>? _lowStockProducts;
+    private int _pendingTotal;
+    private List<OrderListDto> _pendingOrders = new();
+    private List<ProductListDto> _lowStock = new();
 
-    private bool _statsLoading = true;
-    private bool _recentLoading = true;
-    private bool _lowStockLoading = true;
+    private bool _pendingLoading = true;
+    private bool _lowLoading = true;
 
     private string? _statsError;
-    private string? _recentError;
-    private string? _lowStockError;
+    private string? _pendingError;
+    private string? _lowError;
 
     protected override async Task OnInitializedAsync()
     {
-        await Task.WhenAll(
-            LoadStatsAsync(),
-            LoadRecentOrdersAsync(),
-            LoadLowStockAsync()
-        );
+        await Task.WhenAll(LoadStatsAsync(), LoadPendingAsync(), LoadLowStockAsync());
     }
 
     private async Task LoadStatsAsync()
     {
+        _statsError = null;
         try
         {
             _stats = await OrderService.GetStatsAsync();
         }
         catch
         {
-            _statsError = "Грешка при зареждане на статистиките.";
+            _statsError = "Не успяхме да заредим бройките.";
         }
-        finally
-        {
-            _statsLoading = false;
-            StateHasChanged();
-        }
+        StateHasChanged();
     }
 
-    private async Task LoadRecentOrdersAsync()
+    // GetRecentAsync returns the latest orders of every status, so older pending orders could be cut off.
+    // The orders list filtered to pending (newest first) shows all of them; cancelled ones are not pending.
+    private async Task LoadPendingAsync()
     {
+        _pendingLoading = true;
+        _pendingError = null;
         try
         {
-            _recentOrders = await OrderService.GetRecentAsync(5);
+            var page = await OrderService.GetAllAsync(0, 1, 20);
+            _pendingTotal = page.TotalCount;
+            // Same rule as the stats count, so the list and the summary agree.
+            _pendingOrders = page.Items.Where(o => !o.IsCancelled).ToList();
         }
         catch
         {
-            _recentError = "Грешка при зареждане на последните поръчки.";
+            _pendingError = "Не успяхме да заредим чакащите поръчки.";
         }
-        finally
-        {
-            _recentLoading = false;
-            StateHasChanged();
-        }
+        _pendingLoading = false;
+        StateHasChanged();
     }
 
     private async Task LoadLowStockAsync()
     {
+        _lowLoading = true;
+        _lowError = null;
         try
         {
-            _lowStockProducts = await ProductService.GetLowStockAsync(10);
+            _lowStock = await ProductService.GetLowStockAsync(10);
         }
         catch
         {
-            _lowStockError = "Грешка при зареждане на наличностите.";
+            _lowError = "Не успяхме да заредим наличностите.";
         }
-        finally
-        {
-            _lowStockLoading = false;
-            StateHasChanged();
-        }
+        _lowLoading = false;
+        StateHasChanged();
     }
 
-    private void NavigateToOrder(int orderId)
-    {
-        Navigation.NavigateTo($"/admin/orders/{orderId}");
-    }
-
-    private static string GetStatusBadgeClass(OrderListDto order)
-    {
-        if (order.IsCancelled)
-            return "bg-danger text-white";
-
-        return order.Status switch
-        {
-            0 => "bg-warning text-dark",
-            1 => "bg-info text-white",
-            2 => "bg-success text-white",
-            _ => "bg-secondary text-white"
-        };
-    }
+    private static string FormatReceived(DateTime createdAt) =>
+        createdAt.ToLocalTime().ToString("dd.MM.yyyy, HH:mm");
 }

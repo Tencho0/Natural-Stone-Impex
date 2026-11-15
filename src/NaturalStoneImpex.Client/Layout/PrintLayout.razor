@@ -1,0 +1,8 @@
+@inherits LayoutComponentBase
+
+@* Printable admin pages (the receipt): no top bar, so print preview shows only the document.
+   The page keeps its own back and print buttons. Styles: css/nsi/admin.css. *@
+
+<main class="admin-ui print-shell">
+    @Body
+</main>

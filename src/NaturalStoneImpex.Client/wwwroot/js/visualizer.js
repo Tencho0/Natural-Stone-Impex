@@ -414,6 +414,42 @@ window.nsiVisualizer = (function () {
     return m;
   }
 
+  // 75th percentile of the values, or the fallback when there are none.
+  function upperQuartile(vals, fallback) {
+    if (vals.length === 0) return fallback;
+    vals.sort(function (a, b) { return a - b; });
+    return Math.max(0.01, vals[Math.min(vals.length - 1, Math.floor(vals.length * 0.75))]);
+  }
+
+  // The brightly-lit level (upper quartile of luminance) of each separate selected area: 4-connected
+  // components of the mask. Returns that level per pixel, weighted by mask alpha (so a box blur of it
+  // divided by the blurred mask gives a smooth per-area reference), and the level of the whole selection.
+  function areaReferences(m, lum, w, h) {
+    var n = w * h, labels = new Int32Array(n), stack = new Int32Array(n), all = [], areaRefs = [0], i;
+    for (i = 0; i < n; i++) if (m[i] > 0.5) all.push(lum[i]);
+    var overall = upperQuartile(all, 0.25);
+    for (var seed = 0; seed < n; seed++) {
+      if (labels[seed] !== 0 || m[seed] <= 0.5) continue;
+      var label = areaRefs.length, vals = [], top = 0;
+      labels[seed] = label;
+      stack[top++] = seed;
+      while (top > 0) {
+        var p = stack[--top], x = p % w;
+        vals.push(lum[p]);
+        var next = [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w];
+        for (var k = 0; k < 4; k++) {
+          var q = next[k];
+          if (q >= 0 && q < n && labels[q] === 0 && m[q] > 0.5) { labels[q] = label; stack[top++] = q; }
+        }
+      }
+      areaRefs.push(upperQuartile(vals, overall));
+    }
+    // Feathered edge pixels (alpha at or below 0.5) belong to no area: they take the whole selection's level.
+    var map = new Float32Array(n);
+    for (i = 0; i < n; i++) map[i] = (labels[i] ? areaRefs[labels[i]] : overall) * m[i];
+    return { map: map, overall: overall };
+  }
+
   // Low-frequency lighting map: luminance of the photo blurred ONLY over the selected area
   // (normalized convolution, so lawn/walls next to the area do not leak in), relative to the
   // brightly-lit part of the area. Carries shadows onto the new paving without imprinting the old
@@ -429,26 +465,30 @@ window.nsiVisualizer = (function () {
       var l = (0.299 * pd[i * 4] + 0.587 * pd[i * 4 + 1] + 0.114 * pd[i * 4 + 2]) / 255;
       lm[i] = Math.pow(l, 2.2) * m[i];
     }
-    var r = Math.max(2, Math.round(w * 0.008));
+    // Wide enough (6% of the width) that only broad light (a building's shadow, tree shade) is carried
+    // over: at 0.8% a lawn's sand patches and a photo's watermark came through as light spots.
+    var r = Math.max(2, Math.round(w * 0.06));
     var num = boxBlur(lm, w, h, r, 3), den = boxBlur(m, w, h, r, 3);
     var wide = boxBlur(m, w, h, Math.max(3, Math.round(w * 0.02)), 2);
 
-    var vals = [], lumAt = new Float32Array(w * h);
-    for (i = 0; i < m.length; i++) {
-      lumAt[i] = den[i] > 0.02 ? num[i] / den[i] : 0;
-      if (m[i] > 0.5) vals.push(lumAt[i]);
-    }
-    var ref = 0.25;
-    if (vals.length > 0) {
-      vals.sort(function (a, b) { return a - b; });
-      ref = Math.max(0.01, vals[Math.min(vals.length - 1, Math.floor(vals.length * 0.75))]);
-    }
+    var lumAt = new Float32Array(w * h);
+    for (i = 0; i < m.length; i++) lumAt[i] = den[i] > 0.02 ? num[i] / den[i] : 0;
+
+    // One reference per separate area. A single reference for the whole selection let a darker second
+    // area (a lawn next to a path, a shaded patch) pull it down and overexpose the brighter area by up to
+    // 35%; now each area looks as it would if selected alone, with its own shadows kept.
+    var refs = areaReferences(m, lumAt, w, h);
+    var refAt = boxBlur(refs.map, w, h, r, 3); // spread each area's reference across its feathered edge
+    var ref = refs.overall;
     shadeCanvas = shadeCanvas && shadeCanvas.width === w && shadeCanvas.height === h ? shadeCanvas : makeCanvas(w, h);
     var sctx = shadeCanvas.getContext('2d');
     var out = sctx.createImageData(w, h), od = out.data;
     for (i = 0; i < m.length; i++) {
-      var shade = den[i] > 0.02 ? Math.pow(lumAt[i] / ref, 0.9) : 1;
-      shade = Math.min(1.35, Math.max(0.12, shade));
+      var localRef = den[i] > 0.02 ? Math.max(0.01, refAt[i] / den[i]) : ref;
+      var shade = den[i] > 0.02 ? Math.pow(lumAt[i] / localRef, 0.9) : 1;
+      // Brightening is capped low: a spot brighter than the area's lit level is far more often a lighter
+      // material (sand, a reflection) than extra sunlight. Darkening (real shadows) keeps its full range.
+      shade = Math.min(1.10, Math.max(0.12, shade));
       shade *= 0.84 + 0.16 * smoothstep(0.3, 0.85, wide[i]); // contact shadow at the boundary
       var v = Math.round(Math.min(1, shade / SHADE_RANGE) * 255);
       od[i * 4] = v; od[i * 4 + 1] = v; od[i * 4 + 2] = v; od[i * 4 + 3] = 255;

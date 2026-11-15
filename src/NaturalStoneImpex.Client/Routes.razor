@@ -1,0 +1,29 @@
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Routes).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(AdminLayout)">
+                <NotAuthorized>
+                    <RedirectToLogin />
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            @* Interactive (WebAssembly) routing only. On static SSR pages blazor.web.js would focus the h1 on the
+               first load and skip the skip link; js/storefront/shell.js handles enhanced navigation there. *@
+            @if (RendererInfo.IsInteractive)
+            {
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            }
+        </Found>
+        <NotFound>
+            @* Only reached during interactive (admin) navigation: full-page requests for unknown URLs get the server's
+               404 page (UseStorefrontErrorPages). No layout: AdminLayout would offer the admin links and "Изход"
+               to someone who may no longer be signed in. The link leaves WebAssembly routing, hence the full load. *@
+            <PageTitle>Страницата не е намерена</PageTitle>
+            <main class="admin-ui admin-shell">
+                <div class="admin-shell__main">
+                    <h1>Страницата не е намерена</h1>
+                    <p><a class="link-quiet" href="/" target="_top" data-enhance-nav="false">Към началната страница</a></p>
+                </div>
+            </main>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

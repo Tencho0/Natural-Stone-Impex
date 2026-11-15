@@ -424,3 +424,4 @@ src/NaturalStoneImpex.Api/MLModels/*.onnx
 src/NaturalStoneImpex.Api/wwwroot/uploads/**
 !src/NaturalStoneImpex.Api/wwwroot/uploads/**/
 !src/NaturalStoneImpex.Api/wwwroot/uploads/**/.gitkeep
+.playwright-mcp/

@@ -70,16 +70,27 @@ public class OrdersController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("{id}/stock-check")]
+    public async Task<IActionResult> StockCheck(int id)
+    {
+        try
+        {
+            var result = await _orderService.GetStockShortagesAsync(id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
     [HttpPut("{id}/confirm")]
     public async Task<IActionResult> Confirm(int id)
     {
         try
         {
             var result = await _orderService.ConfirmAsync(id);
-
-            if (result is OrderConfirmErrorDto)
-                return BadRequest(result);
-
             return Ok(result);
         }
         catch (KeyNotFoundException ex)

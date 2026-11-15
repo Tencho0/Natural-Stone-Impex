@@ -1,126 +1,108 @@
 @page "/admin/invoices/{Id:int}"
 @layout AdminLayout
 @attribute [Authorize]
+@using NaturalStoneImpex.Client.Formatting
 @inject IInvoiceService InvoiceService
 
-<PageTitle>@(_invoice is not null ? $"Доставка №{_invoice.InvoiceNumber}" : "Доставка") — Natural Stone Impex</PageTitle>
+<PageTitle>@(_invoice is not null ? $"Доставка {_invoice.InvoiceNumber}" : "Доставка") · Natural Stone Impex</PageTitle>
 
-<!-- Back link -->
-<a href="/admin/invoices" class="od-back-link mb-3">
-    <i class="bi bi-arrow-left"></i> Обратно към доставките
-</a>
+<p class="page-back">
+    <a href="/admin/invoices"><i class="bi bi-arrow-left" aria-hidden="true"></i> Доставки</a>
+</p>
 
 @if (_isLoading)
 {
-    <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
-            <span class="visually-hidden">Зареждане...</span>
+    <div class="visually-hidden" role="status">Зареждане...</div>
+    <div class="skeleton" aria-hidden="true">
+        <p class="order-head__skeleton"><span class="skeleton-bar"></span></p>
+        <div class="table-scroll">
+            <table class="data-table">
+                <tbody>
+                    @for (var i = 0; i < 3; i++)
+                    {
+                        <tr class="skeleton-row">
+                            <td><span class="skeleton-bar"></span></td>
+                            <td class="num"><span class="skeleton-bar skeleton-bar--short"></span></td>
+                            <td class="num"><span class="skeleton-bar skeleton-bar--short"></span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     </div>
 }
+else if (_notFound)
+{
+    <h1>Доставката не е намерена</h1>
+    <p class="note">Няма доставка с този номер. Може да е въведен грешен адрес.</p>
+    <a href="/admin/invoices" class="btn btn-outline">Към доставките</a>
+}
 else if (_invoice is null)
 {
-    <div class="admin-empty-state">
-        <i class="bi bi-question-circle admin-empty-icon"></i>
-        <p class="admin-empty-text">Доставката не е намерена.</p>
-        <a href="/admin/invoices" class="btn btn-nsi-outline mt-2">Обратно към доставките</a>
+    <h1>Доставка</h1>
+    <div role="alert">
+        <p class="note note--error">Не успяхме да заредим доставката. Опитайте отново.</p>
+        <button type="button" class="btn btn-outline btn-sm" @onclick="LoadAsync">Опитай отново</button>
     </div>
 }
 else
 {
-    @* Invoice Header *@
-    <div class="od-header">
-        <h2 class="od-order-number">Доставка №@_invoice.InvoiceNumber</h2>
-        <span class="od-order-date">
-            <i class="bi bi-calendar3 me-1"></i>@_invoice.EntryDate.ToString("dd.MM.yyyy")
-        </span>
+    <div class="order-head">
+        <h1>Доставка <span class="nowrap">@_invoice.InvoiceNumber</span></h1>
     </div>
 
-    @* Card 1 — Invoice Info *@
-    <div class="od-card mb-4">
-        <div class="od-card-header">
-            <i class="bi bi-receipt"></i> Данни за доставката
+    <section class="order-cols" aria-labelledby="inv-h">
+        <div>
+            <h2 id="inv-h" class="section-h">Данни за доставката</h2>
+            <dl class="meta-list">
+                <dt>Доставчик</dt>
+                <dd>@_invoice.SupplierName</dd>
+                <dt>Номер на фактура</dt>
+                <dd class="num">@_invoice.InvoiceNumber</dd>
+                <dt>Дата на фактура</dt>
+                <dd class="num">@_invoice.InvoiceDate.ToString("dd.MM.yyyy")</dd>
+                <dt>Дата на въвеждане</dt>
+                <dd class="num">@_invoice.EntryDate.ToString("dd.MM.yyyy")</dd>
+            </dl>
         </div>
-        <div class="od-card-body">
-            <div class="od-info-row">
-                <span class="od-info-label">Доставчик</span>
-                <span class="od-info-value">@_invoice.SupplierName</span>
-            </div>
-            <div class="od-info-row">
-                <span class="od-info-label">Номер на фактура</span>
-                <span class="od-info-value order-number-mono">@_invoice.InvoiceNumber</span>
-            </div>
-            <div class="od-info-row">
-                <span class="od-info-label">Дата на фактура</span>
-                <span class="od-info-value">@_invoice.InvoiceDate.ToString("dd.MM.yyyy")</span>
-            </div>
-            <div class="od-info-row">
-                <span class="od-info-label">Дата на въвеждане</span>
-                <span class="od-info-value">@_invoice.EntryDate.ToString("dd.MM.yyyy")</span>
-            </div>
-        </div>
-    </div>
+    </section>
 
-    @* Card 2 — Items Table *@
-    <div class="od-card mb-4">
-        <div class="od-card-header">
-            <i class="bi bi-box-seam"></i> Артикули
-        </div>
-        <div class="table-container" style="border-radius: 0; box-shadow: none;">
-            <div style="overflow-x: auto;">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
+    <section aria-labelledby="items-h">
+        <h2 id="items-h" class="section-h">Артикули</h2>
+        <div class="table-scroll">
+            <table class="data-table stack-sm">
+                <thead>
+                    <tr>
+                        <th scope="col">Продукт</th>
+                        <th scope="col" class="num hide-sm">Количество</th>
+                        <th scope="col" class="num hide-sm">Покупна цена</th>
+                        <th scope="col" class="num">Общо</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _invoice.Items)
+                    {
                         <tr>
-                            <th style="width: 50px;">№</th>
-                            <th>Продукт</th>
-                            <th>Мерна ед.</th>
-                            <th class="text-end">Количество</th>
-                            <th class="text-end">Покупна цена</th>
-                            <th class="text-end">Общо</th>
+                            <td>@item.ProductName</td>
+                            <td class="num hide-sm">@PriceFormat.Quantity(item.Quantity, item.UnitDisplay)</td>
+                            <td class="num hide-sm">@PriceFormat.Money(item.PurchasePrice)</td>
+                            <td class="stack-sm__main show-sm cell-sub">
+                                @PriceFormat.Quantity(item.Quantity, item.UnitDisplay) × @PriceFormat.Money(item.PurchasePrice)
+                            </td>
+                            <td class="num">@PriceFormat.Money(item.RowTotal)</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @for (var i = 0; i < _invoice.Items.Count; i++)
-                        {
-                            var item = _invoice.Items[i];
-                            <tr>
-                                <td style="color: var(--nsi-gray);">@(i + 1)</td>
-                                <td>
-                                    <span class="fw-semibold" style="color: var(--nsi-dark);">@item.ProductName</span>
-                                </td>
-                                <td style="color: var(--nsi-gray-dark);">@item.UnitDisplay</td>
-                                <td class="text-end">@item.Quantity.ToString("F2")</td>
-                                <td class="text-end" style="color: var(--nsi-gray-dark);">@item.PurchasePrice.ToString("F2") &euro;</td>
-                                <td class="text-end">
-                                    <span class="fw-semibold" style="color: var(--nsi-accent-dark);">@item.RowTotal.ToString("F2") &euro;</span>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+                    }
+                </tbody>
+            </table>
         </div>
-    </div>
 
-    @* Card 3 — Totals *@
-    <div class="d-flex justify-content-end mb-4">
-        <div class="od-card od-totals-card" style="min-width: 280px; max-width: 380px; width: 100%;">
-            <div class="od-card-header">
-                <i class="bi bi-calculator"></i> Обобщение
-            </div>
-            <div class="od-card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="od-grand-total">Обща стойност:</span>
-                    <span class="od-grand-total">@_invoice.InvoiceTotal.ToString("F2") &euro;</span>
-                </div>
-            </div>
-        </div>
-    </div>
+        <dl class="totals">
+            <dt class="totals__grand">Обща стойност</dt>
+            <dd class="totals__grand">@PriceFormat.Money(_invoice.InvoiceTotal)</dd>
+        </dl>
 
-    @* Info note *@
-    <div class="alert alert-info">
-        <i class="bi bi-info-circle me-2"></i>Доставките не могат да бъдат редактирани. При грешка, коригирайте наличностите ръчно от страницата за продукти.
-    </div>
+        <p class="note">Доставките не могат да се редактират. При грешка коригирайте наличностите ръчно от страницата на продукта.</p>
+    </section>
 }
 
 @code {
@@ -129,13 +111,22 @@ else
 
     private InvoiceDetailDto? _invoice;
     private bool _isLoading = true;
+    private bool _notFound;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
     {
         _isLoading = true;
+        _notFound = false;
         try
         {
             _invoice = await InvoiceService.GetByIdAsync(Id);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _invoice = null;
+            _notFound = true;
         }
         catch
         {

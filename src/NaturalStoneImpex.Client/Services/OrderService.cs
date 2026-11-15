@@ -13,19 +13,6 @@ public class OrderService : IOrderService
         _httpClient = httpClient;
     }
 
-    public async Task<(CreateOrderResponse? Response, string? Error)> PlaceOrderAsync(CreateOrderRequest request)
-    {
-        var response = await _httpClient.PostAsJsonAsync("api/orders", request);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            return (null, await ExtractErrorAsync(response));
-        }
-
-        var result = await response.Content.ReadFromJsonAsync<CreateOrderResponse>();
-        return (result, null);
-    }
-
     public async Task<PaginatedResponse<OrderListDto>> GetAllAsync(int? status, int page, int pageSize)
     {
         var url = $"api/orders?page={page}&pageSize={pageSize}";
@@ -42,36 +29,18 @@ public class OrderService : IOrderService
         return result!;
     }
 
-    public async Task<(string? Error, List<StockShortageDetail>? Details)> ConfirmAsync(int id)
+    public async Task<List<StockShortageDetail>> GetStockShortagesAsync(int id)
+    {
+        var result = await _httpClient.GetFromJsonAsync<List<StockShortageDetail>>($"api/orders/{id}/stock-check");
+        return result ?? new List<StockShortageDetail>();
+    }
+
+    public async Task<string?> ConfirmAsync(int id)
     {
         var response = await _httpClient.PutAsync($"api/orders/{id}/confirm", null);
         if (!response.IsSuccessStatusCode)
-        {
-            var content = await response.Content.ReadAsStringAsync();
-            try
-            {
-                var errorDoc = JsonDocument.Parse(content);
-                var error = "Възникна неочаквана грешка.";
-                List<StockShortageDetail>? details = null;
-
-                if (errorDoc.RootElement.TryGetProperty("error", out var errorProp))
-                    error = errorProp.GetString() ?? error;
-
-                if (errorDoc.RootElement.TryGetProperty("details", out var detailsProp))
-                {
-                    details = JsonSerializer.Deserialize<List<StockShortageDetail>>(
-                        detailsProp.GetRawText(),
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                }
-
-                return (error, details);
-            }
-            catch (JsonException)
-            {
-                return ("Възникна неочаквана грешка.", null);
-            }
-        }
-        return (null, null);
+            return await ExtractErrorAsync(response);
+        return null;
     }
 
     public async Task<string?> CompleteAsync(int id)

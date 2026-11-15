@@ -1,0 +1,614 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using NaturalStoneImpex.Client.Formatting
+@using NaturalStoneImpex.Client.Models
+@using NaturalStoneImpex.Client.Services
+@inject IVisualizerService VisualizerService
+@inject ICartApi CartApi
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@* The visualizer island (spec §7.8): a WebAssembly component on the static SSR page Api/Components/Pages/Visualizer.razor,
+   rendered with prerender off. The page holds the h1, the intro and the skeleton; css/nsi/visualizer.css styles both.
+   Every link out of the island is a full page load (data-enhance-nav="false"). *@
+
+@if (_products is null)
+{
+    @* Still loading: the page's skeleton stays visible (visualizer.css hides it once the root loses --loading). *@
+    <div class="viz-app viz-app--loading">
+        <p class="visually-hidden" role="status">Зареждане на визуализатора</p>
+    </div>
+}
+else
+{
+    <div class="viz-app">
+        @if (_products.Count == 0)
+        {
+            <p class="viz-upload viz-upload--empty">Визуализаторът не е наличен в момента.</p>
+        }
+        else if (!_photoLoaded)
+        {
+            <section class="viz-upload" aria-labelledby="viz-upload-title">
+                <h2 id="viz-upload-title" class="viz-upload__title">Качване на снимка</h2>
+                <p class="viz-upload__text">
+                    Снимайте площта така, че да се вижда цялата повърхност, която искате да покриете.
+                    Избягвайте хора в кадъра.
+                </p>
+                <div class="viz-consent">
+                    <input class="viz-consent__box" type="checkbox" id="viz-consent" @bind="_consent" />
+                    <label class="viz-consent__label" for="viz-consent">
+                        Съгласен/на съм снимката да бъде обработена на сървъра на магазина за целите на
+                        визуализацията. Снимката се изтрива автоматично след обработката.
+                    </label>
+                </div>
+                <div class="viz-upload__file">
+                    @* The native file button shows the browser's language, so the input is visually hidden (still focusable)
+                       and its label is the button. *@
+                    <InputFile id="viz-photo" OnChange="OnPhotoSelectedAsync" accept="image/*" capture="environment"
+                               class="viz-file" disabled="@(!_consent || _busy)" aria-describedby="viz-photo-note" />
+                    <label class="btn btn-primary viz-file__button" for="viz-photo">Изберете снимка</label>
+                    @if (_error is not null)
+                    {
+                        <p class="field-error" id="viz-photo-note" role="alert">@_error</p>
+                    }
+                    else
+                    {
+                        <p class="field-help" id="viz-photo-note">
+                            @(_busy ? "Зареждане на снимката…" : _consent ? "JPG или PNG, до 10 MB." : "Първо отбележете съгласието си.")
+                        </p>
+                    }
+                </div>
+            </section>
+        }
+        else
+        {
+            <div class="viz-work">
+                <div class="viz-work__stage">
+                    <p class="viz-hint @(_hasMask ? null : "viz-hint--lead")" aria-live="polite">@ModeHint</p>
+
+                    <div class="viz-tools" role="toolbar" aria-label="Инструменти">
+                        <fieldset class="seg viz-tools__modes" disabled="@_busy">
+                            <legend class="visually-hidden">Инструмент</legend>
+                            @foreach (var tool in Tools)
+                            {
+                                var mode = tool.Mode;
+                                <input class="seg-input" type="radio" name="viz-mode" id="viz-mode-@mode"
+                                       checked="@(_mode == mode)" disabled="@(tool.NeedsMask && !_hasMask)"
+                                       @onchange="() => SetModeAsync(mode)" />
+                                <label class="seg-option" for="viz-mode-@mode">@tool.Label</label>
+                            }
+                        </fieldset>
+                        <button type="button" class="btn btn-outline viz-tools__button" @onclick="ClearMaskAsync"
+                                disabled="@(_busy || !_hasMask)">Изчисти</button>
+                        <button type="button" class="btn btn-outline viz-tools__button" aria-pressed="@(_showHandles ? "true" : "false")"
+                                @onclick="ToggleHandlesAsync" disabled="@(_busy || !_hasMask)">Перспектива</button>
+                        @if (_showHandles)
+                        {
+                            <button type="button" class="btn btn-outline viz-tools__button" @onclick="ResetPerspectiveAsync"
+                                    disabled="@(_busy || !_perspectiveManual)">Автоматична перспектива</button>
+                        }
+                        @if (_mode is "brush" or "erase")
+                        {
+                            <div class="viz-tools__brush">
+                                <label class="field-label" for="viz-brush">Размер на четката</label>
+                                <input id="viz-brush" class="viz-range" type="range" min="10" max="120" step="5" value="@_brushSize"
+                                       @oninput="OnBrushSizeChanged" />
+                            </div>
+                        }
+                    </div>
+
+                    <div class="viz-stage" @onpointermove="OnHandleMove" @onpointerup="OnHandleUp" @onpointerleave="OnHandleUp">
+                        <div id="viz-stage"></div>
+                        @if (_showHandles && _photoW > 0)
+                        {
+                            <svg class="viz-handles" viewBox="0 0 @_photoW @_photoH" preserveAspectRatio="none">
+                                <polygon points="@HandlePolygon" class="viz-grid-outline" />
+                                <line x1="@Inv(_corners[0])" y1="@Inv(_corners[1])" x2="@Inv(_corners[6])" y2="@Inv(_corners[7])" class="viz-grid-line" />
+                                <line x1="@Inv(_corners[2])" y1="@Inv(_corners[3])" x2="@Inv(_corners[4])" y2="@Inv(_corners[5])" class="viz-grid-line" />
+                                @for (var i = 0; i < 4; i++)
+                                {
+                                    var index = i;
+                                    <circle cx="@Inv(_corners[index * 2])" cy="@Inv(_corners[index * 2 + 1])" r="@Inv(_photoW * 0.055)"
+                                            class="viz-handle-hit" @onpointerdown="e => OnHandleDown(e, index)"
+                                            @onpointerdown:preventDefault @onpointerdown:stopPropagation />
+                                    <circle cx="@Inv(_corners[index * 2])" cy="@Inv(_corners[index * 2 + 1])" r="@Inv(_photoW * 0.02)"
+                                            class="viz-handle" @onpointerdown="e => OnHandleDown(e, index)"
+                                            @onpointerdown:preventDefault @onpointerdown:stopPropagation />
+                                }
+                            </svg>
+                        }
+                        @if (_busy)
+                        {
+                            <div class="viz-overlay">
+                                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                <span role="status">Разпознаваме областта…</span>
+                            </div>
+                        }
+                    </div>
+
+                    @if (_hasMask)
+                    {
+                        <div class="viz-adjust">
+                            <div class="field">
+                                <label class="field-label" for="viz-scale">Размер на камъка</label>
+                                <input id="viz-scale" class="viz-range" type="range" min="0.3" max="3" step="0.05"
+                                       value="@Inv(_scale)" @oninput="OnScaleChanged" />
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="viz-rot">Завъртане</label>
+                                <input id="viz-rot" class="viz-range" type="range" min="0" max="90" step="1"
+                                       value="@Inv(_rotation)" @oninput="OnRotationChanged" />
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="viz-cmp">Преди / След</label>
+                                <input id="viz-cmp" class="viz-range" type="range" min="0" max="100" step="1"
+                                       value="@Inv(_compare)" @oninput="OnCompareChanged" />
+                            </div>
+                        </div>
+
+                        <div class="viz-actions">
+                            @if (_selected is { PriceWithVat: <= 0 })
+                            {
+                                @* Priced 0: no add button, the same as the product card (spec §6.6). *@
+                                <p class="viz-actions__ask">
+                                    <span>Цена при запитване</span>
+                                    <a class="link-quiet" href="/contacts" data-enhance-nav="false">Запитване</a>
+                                </p>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-primary" @onclick="AddToCartAsync"
+                                        disabled="@(_busy || _adding || _selected is null)"
+                                        aria-describedby="@(_cartError is null ? null : "viz-cart-error")">Добави в количката</button>
+                            }
+                            <button type="button" class="btn btn-outline" @onclick="DownloadAsync" disabled="@_busy">Изтегли изображението</button>
+                            @if (_selected is not null)
+                            {
+                                <a class="link-quiet viz-actions__link" href="/products/@_selected.Id" data-enhance-nav="false">Виж продукта</a>
+                            }
+                        </div>
+                        @if (_cartError is not null)
+                        {
+                            <p class="field-error viz-actions__error" id="viz-cart-error" role="alert">@_cartError</p>
+                        }
+                    }
+
+                    <p class="viz-disclaimer">
+                        Визуализацията е ориентировъчна. Реалният продукт може да се различава по цвят и вид,
+                        а размерите са приблизителни.
+                    </p>
+
+                    @if (_error is not null)
+                    {
+                        <p class="viz-alert" role="alert">@_error</p>
+                    }
+
+                    <button type="button" class="btn btn-outline" @onclick="ResetAsync" disabled="@_busy">Нова снимка</button>
+                </div>
+
+                <div class="viz-work__panel">
+                    <VisualizerProductPanel Products="_products"
+                                            SelectedId="_selected?.Id"
+                                            Disabled="@(_busy || !_hasMask)"
+                                            OnSelect="OnProductSelectedAsync" />
+                </div>
+            </div>
+        }
+
+        @* Its own status region: the layout's SSR toast cannot be driven from WebAssembly. Same classes, so it looks
+           the same and hides after 4 s in CSS; a new key per add replaces the line, which restarts the 4 s. *@
+        <div class="toast-region" role="status">
+            @if (_toastKey > 0)
+            {
+                <p class="toast-line" @key="_toastKey">
+                    <span>Добавено в количката</span>
+                    <a class="toast-line__link" href="/cart" data-enhance-nav="false">Към количката</a>
+                </p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private List<VisualizerProductDto>? _products;
+    private VisualizerProductDto? _selected;
+    private bool _consent;
+    private bool _photoLoaded;
+    private byte[]? _photoBytes;
+    private string? _sessionToken;
+    private readonly List<SegmentPoint> _points = new();
+    private bool _hasMask;
+    private bool _busy;
+    private string? _error;
+    private bool _stageInitialized;
+    private DotNetObjectReference<VisualizerApp>? _selfRef;
+
+    // The visualizer adds one unit, as before; the cart page changes the quantity.
+    private const decimal AddQuantity = 1m;
+
+    private sealed record Tool(string Mode, string Label, bool NeedsMask);
+
+    private static readonly Tool[] Tools =
+    [
+        new("tap-add", "Добави област", NeedsMask: false),
+        new("tap-remove", "Премахни", NeedsMask: true),
+        new("brush", "Четка", NeedsMask: false),
+        new("erase", "Гума", NeedsMask: true)
+    ];
+
+    private string _mode = "tap-add";
+    private int _brushSize = 40;
+    private bool _showHandles;
+    private bool _perspectiveManual;
+    private double[] _corners = new double[8];
+    private int _photoW, _photoH;
+    private int _dragIndex = -1;
+    private double _scale = 1.0;
+    private double _rotation;
+    private double _compare;
+    private bool _adding;
+    private string? _cartError;
+    private int _toastKey;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _products = await VisualizerService.GetProductsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _products = new List<VisualizerProductDto>();
+        }
+
+        var productId = ParseProductIdFromQuery(Navigation.Uri);
+        if (productId is int id)
+            _selected = _products.FirstOrDefault(p => p.Id == id);
+        _selected ??= _products.FirstOrDefault();
+    }
+
+    // Manual query-string parsing: Microsoft.AspNetCore.WebUtilities.QueryHelpers is not
+    // available as a compile-time reference in the Blazor WASM client (it only ships as an
+    // internal "tools/" asset of the WebAssembly.DevServer package, not a referenceable lib).
+    // System.Uri.Query excludes any #fragment per RFC 3986, so "?productId=5#x" parses as 5.
+    private static int? ParseProductIdFromQuery(string uri)
+    {
+        var query = new Uri(uri).Query.TrimStart('?');
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var kv = pair.Split('=', 2);
+            if (kv.Length == 2 && kv[0] == "productId" &&
+                int.TryParse(Uri.UnescapeDataString(kv[1]), out var id))
+                return id;
+        }
+        return null;
+    }
+
+    private async Task OnPhotoSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        _busy = true;
+        try
+        {
+            try
+            {
+                // Downscale client-side: mobile photos are 8-12 MP; the server needs at most 2048 px.
+                var resized = await e.File.RequestImageFileAsync("image/jpeg", 2048, 2048);
+                await using var stream = resized.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                _photoBytes = ms.ToArray();
+                _photoLoaded = true;
+            }
+            catch (Exception)
+            {
+                _error = "Моля, качете снимка във формат JPG или PNG до 10 MB.";
+                _photoLoaded = false;
+                return;
+            }
+
+            StateHasChanged(); // render the stage div before JS init
+            try
+            {
+                await InitStageAsync();
+            }
+            catch (JSException)
+            {
+                _error = "Възникна грешка при зареждането на визуализатора. Моля, опитайте отново.";
+                _photoLoaded = false;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task InitStageAsync()
+    {
+        _selfRef ??= DotNetObjectReference.Create(this);
+        await JS.InvokeAsync<object>("nsiVisualizer.init", "viz-stage", _selfRef, (object?)null);
+        _stageInitialized = true;
+        var dataUrl = "data:image/jpeg;base64," + Convert.ToBase64String(_photoBytes!);
+        var size = await JS.InvokeAsync<PhotoSize>("nsiVisualizer.loadPhotoFromDataUrl", dataUrl);
+        _photoW = size.Width;
+        _photoH = size.Height;
+        await JS.InvokeVoidAsync("nsiVisualizer.setMode", "tap-add");
+        await JS.InvokeVoidAsync("nsiVisualizer.setMaskVisible", false);
+    }
+
+    [JSInvokable]
+    public async Task OnCanvasTapAsync(double x, double y, int label)
+    {
+        if (_busy || _photoBytes is null) return;
+        _busy = true;
+        _error = null;
+        StateHasChanged();
+        try
+        {
+            _points.Add(new SegmentPoint(x, y, label));
+            SegmentResponse? result;
+            string? error;
+
+            if (_sessionToken is null)
+            {
+                (result, error) = await VisualizerService.SegmentAsync(_photoBytes, _points);
+            }
+            else
+            {
+                bool expired;
+                (result, error, expired) = await VisualizerService.RefineAsync(_sessionToken, _points);
+                if (expired)
+                {
+                    // Embedding cache expired — transparently re-upload the kept photo bytes.
+                    (result, error) = await VisualizerService.SegmentAsync(_photoBytes, _points);
+                }
+            }
+
+            if (result is null)
+            {
+                _points.RemoveAt(_points.Count - 1);
+                _error = error ?? "Областта не можа да бъде разпозната автоматично. Можете да я маркирате ръчно с четката.";
+                return;
+            }
+
+            _sessionToken = result.SessionToken;
+            await JS.InvokeAsync<object>("nsiVisualizer.setMaskPng", result.MaskPng);
+
+            _hasMask = true;
+            await UpdateAutoPerspectiveAsync();
+            await ApplySelectedProductAsync();
+        }
+        catch (JSException)
+        {
+            _error = "Възникна грешка при показването на визуализацията. Моля, опитайте отново.";
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnMaskEditedAsync(bool hasMask)
+    {
+        try
+        {
+            if (hasMask)
+            {
+                _hasMask = true;
+                await UpdateAutoPerspectiveAsync();
+                await ApplySelectedProductAsync();
+            }
+            else
+            {
+                // Everything was erased: same state as «Изчисти».
+                await ResetSelectionStateAsync();
+            }
+        }
+        catch (JSException)
+        {
+            _error = "Възникна грешка при показването на визуализацията. Моля, опитайте отново.";
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    // Until the customer drags a corner, the perspective follows the current selection
+    // (camera model + horizon estimated from the mask shape in visualizer.js).
+    private async Task UpdateAutoPerspectiveAsync()
+    {
+        if (_perspectiveManual) return;
+        _corners = await JS.InvokeAsync<double[]>("nsiVisualizer.autoPerspective");
+    }
+
+    private async Task ResetPerspectiveAsync()
+    {
+        _perspectiveManual = false;
+        await UpdateAutoPerspectiveAsync();
+        await JS.InvokeVoidAsync("nsiVisualizer.render");
+    }
+
+    private string ModeHint => !_hasMask
+        ? (_mode is "brush"
+            ? "Оцветете с четката площта, която искате да покриете с настилка."
+            : "Докоснете площта, която искате да покриете с настилка. Ще я разпознаем автоматично.")
+        : _mode switch
+        {
+            "tap-add" => "Докоснете още участък, за да го добавите към площта.",
+            "tap-remove" => "Докоснете участък, който да бъде изключен от площта (напр. цветна леха или предмет).",
+            "brush" => "Оцветете с четката, за да добавите към площта (зелено = избрано).",
+            "erase" => "Изтрийте с гумата излишните части от площта (зелено = избрано).",
+            _ => "Изберете настилка от списъка."
+        };
+
+    private async Task ApplySelectedProductAsync()
+    {
+        if (_selected is null || !_hasMask) return;
+        // A texture uploaded specifically for the visualizer (spec §7.1: seamless, top-down) is
+        // rendered exactly; a catalog photo standing in for one gets automatic repair in JS.
+        var dedicatedTexture = !string.Equals(_selected.TexturePath, _selected.ImagePath, StringComparison.OrdinalIgnoreCase);
+        await JS.InvokeAsync<object>("nsiVisualizer.setProductTexture",
+            _selected.TexturePath, (double)_selected.TextureWidthMeters, dedicatedTexture);
+        await JS.InvokeVoidAsync("nsiVisualizer.render");
+    }
+
+    // Blazor WASM adopts the browser locale; under bg-BG an interpolated double renders
+    // as "843,27" — SVG treats the comma as a coordinate separator (corrupting the
+    // polygon/line/circle geometry) and range-input value attributes require dot decimals.
+    // Route every fractional value in markup through this helper instead of changing the
+    // global culture, which would alter price formatting site-wide.
+    private static string Inv(double v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private string HandlePolygon =>
+        $"{Inv(_corners[0])},{Inv(_corners[1])} {Inv(_corners[2])},{Inv(_corners[3])} {Inv(_corners[4])},{Inv(_corners[5])} {Inv(_corners[6])},{Inv(_corners[7])}";
+
+    private async Task SetModeAsync(string mode)
+    {
+        _mode = mode;
+        await JS.InvokeVoidAsync("nsiVisualizer.setMode", mode);
+        // The green selection highlight only helps while painting; otherwise it hides the result.
+        await JS.InvokeVoidAsync("nsiVisualizer.setMaskVisible", mode is "brush" or "erase");
+    }
+
+    private async Task OnBrushSizeChanged(ChangeEventArgs e)
+    {
+        _brushSize = int.Parse(e.Value?.ToString() ?? "40");
+        await JS.InvokeVoidAsync("nsiVisualizer.setBrushSize", _brushSize);
+    }
+
+    private async Task ClearMaskAsync()
+    {
+        await JS.InvokeVoidAsync("nsiVisualizer.clearMask");
+        await ResetSelectionStateAsync();
+    }
+
+    private async Task ResetSelectionStateAsync()
+    {
+        _points.Clear();
+        _hasMask = false;
+        _showHandles = false;
+        _perspectiveManual = false;
+        _dragIndex = -1;
+        _corners = new double[8]; // stale corners must not survive into the next segmentation
+        await JS.InvokeVoidAsync("nsiVisualizer.setGridVisible", false);
+        await SetModeAsync("tap-add");
+    }
+
+    private async Task ToggleHandlesAsync()
+    {
+        _showHandles = !_showHandles;
+        if (_showHandles)
+            _corners = await JS.InvokeAsync<double[]?>("nsiVisualizer.getCorners") ?? _corners;
+        await JS.InvokeVoidAsync("nsiVisualizer.setGridVisible", _showHandles);
+    }
+
+    private void OnHandleDown(PointerEventArgs e, int index) => _dragIndex = index;
+
+    private async Task OnHandleMove(PointerEventArgs e)
+    {
+        if (_dragIndex < 0) return;
+        _perspectiveManual = true; // an actual drag (not just a tap on a handle) freezes the auto mode
+        var rect = await JS.InvokeAsync<StageRect>("nsiVisualizer.getStageRect");
+        _corners[_dragIndex * 2] = Math.Clamp((e.ClientX - rect.Left) / rect.Width * _photoW, 0, _photoW);
+        _corners[_dragIndex * 2 + 1] = Math.Clamp((e.ClientY - rect.Top) / rect.Height * _photoH, 0, _photoH);
+        await JS.InvokeVoidAsync("nsiVisualizer.setCorners", (object)_corners);
+        await JS.InvokeVoidAsync("nsiVisualizer.render");
+    }
+
+    private void OnHandleUp(PointerEventArgs e) => _dragIndex = -1;
+
+    private async Task OnScaleChanged(ChangeEventArgs e)
+    {
+        _scale = double.Parse(e.Value?.ToString() ?? "1", System.Globalization.CultureInfo.InvariantCulture);
+        await JS.InvokeVoidAsync("nsiVisualizer.setScale", _scale);
+        await JS.InvokeVoidAsync("nsiVisualizer.render");
+    }
+
+    private async Task OnRotationChanged(ChangeEventArgs e)
+    {
+        _rotation = double.Parse(e.Value?.ToString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+        await JS.InvokeVoidAsync("nsiVisualizer.setRotation", _rotation);
+        await JS.InvokeVoidAsync("nsiVisualizer.render");
+    }
+
+    private async Task OnCompareChanged(ChangeEventArgs e)
+    {
+        _compare = double.Parse(e.Value?.ToString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+        await JS.InvokeVoidAsync("nsiVisualizer.setCompareRatio", _compare);
+    }
+
+    private async Task OnProductSelectedAsync(VisualizerProductDto product)
+    {
+        _selected = product;
+        _cartError = null;
+        _error = null;
+        try
+        {
+            await ApplySelectedProductAsync();
+        }
+        catch (JSException)
+        {
+            _error = "Текстурата на продукта не можа да бъде заредена. Моля, изберете друг продукт.";
+        }
+    }
+
+    private async Task DownloadAsync() =>
+        await JS.InvokeVoidAsync("nsiVisualizer.downloadResult", "vizualizacia.jpg");
+
+    private async Task AddToCartAsync()
+    {
+        if (_selected is null || _adding) return;
+        _adding = true;
+        _cartError = null;
+        try
+        {
+            var error = await CartApi.AddAsync(_selected.Id, AddQuantity);
+            if (error is null)
+                _toastKey++; // a new line: the toast shows (again) for 4 s
+            else
+                _cartError = error;
+        }
+        finally
+        {
+            _adding = false;
+        }
+    }
+
+    private record StageRect(double Left, double Top, double Width, double Height);
+    private record PhotoSize(int Width, int Height);
+
+    private async Task ResetAsync()
+    {
+        if (_stageInitialized)
+            await JS.InvokeVoidAsync("nsiVisualizer.dispose");
+        _stageInitialized = false;
+        _photoLoaded = false;
+        _photoBytes = null;
+        _sessionToken = null;
+        _points.Clear();
+        _hasMask = false;
+        _error = null;
+        _mode = "tap-add";
+        _showHandles = false;
+        _perspectiveManual = false;
+        _corners = new double[8];
+        _scale = 1.0;
+        _rotation = 0;
+        _compare = 0;
+        _cartError = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_stageInitialized)
+        {
+            try { await JS.InvokeVoidAsync("nsiVisualizer.dispose"); }
+            catch (JSDisconnectedException) { }
+        }
+        _selfRef?.Dispose();
+    }
+}

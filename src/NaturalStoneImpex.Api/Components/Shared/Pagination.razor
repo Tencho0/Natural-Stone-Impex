@@ -1,0 +1,60 @@
+@* Page links for static SSR lists (spec §7.2): plain <a> elements, so search engines can follow every page.
+   Not the admin's NaturalStoneImpex.Client.Components.Pagination, which uses buttons and callbacks. *@
+
+@if (TotalPages > 1)
+{
+    <nav class="pager" aria-label="Страници">
+        @if (Page > 1)
+        {
+            <a class="pager__step pager__step--prev" href="@PageHref(Page - 1)" rel="prev">Предишна</a>
+        }
+        else
+        {
+            <span class="pager__step pager__step--prev" aria-hidden="true"></span>
+        }
+
+        <ul class="pager__pages">
+            @foreach (var page in _window)
+            {
+                <li>
+                    @if (page is { } number)
+                    {
+                        var current = number == Page;
+                        <a class="pager__page @(current ? "is-current" : null)" href="@PageHref(number)"
+                           aria-label="Страница @number" aria-current="@(current ? "page" : null)">@number</a>
+                    }
+                    else
+                    {
+                        <span class="pager__gap" aria-hidden="true">…</span>
+                    }
+                </li>
+            }
+        </ul>
+
+        @if (Page < TotalPages)
+        {
+            <a class="pager__step pager__step--next" href="@PageHref(Page + 1)" rel="next">Следваща</a>
+        }
+        else
+        {
+            <span class="pager__step pager__step--next" aria-hidden="true"></span>
+        }
+    </nav>
+}
+
+@code {
+    /// <summary>The page being shown, already within 1..TotalPages.</summary>
+    [Parameter, EditorRequired]
+    public int Page { get; set; }
+
+    [Parameter, EditorRequired]
+    public int TotalPages { get; set; }
+
+    /// <summary>Builds the link for a page number, e.g. p => CatalogUrl.Build(categoryId, search, p).</summary>
+    [Parameter, EditorRequired]
+    public Func<int, string> PageHref { get; set; } = _ => "/";
+
+    private IReadOnlyList<int?> _window = [];
+
+    protected override void OnParametersSet() => _window = CatalogPaging.Window(Page, TotalPages);
+}

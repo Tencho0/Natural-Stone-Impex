@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="bg">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    <link href="@Assets["lib/bootstrap/bootstrap.min.css"]" rel="stylesheet" />
+    @if (PageRenderMode is not null)
+    {
+        @* WebAssembly pages only. Static SSR pages draw their few icons as inline SVG (Shared/Icon.razor). *@
+        <link href="@Assets["lib/bootstrap-icons/bootstrap-icons.min.css"]" rel="stylesheet" />
+    }
+    <link rel="stylesheet" href="@Assets["fonts/fonts.css"]" />
+    <link rel="stylesheet" href="@Assets["css/nsi/tokens.css"]" />
+    <link rel="stylesheet" href="@Assets["css/nsi/base.css"]" />
+    @if (PageRenderMode is null)
+    {
+        @* Static SSR pages only, so the storefront components do not restyle the WebAssembly pages. *@
+        <link rel="stylesheet" href="@Assets["css/nsi/components.css"]" />
+        <link rel="stylesheet" href="@Assets["css/nsi/storefront.css"]" />
+        @if (IsVisualizer)
+        {
+            @* The visualizer page and its WebAssembly island only. *@
+            <link rel="stylesheet" href="@Assets["css/nsi/visualizer.css"]" />
+        }
+        @* Every first view uses all four files: Cyrillic text, and the Latin files for spaces, digits, "м²" and
+           the wordmark. Preloaded, they usually arrive before the first paint, so the text does not swap fonts
+           and shift the page. Plain paths: they must match the url() in fonts.css, which is not fingerprinted. *@
+        <link rel="preload" href="fonts/wix-madefor-text-cyrillic.woff2" as="font" type="font/woff2" crossorigin />
+        <link rel="preload" href="fonts/wix-madefor-text-latin.woff2" as="font" type="font/woff2" crossorigin />
+        <link rel="preload" href="fonts/geologica-cyrillic.woff2" as="font" type="font/woff2" crossorigin />
+        <link rel="preload" href="fonts/geologica-latin.woff2" as="font" type="font/woff2" crossorigin />
+    }
+    else
+    {
+        @* WebAssembly pages (admin). The SSR login links it through LoginLayout. *@
+        <link rel="stylesheet" href="@Assets["css/nsi/admin.css"]" />
+    }
+    <ImportMap />
+    @* No static <title>: each page sets one through PageTitle (SeoHead on the storefront). *@
+    <HeadOutlet @rendermode="PageRenderMode" />
+</head>
+
+<body>
+    <Routes @rendermode="PageRenderMode" />
+
+    <div id="blazor-error-ui">
+        Възникна необработена грешка.
+        <a href="" class="reload">Презареди</a>
+        <button type="button" class="dismiss" aria-label="Затвори">×</button>
+    </div>
+    @if (PageRenderMode is not null)
+    {
+        @* WebAssembly pages (admin) only. Static SSR pages never load these. *@
+        <script src="@Assets["lib/bootstrap/bootstrap.bundle.min.js"]"></script>
+        <script src="@Assets["js/modals.js"]"></script>
+        <script src="@Assets["js/print.js"]"></script>
+    }
+    @if (IsVisualizer)
+    {
+        <script src="@Assets["js/visualizer.js"]"></script>
+    }
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    @* Focus after enhanced navigation, the phone menu, the toast and the <page-script> loader. *@
+    <script type="module" src="@Assets["js/storefront/shell.js"]"></script>
+</body>
+
+</html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? new InteractiveWebAssemblyRenderMode(prerender: false) : null;
+
+    private bool IsVisualizer =>
+        string.Equals(HttpContext.Request.Path.Value?.TrimEnd('/'), "/visualizer", StringComparison.OrdinalIgnoreCase);
+}

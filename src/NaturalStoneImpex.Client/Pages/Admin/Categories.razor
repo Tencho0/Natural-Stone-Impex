@@ -4,79 +4,77 @@
 @inject ICategoryService CategoryService
 @inject IJSRuntime JS
 
-<PageTitle>Категории — Natural Stone Impex</PageTitle>
+<PageTitle>Категории · Natural Stone Impex</PageTitle>
 
-<!-- Page header -->
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
-    <h1 class="page-heading mb-0">Категории</h1>
-    <button class="btn btn-nsi-accent" @onclick="OpenAddModal">
-        <i class="bi bi-plus-lg me-1"></i> Нова категория
-    </button>
+<div class="page-head">
+    <h1 tabindex="-1" @ref="_heading">Категории</h1>
+    <button type="button" class="btn btn-primary" @onclick="OpenAddModal">Нова категория</button>
 </div>
 
 @if (_successMessage is not null)
 {
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="bi bi-check-circle me-2"></i>@_successMessage
-        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
-    </div>
-}
-
-@if (_errorMessage is not null)
-{
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
-        <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
-    </div>
+    <p class="note note--ok" role="status">@_successMessage</p>
 }
 
 @if (_isLoading)
 {
-    <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
-            <span class="visually-hidden">Зареждане...</span>
-        </div>
+    <div class="visually-hidden" role="status">Зареждане...</div>
+    <div class="table-scroll" aria-hidden="true">
+        <table class="data-table">
+            <tbody>
+                @for (var i = 0; i < 4; i++)
+                {
+                    <tr class="skeleton-row skeleton">
+                        <td><span class="skeleton-bar"></span></td>
+                        <td class="num"><span class="skeleton-bar skeleton-bar--short"></span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else if (_loadError is not null)
+{
+    <div role="alert">
+        <p class="note note--error">@_loadError</p>
+        <button type="button" class="btn btn-outline btn-sm" @onclick="LoadCategoriesAsync">Опитай отново</button>
     </div>
 }
 else if (_categories.Count == 0)
 {
-    <div class="admin-empty-state">
-        <i class="bi bi-folder2-open admin-empty-icon"></i>
-        <p class="admin-empty-text mb-0">Няма добавени категории.</p>
-    </div>
+    <p class="note">Няма добавени категории.</p>
 }
 else
 {
-    <div class="table-container" style="overflow-x: auto;">
-        <table class="table table-hover align-middle mb-0">
+    <div class="table-scroll">
+        <table class="data-table stack-sm actions-row has-actions">
             <thead>
                 <tr>
-                    <th style="width: 60px;">№</th>
-                    <th>Име</th>
-                    <th style="width: 140px;">Брой продукти</th>
-                    <th class="text-center" style="width: 120px;">Действия</th>
+                    <th scope="col">Име</th>
+                    <th scope="col" class="num">Продукти</th>
+                    <th scope="col"><span class="visually-hidden">Действия</span></th>
                 </tr>
             </thead>
             <tbody>
-                @for (var i = 0; i < _categories.Count; i++)
+                @foreach (var category in _categories)
                 {
-                    var category = _categories[i];
-                    <tr>
-                        <td style="color: var(--nsi-gray);">@(i + 1)</td>
-                        <td>
-                            <span class="fw-semibold" style="color: var(--nsi-dark);">@category.Name</span>
-                        </td>
-                        <td>
-                            <span class="cat-count-badge">@category.ProductCount</span>
-                        </td>
-                        <td class="text-center">
-                            <div class="d-inline-flex gap-1">
-                                <button class="btn btn-sm btn-nsi-table-action" @onclick="() => OpenEditModal(category)" title="Редактиране">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn btn-sm btn-nsi-table-action btn-nsi-table-action-danger" @onclick="() => OpenDeleteModal(category)" title="Изтриване">
-                                    <i class="bi bi-trash"></i>
-                                </button>
+                    var current = category;
+                    <tr @key="current.Id">
+                        <td>@current.Name</td>
+                        <td class="num">@current.ProductCount</td>
+                        <td class="action-cell">
+                            <div class="row-actions">
+                                <button type="button" class="btn btn-outline btn-sm" @onclick="() => OpenEditModal(current)"
+                                        aria-label="@($"Преименувай {current.Name}")">Преименувай</button>
+                                <InlineConfirm Label="Изтрий"
+                                               TriggerAriaLabel="@($"Изтрий {current.Name}")"
+                                               TriggerClass="btn-outline btn-sm"
+                                               Question="Изтрий категорията?"
+                                               Open="_openId == current.Id"
+                                               OpenChanged="open => OnOpenChanged(current.Id, open)"
+                                               Action="() => CategoryService.DeleteAsync(current.Id)"
+                                               FailureText="Възникна грешка при свързване със сървъра."
+                                               Done="() => OnDeletedAsync(current.Name)" />
                             </div>
                         </td>
                     </tr>
@@ -86,73 +84,44 @@ else
     </div>
 }
 
-<!-- Add/Edit Modal -->
-<div class="modal fade nsi-modal" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalLabel" aria-hidden="true">
+<!-- Add and rename modal -->
+<div class="modal fade" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="categoryModalLabel">
-                    <i class="bi @(_editingCategoryId is null ? "bi-plus-circle" : "bi-pencil-square") me-2" style="color: var(--nsi-accent-dark);"></i>
-                    @(_editingCategoryId is null ? "Добави категория" : "Редактиране на категория")
-                </h5>
+                <h2 class="modal-title" id="categoryModalLabel">@(_editingCategoryId is null ? "Нова категория" : "Преименуване на категория")</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Затвори"></button>
             </div>
-            <EditForm Model="_formModel" OnValidSubmit="HandleSave">
+            <EditForm Model="_formModel" OnValidSubmit="HandleSave" @key="_formKey">
                 <DataAnnotationsValidator />
                 <div class="modal-body">
-                    @if (_modalError is not null)
-                    {
-                        <div class="alert alert-danger">@_modalError</div>
-                    }
-                    <div class="mb-3">
-                        <label for="categoryName" class="form-label">Име</label>
-                        <InputText id="categoryName" class="form-control" @bind-Value="_formModel.Name" disabled="@_isSaving" />
-                        <ValidationMessage For="() => _formModel.Name" />
+                    <div class="field">
+                        <label class="field-label" for="categoryName">Име</label>
+                        <InputText id="categoryName" class="field-input" @bind-Value="_formModel.Name" disabled="@_isSaving" />
+                        <div class="field-slot">
+                            @if (_modalError is not null)
+                            {
+                                <p class="field-error" role="alert">@_modalError</p>
+                            }
+                            else
+                            {
+                                <p class="field-help">От 2 до 100 символа.</p>
+                            }
+                            <ValidationMessage For="() => _formModel.Name" />
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-nsi-outline" data-bs-dismiss="modal" disabled="@_isSaving">Отказ</button>
-                    <button type="submit" class="btn btn-nsi-accent" disabled="@_isSaving">
+                    <button type="submit" class="btn btn-primary" aria-disabled="@(_isSaving ? "true" : null)">
                         @if (_isSaving)
                         {
-                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
                         }
-                        <i class="bi bi-check-lg me-1"></i>Запази
+                        Запази
                     </button>
+                    <button type="button" class="btn btn-outline" data-bs-dismiss="modal" disabled="@_isSaving">Отказ</button>
                 </div>
             </EditForm>
-        </div>
-    </div>
-</div>
-
-<!-- Delete Confirmation Modal -->
-<div class="modal fade nsi-modal" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel">
-                    <i class="bi bi-exclamation-triangle me-2" style="color: var(--nsi-danger);"></i>Потвърждение за изтриване
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Затвори"></button>
-            </div>
-            <div class="modal-body">
-                @if (_deleteError is not null)
-                {
-                    <div class="alert alert-danger">@_deleteError</div>
-                }
-                <p class="mb-0">Сигурни ли сте, че искате да изтриете категория „<strong>@_deletingCategory?.Name</strong>"?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-nsi-outline" data-bs-dismiss="modal" disabled="@_isDeleting">Отказ</button>
-                <button type="button" class="btn" @onclick="HandleDelete" disabled="@_isDeleting"
-                        style="background-color: var(--nsi-danger); color: white; border-radius: var(--nsi-radius-sm); font-weight: 600;">
-                    @if (_isDeleting)
-                    {
-                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                    }
-                    <i class="bi bi-trash me-1"></i>Изтрий
-                </button>
-            </div>
         </div>
     </div>
 </div>
@@ -161,13 +130,13 @@ else
     private List<CategoryDto> _categories = new();
     private bool _isLoading = true;
     private bool _isSaving;
-    private bool _isDeleting;
+    private string? _loadError;
     private string? _successMessage;
-    private string? _errorMessage;
     private string? _modalError;
-    private string? _deleteError;
     private int? _editingCategoryId;
-    private CategoryDto? _deletingCategory;
+    private int? _openId;
+    private int _formKey;
+    private ElementReference _heading;
     private readonly CategoryFormModel _formModel = new();
 
     protected override async Task OnInitializedAsync()
@@ -178,6 +147,14 @@ else
     private async Task LoadCategoriesAsync()
     {
         _isLoading = true;
+        await FetchAsync();
+        _isLoading = false;
+    }
+
+    // Reloads in place, without the skeleton, so focus and the success note survive a save or a delete.
+    private async Task FetchAsync()
+    {
+        _loadError = null;
 
         try
         {
@@ -185,12 +162,10 @@ else
         }
         catch
         {
-            _errorMessage = "Възникна грешка при зареждане на категориите.";
+            _loadError = "Не успяхме да заредим категориите. Опитайте отново.";
         }
-        finally
-        {
-            _isLoading = false;
-        }
+
+        _openId = null;
     }
 
     private async Task OpenAddModal()
@@ -198,6 +173,7 @@ else
         _editingCategoryId = null;
         _formModel.Name = string.Empty;
         _modalError = null;
+        _formKey++;
         await ShowModalAsync("categoryModal");
     }
 
@@ -206,18 +182,32 @@ else
         _editingCategoryId = category.Id;
         _formModel.Name = category.Name;
         _modalError = null;
+        _formKey++;
         await ShowModalAsync("categoryModal");
     }
 
-    private async Task OpenDeleteModal(CategoryDto category)
+    // One open confirm at a time: opening a row closes any other.
+    private void OnOpenChanged(int id, bool open)
     {
-        _deletingCategory = category;
-        _deleteError = null;
-        await ShowModalAsync("deleteModal");
+        if (open)
+            _openId = id;
+        else if (_openId == id)
+            _openId = null;
+    }
+
+    private async Task OnDeletedAsync(string name)
+    {
+        await FetchAsync();
+        _successMessage = $"Категорията „{name}“ е изтрита.";
+        _ = AutoDismissSuccessAsync();
+        await _heading.FocusAsync();
     }
 
     private async Task HandleSave()
     {
+        if (_isSaving)
+            return;
+
         _isSaving = true;
         _modalError = null;
 
@@ -242,9 +232,9 @@ else
             {
                 await HideModalAsync("categoryModal");
                 _successMessage = _editingCategoryId is null
-                    ? "Категорията е добавена успешно."
-                    : "Категорията е обновена успешно.";
-                await LoadCategoriesAsync();
+                    ? "Категорията е добавена."
+                    : "Категорията е преименувана.";
+                await FetchAsync();
                 _ = AutoDismissSuccessAsync();
             }
         }
@@ -258,44 +248,11 @@ else
         }
     }
 
-    private async Task HandleDelete()
-    {
-        if (_deletingCategory is null) return;
-
-        _isDeleting = true;
-        _deleteError = null;
-
-        try
-        {
-            var error = await CategoryService.DeleteAsync(_deletingCategory.Id);
-
-            if (error is not null)
-            {
-                _deleteError = error;
-            }
-            else
-            {
-                await HideModalAsync("deleteModal");
-                _successMessage = "Категорията е изтрита успешно.";
-                await LoadCategoriesAsync();
-                _ = AutoDismissSuccessAsync();
-            }
-        }
-        catch
-        {
-            _deleteError = "Възникна грешка при свързване със сървъра.";
-        }
-        finally
-        {
-            _isDeleting = false;
-        }
-    }
-
     private async Task AutoDismissSuccessAsync()
     {
-        await Task.Delay(3000);
+        await Task.Delay(4000);
         _successMessage = null;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task ShowModalAsync(string modalId)

@@ -10,24 +10,16 @@ public class VisualizerService : IVisualizerService
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _httpClient;
-    private readonly string _apiBaseUrl;
 
     public VisualizerService(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _apiBaseUrl = httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
     }
 
     public async Task<List<VisualizerProductDto>> GetProductsAsync()
     {
         var result = await _httpClient.GetFromJsonAsync<List<VisualizerProductDto>>("api/visualizer/products");
-        if (result is null) return new List<VisualizerProductDto>();
-        foreach (var product in result)
-        {
-            product.ImagePath = Resolve(product.ImagePath);
-            product.TexturePath = Resolve(product.TexturePath)!;
-        }
-        return result;
+        return result ?? new List<VisualizerProductDto>();
     }
 
     public async Task<(SegmentResponse? Result, string? Error)> SegmentAsync(byte[] photoBytes, List<SegmentPoint> points)
@@ -68,9 +60,6 @@ public class VisualizerService : IVisualizerService
             return (null, "Възникна грешка при връзката със сървъра. Моля, опитайте отново.", false);
         }
     }
-
-    private string? Resolve(string? path) =>
-        string.IsNullOrEmpty(path) ? path : $"{_apiBaseUrl}{path}";
 
     private static async Task<string> ExtractErrorAsync(HttpResponseMessage response)
     {

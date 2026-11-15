@@ -1,100 +1,89 @@
 @page "/admin/invoices"
 @layout AdminLayout
 @attribute [Authorize]
+@using NaturalStoneImpex.Client.Formatting
 @inject IInvoiceService InvoiceService
-@inject NavigationManager Navigation
 
-<PageTitle>Доставки — Natural Stone Impex</PageTitle>
+<PageTitle>Доставки · Natural Stone Impex</PageTitle>
 
-<!-- Page header -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="page-heading mb-0">Доставки</h1>
-    <a href="/admin/invoices/new" class="btn btn-nsi-accent">
-        <i class="bi bi-plus-lg me-1"></i>Нова доставка
-    </a>
+<div class="page-head">
+    <h1>Доставки</h1>
+    <a href="/admin/invoices/new" class="btn btn-primary">Нова доставка</a>
 </div>
+
+@if (!_isLoading && _errorMessage is null)
+{
+    <p class="page-summary">@CountText(_invoices.TotalCount)</p>
+}
 
 @if (_successMessage is not null)
 {
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="bi bi-check-circle me-2"></i>@_successMessage
-        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
-    </div>
+    <p class="note note--ok" role="status">@_successMessage</p>
 }
 
 @if (_isLoading)
 {
-    <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border" style="color: var(--nsi-accent);" role="status">
-            <span class="visually-hidden">Зареждане...</span>
-        </div>
+    <div class="visually-hidden" role="status">Зареждане...</div>
+    <div class="table-scroll" aria-hidden="true">
+        <table class="data-table">
+            <tbody>
+                @for (var i = 0; i < 6; i++)
+                {
+                    <tr class="skeleton-row skeleton">
+                        <td><span class="skeleton-bar"></span></td>
+                        <td><span class="skeleton-bar skeleton-bar--short"></span></td>
+                        <td class="num"><span class="skeleton-bar skeleton-bar--short"></span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
 }
 else if (_errorMessage is not null)
 {
-    <div class="alert alert-danger">
-        <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
+    <div role="alert">
+        <p class="note note--error">@_errorMessage</p>
+        <button type="button" class="btn btn-outline btn-sm" @onclick="LoadDataAsync">Опитай отново</button>
     </div>
 }
 else if (_invoices.Items.Count == 0)
 {
-    <div class="admin-empty-state">
-        <i class="bi bi-inbox admin-empty-icon"></i>
-        <p class="admin-empty-text mb-0">Няма записани доставки.</p>
-    </div>
+    <p class="note">Все още няма записани доставки.</p>
 }
 else
 {
-    <div class="table-container" style="overflow-x: auto;">
-        <table class="table table-hover align-middle mb-0">
+    <div class="table-scroll">
+        <table class="data-table stack-sm">
             <thead>
                 <tr>
-                    <th style="width: 50px;">№</th>
-                    <th>Доставчик</th>
-                    <th>Номер на фактура</th>
-                    <th>Дата на фактура</th>
-                    <th>Дата на въвеждане</th>
-                    <th class="text-center">Брой артикули</th>
-                    <th class="text-end">Обща стойност</th>
-                    <th class="text-center" style="width: 80px;">Виж</th>
+                    <th scope="col">Фактура</th>
+                    <th scope="col">Доставчик</th>
+                    <th scope="col" class="hide-sm">Дата на фактура</th>
+                    <th scope="col" class="hide-md">Въведена</th>
+                    <th scope="col" class="num hide-md">Артикули</th>
+                    <th scope="col" class="num">Обща стойност</th>
                 </tr>
             </thead>
             <tbody>
-                @{ var rowNum = (_currentPage - 1) * PageSize; }
                 @foreach (var invoice in _invoices.Items)
                 {
-                    rowNum++;
-                    <tr class="table-row-clickable" @onclick="() => NavigateToInvoice(invoice.Id)">
-                        <td style="color: var(--nsi-gray);">@rowNum</td>
-                        <td>
-                            <span class="fw-semibold" style="color: var(--nsi-dark);">@invoice.SupplierName</span>
+                    <tr @key="invoice.Id">
+                        <td class="nowrap"><a href="/admin/invoices/@invoice.Id">@invoice.InvoiceNumber</a></td>
+                        <td class="stack-sm__main">
+                            @invoice.SupplierName
+                            <span class="cell-sub show-sm">@invoice.InvoiceDate.ToString("dd.MM.yyyy") · @invoice.TotalItems арт.</span>
                         </td>
-                        <td>
-                            <span class="order-number-mono">@invoice.InvoiceNumber</span>
-                        </td>
-                        <td style="color: var(--nsi-gray-dark);">@invoice.InvoiceDate.ToString("dd.MM.yyyy")</td>
-                        <td style="color: var(--nsi-gray-dark);">@invoice.EntryDate.ToString("dd.MM.yyyy")</td>
-                        <td class="text-center">@invoice.TotalItems</td>
-                        <td class="text-end">
-                            <span class="fw-semibold" style="color: var(--nsi-accent-dark);">@invoice.InvoiceTotal.ToString("F2") &euro;</span>
-                        </td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-nsi-table-action"
-                                    @onclick="() => NavigateToInvoice(invoice.Id)"
-                                    @onclick:stopPropagation="true"
-                                    title="Преглед">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </td>
+                        <td class="hide-sm nowrap">@invoice.InvoiceDate.ToString("dd.MM.yyyy")</td>
+                        <td class="hide-md nowrap">@invoice.EntryDate.ToString("dd.MM.yyyy")</td>
+                        <td class="num hide-md">@invoice.TotalItems</td>
+                        <td class="num">@PriceFormat.Money(invoice.InvoiceTotal)</td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
 
-    <div class="mt-4">
-        <Pagination CurrentPage="_invoices.Page" TotalPages="_invoices.TotalPages" OnPageChanged="OnPageChanged" />
-    </div>
+    <Pagination CurrentPage="_invoices.Page" TotalPages="_invoices.TotalPages" OnPageChanged="OnPageChanged" />
 }
 
 @code {
@@ -129,7 +118,7 @@ else
         }
         catch
         {
-            _errorMessage = "Възникна грешка при зареждане на доставките.";
+            _errorMessage = "Не успяхме да заредим доставките. Опитайте отново.";
         }
         finally
         {
@@ -143,8 +132,5 @@ else
         await LoadDataAsync();
     }
 
-    private void NavigateToInvoice(int id)
-    {
-        Navigation.NavigateTo($"/admin/invoices/{id}");
-    }
+    private static string CountText(int count) => count == 1 ? "1 доставка" : $"{count} доставки";
 }

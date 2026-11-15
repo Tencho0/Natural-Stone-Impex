@@ -1,0 +1,27 @@
+@page "/error"
+@attribute [ExcludeFromInteractiveRouting]
+@layout MainLayout
+
+@* Rendered by UseExceptionHandler for non-API requests. It must not need the database. *@
+
+<SeoHead Title="Грешка"
+         Description="Възникна грешка при зареждането на страницата."
+         CanonicalPath="/error"
+         NoIndex="true" />
+
+<section class="wrap state" aria-labelledby="state-title">
+    <h1 id="state-title" class="state__title">Нещо се обърка.</h1>
+    <div class="state__body">
+        <p class="state__text">Опитайте отново или ни се обадете.</p>
+        <p class="state__phone num"><a href="@ShopInfo.PhoneHref">@ShopInfo.Phone</a></p>
+        <ul class="state__hours">
+            @foreach (var line in ShopInfo.Hours)
+            {
+                <li class="num">@line</li>
+            }
+        </ul>
+        <div class="state__actions">
+            <a class="btn btn-outline" href="/">Начало</a>
+        </div>
+    </div>
+</section>
