@@ -1,6 +1,6 @@
 [
   {
-    "name": "Паваж Бехатон 6",
+    "name": "Паваж Бехатон 6 червен",
     "category": "Павета",
     "description": "Бетонов паваж, червен. Размери: 20 × 16 × 6 см.",
     "unit": "Sqm",
@@ -9,6 +9,18 @@
     "priceWithVat": 19.9,
     "image": "paver-behaton-6.png",
     "texture": "behaton-6.jpg",
+    "textureWidthMeters": 0.8
+  },
+  {
+    "name": "Паваж Бехатон 6 сив",
+    "category": "Павета",
+    "description": "Бетонов паваж, сив. Размери: 20 × 16 × 6 см.",
+    "unit": "Sqm",
+    "priceWithoutVat": 14.92,
+    "vatAmount": 2.98,
+    "priceWithVat": 17.9,
+    "image": "paver-behaton-6-grey.png",
+    "texture": "behaton-6-grey.jpg",
     "textureWidthMeters": 0.8
   },
   {
