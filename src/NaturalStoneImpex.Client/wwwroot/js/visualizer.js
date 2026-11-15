@@ -465,7 +465,9 @@ window.nsiVisualizer = (function () {
       var l = (0.299 * pd[i * 4] + 0.587 * pd[i * 4 + 1] + 0.114 * pd[i * 4 + 2]) / 255;
       lm[i] = Math.pow(l, 2.2) * m[i];
     }
-    var r = Math.max(2, Math.round(w * 0.008));
+    // Wide enough (6% of the width) that only broad light (a building's shadow, tree shade) is carried
+    // over: at 0.8% a lawn's sand patches and a photo's watermark came through as light spots.
+    var r = Math.max(2, Math.round(w * 0.06));
     var num = boxBlur(lm, w, h, r, 3), den = boxBlur(m, w, h, r, 3);
     var wide = boxBlur(m, w, h, Math.max(3, Math.round(w * 0.02)), 2);
 
@@ -484,7 +486,9 @@ window.nsiVisualizer = (function () {
     for (i = 0; i < m.length; i++) {
       var localRef = den[i] > 0.02 ? Math.max(0.01, refAt[i] / den[i]) : ref;
       var shade = den[i] > 0.02 ? Math.pow(lumAt[i] / localRef, 0.9) : 1;
-      shade = Math.min(1.35, Math.max(0.12, shade));
+      // Brightening is capped low: a spot brighter than the area's lit level is far more often a lighter
+      // material (sand, a reflection) than extra sunlight. Darkening (real shadows) keeps its full range.
+      shade = Math.min(1.10, Math.max(0.12, shade));
       shade *= 0.84 + 0.16 * smoothstep(0.3, 0.85, wide[i]); // contact shadow at the boundary
       var v = Math.round(Math.min(1, shade / SHADE_RANGE) * 255);
       od[i * 4] = v; od[i * 4 + 1] = v; od[i * 4 + 2] = v; od[i * 4 + 3] = 255;
