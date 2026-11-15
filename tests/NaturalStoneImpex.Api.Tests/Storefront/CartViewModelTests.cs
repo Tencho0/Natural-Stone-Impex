@@ -7,7 +7,7 @@ namespace NaturalStoneImpex.Api.Tests.Storefront;
 public class CartViewModelTests
 {
     private static ProductListDto Product(int id, decimal withoutVat = 17.04m, decimal vat = 3.41m, decimal withVat = 20.45m,
-        decimal stock = 100m, bool active = true) => new()
+        decimal stock = 100m, bool active = true, int unit = 1) => new()
     {
         Id = id,
         Name = $"Продукт {id}",
@@ -16,9 +16,20 @@ public class CartViewModelTests
         PriceWithVat = withVat,
         StockQuantity = stock,
         IsActive = active,
-        Unit = 1,
-        UnitDisplay = "м²"
+        Unit = unit,
+        UnitDisplay = unit == 1 ? "м²" : "кг"
     };
+
+    [Fact]
+    public void Square_metre_rows_round_an_old_fractional_cookie_up()
+    {
+        var model = CartViewModel.Build([new CartLine(1, 12.5m), new CartLine(2, 2.5m)], [Product(1), Product(2, unit: 0)]);
+
+        Assert.Equal(13m, model.Rows[0].Quantity);
+        Assert.Equal(13m * 20.45m, model.Rows[0].LineTotal);
+        Assert.Equal(2.5m, model.Rows[1].Quantity); // kilograms keep their decimals
+        Assert.Equal(15.5m * 20.45m, model.TotalWithVat);
+    }
 
     [Fact]
     public void Totals_cover_only_orderable_rows()
@@ -108,7 +119,8 @@ public class CartViewModelTests
     [Fact]
     public void Totals_are_quantity_times_snapshot_prices()
     {
-        var model = CartViewModel.Build([new CartLine(1, 13.2m)], [Product(1)]);
+        // Kilograms keep their decimals, so the unrounded per-line sums show.
+        var model = CartViewModel.Build([new CartLine(1, 13.2m)], [Product(1, unit: 0)]);
 
         var row = model.Rows.Single();
         Assert.Equal(269.94m, row.LineTotal);

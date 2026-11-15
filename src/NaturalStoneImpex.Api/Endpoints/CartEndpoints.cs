@@ -22,10 +22,10 @@ public static class CartEndpoints
             decimal qty = 1;
             if (!string.IsNullOrWhiteSpace(quantity) && !DecimalInput.TryParse(quantity, out qty))
                 return Results.LocalRedirect(target);
-            if (!IsValidQuantity(qty) || !await IsPurchasable(db, productId))
+            if (!IsValidQuantity(qty) || await PurchasableUnit(db, productId) is not { } unit)
                 return Results.LocalRedirect(target);
 
-            var added = cart.Add(productId, qty);
+            var added = cart.Add(productId, qty, SaleUnits.IsWhole(unit));
             Flash.Set(http.Response, added ? Flash.Added : Flash.Full);
             return Results.LocalRedirect(target);
         });
@@ -38,8 +38,8 @@ public static class CartEndpoints
         {
             decimal? typed = DecimalInput.TryParse(quantity, out var qty) ? qty : null;
             var delta = CartStore.ParseStep(step);
-            if ((typed is not null || delta != 0) && await IsPurchasable(db, productId))
-                cart.Update(productId, typed, delta);
+            if ((typed is not null || delta != 0) && await PurchasableUnit(db, productId) is { } unit)
+                cart.Update(productId, typed, delta, SaleUnits.IsWhole(unit));
             return Results.LocalRedirect("/cart");
         });
 
@@ -59,10 +59,11 @@ public static class CartEndpoints
         {
             if (!IsValidQuantity(request.Quantity))
                 return Results.BadRequest(new { error = "Невалидно количество." });
-            if (!await IsPurchasable(db, request.ProductId))
+            if (await PurchasableUnit(db, request.ProductId) is not { } unit)
                 return Results.BadRequest(new { error = "Продуктът не е наличен." });
 
-            if (!cart.Add(request.ProductId, request.Quantity))
+            // m² round up to a whole unit (SaleUnits), as on the product page.
+            if (!cart.Add(request.ProductId, request.Quantity, SaleUnits.IsWhole(unit)))
                 return Results.BadRequest(new { error = $"Количката е пълна. Максимум {CartCookie.MaxLines} продукта." });
             return Results.NoContent();
         });
@@ -71,6 +72,10 @@ public static class CartEndpoints
     private static bool IsValidQuantity(decimal quantity)
         => quantity > 0 && quantity <= QuantityCalculator.MaxQuantity;
 
-    private static Task<bool> IsPurchasable(AppDbContext db, int productId)
-        => db.Products.AnyAsync(p => p.Id == productId && p.IsActive && p.PriceWithVat > 0);
+    /// <summary>The product's unit when it can be bought (active and priced), otherwise null.</summary>
+    private static Task<int?> PurchasableUnit(AppDbContext db, int productId)
+        => db.Products
+            .Where(p => p.Id == productId && p.IsActive && p.PriceWithVat > 0)
+            .Select(p => (int?)p.Unit)
+            .FirstOrDefaultAsync();
 }

@@ -1,6 +1,5 @@
-// Live calculator result (spec §7.3): DecimalInput and QuantityCalculator in BigInt fixed point, so 4 × 3 + 10%
-// is exactly 13.20. It rewrites only the result line and the button label; the server recalculates on POST.
-// All copy comes from the form's data-* templates (ProductView).
+// Live calculator result (spec §7.3): QuantityCalculator in BigInt fixed point (4 × 3 + 10% = 14 m²).
+// Rewrites only the result line and the button label; the server recalculates on POST. Copy: data-* (ProductView).
 const FORM = 'form[data-calc]';
 const MAX = 10000n; // QuantityCalculator.MaxQuantity
 const DECIMAL_MAX = 79228162514264337593543950335n; // decimal.MaxValue: larger input does not parse in C#
@@ -55,12 +54,16 @@ function quantity(form) {
     const d = 10n ** BigInt(raw.s - 2);
     q = (raw.n + d - 1n) / d;
   }
+  // m²: whole units, rounded up
+  if (!form.hasAttribute('data-kg')) q = ((q + 99n) / 100n) * 100n;
   return q > MAX * 100n ? 'big' : q;
 }
 
-// PriceFormat: invariant, two decimals, put into a template such as "{0} м²" or "{0} €".
-function format(template, hundredths) {
-  const number = (hundredths / 100n) + '.' + String(hundredths % 100n).padStart(2, '0');
+// PriceFormat / SaleUnits into a template such as "{0} м²" or "{0} €".
+function format(template, hundredths, whole) {
+  const number = whole
+    ? String(hundredths / 100n)
+    : (hundredths / 100n) + '.' + String(hundredths % 100n).padStart(2, '0');
   return (template || '{0}').replace('{0}', number);
 }
 
@@ -80,8 +83,9 @@ function update(form) {
   } else {
     const price = parse(data.price);
     const cents = price ? (price.n * 10n ** BigInt(2 - Math.min(price.s, 2)) * q + 50n) / 100n : 0n;
-    line.push(['product-calc__qty', format(data.qtyTemplate, q)], ['product-calc__total', format(data.moneyTemplate, cents)]);
-    button.textContent = format(data.addTemplate, q);
+    const whole = !form.hasAttribute('data-kg');
+    line.push(['product-calc__qty', format(data.qtyTemplate, q, whole)], ['product-calc__total', format(data.moneyTemplate, cents)]);
+    button.textContent = format(data.addTemplate, q, whole);
   }
 
   // Rewrite only on change, so the live region does not repeat itself.

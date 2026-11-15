@@ -102,7 +102,7 @@
                         <span class="checkout-item__name">@row.Product.Name</span>
                         <span class="checkout-item__total num">@PriceFormat.Money(row.LineTotal)</span>
                         <span class="checkout-item__qty num">
-                            @PriceFormat.Quantity(row.Quantity, row.Product.UnitDisplay) × @PriceFormat.Money(row.Product.PriceWithVat)
+                            @SaleUnits.Quantity(row.Quantity, row.Product.UnitDisplay, SaleUnits.IsWhole(row.Product.Unit)) × @PriceFormat.Money(row.Product.PriceWithVat)
                         </span>
                         @if (row.BackOrder)
                         {

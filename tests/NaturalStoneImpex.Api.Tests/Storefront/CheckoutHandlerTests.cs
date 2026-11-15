@@ -78,13 +78,26 @@ public class CheckoutHandlerTests
         Assert.Equal(outcome.OrderNumber, order.OrderNumber);
         var item = Assert.Single(order.Items);
         Assert.Equal(1, item.ProductId);
-        Assert.Equal(2.5m, item.Quantity);
+        Assert.Equal(3m, item.Quantity); // m² sell in whole units: an old 2.5 m² cookie line is ordered as 3
         Assert.Equal(20.45m, item.UnitPriceWithVat);
         // The old checkout's mapping: trimmed, and only the fields of the chosen customer type.
         Assert.Equal("Иван Петров", order.CustomerInfo.FullName);
         Assert.Equal("0888 123 456", order.CustomerInfo.Phone);
         Assert.Null(order.CustomerInfo.CompanyName);
         Assert.Null(order.CustomerInfo.Address);
+    }
+
+    [Fact]
+    public async Task Order_service_rejects_fractional_square_metres()
+    {
+        var name = await SeedAsync(P(1));
+        await using var db = CreateContext(name);
+        var request = Individual().ToRequest([new CreateOrderItemRequest { ProductId = 1, Quantity = 2.5m }]);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => new OrderService(db).CreateAsync(request));
+
+        Assert.Equal(SaleUnits.NotWholeError, error.Message);
+        Assert.Empty(await db.Orders.ToListAsync());
     }
 
     [Fact]

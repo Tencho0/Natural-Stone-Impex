@@ -144,6 +144,8 @@
         var hasImage = !string.IsNullOrWhiteSpace(p.ImagePath);
         // Inactive products have no page any more (404), so their name is plain text.
         var linkName = p.IsActive;
+        // m² sell in whole units (SaleUnits): the field shows "13", takes whole numbers, cart.js rounds up.
+        var whole = SaleUnits.IsWhole(p.Unit);
 
         return @<text>
             <div class="cart-line__photo">
@@ -172,7 +174,7 @@
                 else
                 {
                     @* No price, no control and no total: just the amount kept in the cart, and why it is left out. *@
-                    <p class="cart-line__price cart-line__price--off num">@PriceFormat.Quantity(row.Quantity, p.UnitDisplay)</p>
+                    <p class="cart-line__price cart-line__price--off num">@SaleUnits.Quantity(row.Quantity, p.UnitDisplay, whole)</p>
                 }
                 @if (note is not null)
                 {
@@ -195,7 +197,8 @@
             @if (row.Orderable)
             {
                 <form class="cart-qty" method="post" action="/cart/update" data-enhance data-cart-qty
-                      data-max="@QuantityCalculator.MaxQuantity.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                      data-max="@QuantityCalculator.MaxQuantity.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                      data-whole="@(whole ? "" : null)">
                     <AntiforgeryToken />
                     <input type="hidden" name="productId" value="@p.Id" />
                     @* The first submit button is the one Enter presses: it posts the typed quantity without a step. *@
@@ -205,8 +208,8 @@
                             aria-label="Намали количеството на @p.Name">
                         <Icon Name="dash-lg" />
                     </button>
-                    <input class="cart-qty__input num" id="@qtyId" name="quantity" type="text" inputmode="decimal"
-                           value="@PriceFormat.Number(row.Quantity)" autocomplete="off" enterkeyhint="done"
+                    <input class="cart-qty__input num" id="@qtyId" name="quantity" type="text" inputmode="@(whole ? "numeric" : "decimal")"
+                           value="@SaleUnits.Number(row.Quantity, whole)" autocomplete="off" enterkeyhint="done"
                            aria-describedby="@(note is null ? null : noteId)" />
                     <button type="submit" class="cart-qty__step" name="step" value="1"
                             aria-label="Увеличи количеството на @p.Name">

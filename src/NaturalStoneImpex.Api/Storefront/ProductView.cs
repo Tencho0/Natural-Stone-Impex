@@ -37,9 +37,9 @@ public static class ProductView
         ? $"{p.CategoryName}, {PriceFormat.Money(p.PriceWithVat)}/{p.UnitDisplay} с ДДС."
         : $"{p.CategoryName}. Цена при запитване.";
 
-    /// <summary>"Добави 13.20 м² в количката", or the plain label while the input is incomplete.</summary>
-    public static string AddLabel(QuantityResult result, string unitDisplay) => result.IsValid
-        ? string.Format(AddFormat, PriceFormat.Quantity(result.Quantity, unitDisplay))
+    /// <summary>"Добави 14 м² в количката" / "Добави 2.50 кг в количката", or the plain label while the input is incomplete.</summary>
+    public static string AddLabel(QuantityResult result, string unitDisplay, bool whole) => result.IsValid
+        ? string.Format(AddFormat, SaleUnits.Quantity(result.Quantity, unitDisplay, whole))
         : AddPlain;
 
     // Templates for calculator.js, built from the same formats, so the page and the script cannot drift apart.

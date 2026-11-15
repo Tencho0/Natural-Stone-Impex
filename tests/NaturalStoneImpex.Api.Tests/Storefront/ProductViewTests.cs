@@ -54,14 +54,22 @@ public class ProductViewTests
     }
 
     [Fact]
-    public void Default_form_gives_13_20_and_names_it_on_the_button()
+    public void Default_form_rounds_13_20_up_to_14_and_names_it_on_the_button()
     {
         var result = QuantityCalculator.Calculate(ProductCalcForm.Defaults().ToInput(kilograms: false));
 
         Assert.True(result.IsValid);
-        Assert.Equal(13.20m, result.Quantity);
-        Assert.Equal("Добави 13.20 м² в количката", ProductView.AddLabel(result, "м²"));
-        Assert.Equal("269.94 €", ProductView.Total(result, 20.45m));
+        Assert.Equal(14m, result.Quantity);
+        Assert.Equal("Добави 14 м² в количката", ProductView.AddLabel(result, "м²", whole: true));
+        Assert.Equal("286.30 €", ProductView.Total(result, 20.45m));
+    }
+
+    [Fact]
+    public void Kilogram_label_keeps_two_decimals()
+    {
+        var result = QuantityCalculator.Calculate(new ProductCalcForm { Kilograms = "2,5" }.ToInput(kilograms: true));
+
+        Assert.Equal("Добави 2.50 кг в количката", ProductView.AddLabel(result, "кг", whole: false));
     }
 
     [Fact]
@@ -70,7 +78,7 @@ public class ProductViewTests
         var missing = QuantityCalculator.Calculate(new ProductCalcForm { Mode = "dims", Length = "4", Width = "" }.ToInput(false));
         var tooBig = QuantityCalculator.Calculate(new ProductCalcForm { Mode = "area", Area = "20000" }.ToInput(false));
 
-        Assert.Equal("Добави в количката", ProductView.AddLabel(missing, "м²"));
+        Assert.Equal("Добави в количката", ProductView.AddLabel(missing, "м²", whole: true));
         Assert.Null(ProductView.Total(missing, 20.45m));
         Assert.Equal(ProductView.MissingSqm, ProductView.ResultNote(missing, QuantityMode.Dimensions));
         Assert.Equal(ProductView.MissingKg, ProductView.ResultNote(missing, QuantityMode.Kilograms));
@@ -95,8 +103,8 @@ public class ProductViewTests
         Assert.Equal("Добави {0} кг в количката", ProductView.AddTemplate("кг"));
 
         var result = QuantityCalculator.Calculate(ProductCalcForm.Defaults().ToInput(kilograms: false));
-        Assert.Equal(ProductView.AddLabel(result, "м²"), ProductView.AddTemplate("м²").Replace("{0}", "13.20"));
-        Assert.Equal(ProductView.Total(result, 20.45m), ProductView.MoneyTemplate.Replace("{0}", "269.94"));
+        Assert.Equal(ProductView.AddLabel(result, "м²", whole: true), ProductView.AddTemplate("м²").Replace("{0}", "14"));
+        Assert.Equal(ProductView.Total(result, 20.45m), ProductView.MoneyTemplate.Replace("{0}", "286.30"));
     }
 
     [Fact]
@@ -126,7 +134,7 @@ public class ProductViewTests
         Assert.True(ProductCalcForm.Defaults().Waste);
 
         var result = QuantityCalculator.Calculate(new ProductCalcForm { Mode = "dims", Length = "4", Width = "3" }.ToInput(false));
-        Assert.Equal(12.00m, result.Quantity);
+        Assert.Equal(12m, result.Quantity);
     }
 
     [Fact]
@@ -134,7 +142,7 @@ public class ProductViewTests
     {
         var result = QuantityCalculator.Calculate(new ProductCalcForm { Mode = "area", Area = "10,01", Waste = true }.ToInput(false));
 
-        Assert.Equal(11.02m, result.Quantity);
-        Assert.Equal("Добави 11.02 м² в количката", ProductView.AddLabel(result, "м²"));
+        Assert.Equal(12m, result.Quantity); // 11.011 m², rounded up to a whole m²
+        Assert.Equal("Добави 12 м² в количката", ProductView.AddLabel(result, "м²", whole: true));
     }
 }

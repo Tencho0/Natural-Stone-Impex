@@ -112,6 +112,7 @@
                             <input type="checkbox" name="Calc.Waste" value="true" checked="@Calc.Waste" />
                             <span>Добави 10% за фира и рязане</span>
                         </label>
+                        <p class="product-calc__note">@SaleUnits.WholeNote</p>
                     }
 
                     <p class="product-calc__result" aria-live="polite" data-calc-result
@@ -120,7 +121,7 @@
                        data-big="@QuantityCalculator.TooLargeError">
                         @if (_result.IsValid)
                         {
-                            <span class="product-calc__qty">@PriceFormat.Quantity(_result.Quantity, product.UnitDisplay)</span>
+                            <span class="product-calc__qty">@SaleUnits.Quantity(_result.Quantity, product.UnitDisplay, !_isKg)</span>
                             <span class="product-calc__total">@ProductView.Total(_result, product.PriceWithVat)</span>
                         }
                         else
@@ -130,7 +131,7 @@
                     </p>
 
                     <button type="submit" class="btn btn-primary product-calc__submit" data-calc-submit>
-                        @ProductView.AddLabel(_result, product.UnitDisplay)
+                        @ProductView.AddLabel(_result, product.UnitDisplay, !_isKg)
                     </button>
                 </EditForm>
             }
@@ -210,7 +211,7 @@
         if (_product is null || _onRequest || HttpContext is null || !_result.IsValid)
             return; // errors render under their fields
 
-        var added = Cart.Add(_product.Id, _result.Quantity);
+        var added = Cart.Add(_product.Id, _result.Quantity, whole: !_isKg);
         Flash.Set(HttpContext.Response, added ? Flash.Added : Flash.Full);
 
         // Post/Redirect/Get to the same view: shell.js keeps focus and scroll, the toast confirms.

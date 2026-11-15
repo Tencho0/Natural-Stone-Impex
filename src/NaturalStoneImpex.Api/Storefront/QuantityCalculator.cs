@@ -40,7 +40,10 @@ public static class QuantityCalculator
         if (appliesWaste && input.AddWaste)
             raw *= WasteFactor;
 
-        var quantity = Math.Ceiling(raw * 100m) / 100m;
+        // Square metres sell in whole units (SaleUnits), always rounded up; kilograms round up to the cent.
+        var quantity = input.Mode == QuantityMode.Kilograms
+            ? Math.Ceiling(raw * 100m) / 100m
+            : Math.Ceiling(raw);
         if (quantity > MaxQuantity)
             return Fail(FieldFor(input.Mode), TooLargeError);
 

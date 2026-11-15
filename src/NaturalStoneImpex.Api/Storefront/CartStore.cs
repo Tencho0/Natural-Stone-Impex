@@ -7,16 +7,21 @@ public interface ICartStore
     /// <summary>Number of cart lines (not the summed quantity).</summary>
     int Count { get; }
 
-    /// <summary>Returns false only when a new product was dropped because the cart is full.</summary>
-    bool Add(int productId, decimal quantity);
+    /// <summary>
+    /// Returns false only when a new product was dropped because the cart is full. With <paramref name="whole"/>
+    /// (products sold per m², <see cref="SaleUnits"/>) the quantity is rounded up to a whole unit.
+    /// </summary>
+    bool Add(int productId, decimal quantity, bool whole = false);
 
     /// <summary>
     /// The cart row form: a typed quantity, a stepper press, or both (the − and + buttons post the typed value too).
     /// A step of -1 or 1 applies to the typed quantity when it is valid, otherwise to the stored one, and the
-    /// result is kept between 0.01 and the maximum. Without a step, a valid typed quantity replaces the stored one;
-    /// an invalid one (0 included) changes nothing. Removing a line is <see cref="Remove"/>, never a quantity of 0.
+    /// result is kept between the minimum (0.01, or 1 for whole units) and the maximum. Without a step, a valid
+    /// typed quantity replaces the stored one; an invalid one (0 included) changes nothing. With
+    /// <paramref name="whole"/> every quantity, the stored one included, is rounded up to a whole unit.
+    /// Removing a line is <see cref="Remove"/>, never a quantity of 0.
     /// </summary>
-    void Update(int productId, decimal? quantity, int step);
+    void Update(int productId, decimal? quantity, int step, bool whole = false);
     void Remove(int productId);
     void Clear();
 }
@@ -24,7 +29,7 @@ public interface ICartStore
 /// <summary>Cart persisted in an HttpOnly cookie. The cookie is read once per request and rewritten on each change.</summary>
 public class CartStore(IHttpContextAccessor accessor) : ICartStore
 {
-    /// <summary>The smallest quantity a line can hold: one cent of a unit (the − stepper stops here).</summary>
+    /// <summary>The smallest quantity a kilogram line can hold: one cent of a unit (the − stepper stops here).</summary>
     public const decimal MinQuantity = 0.01m;
 
     private List<CartLine>? _lines;
@@ -39,14 +44,17 @@ public class CartStore(IHttpContextAccessor accessor) : ICartStore
 
     public int Count => Current.Count;
 
-    public bool Add(int productId, decimal quantity)
+    public bool Add(int productId, decimal quantity, bool whole = false)
     {
-        // Callers validate quantity > 0; a positive amount below one cent still adds one cent.
-        quantity = Math.Max(CartCookie.Normalize(quantity), MinQuantity);
+        // Callers validate quantity > 0; a positive amount below the minimum still adds the minimum.
+        quantity = Math.Max(SaleUnits.Normalize(quantity, whole), SaleUnits.Min(whole));
         var lines = Current;
         var index = lines.FindIndex(l => l.ProductId == productId);
         if (index >= 0)
-            lines[index] = lines[index] with { Quantity = Math.Min(lines[index].Quantity + quantity, QuantityCalculator.MaxQuantity) };
+            lines[index] = lines[index] with
+            {
+                Quantity = Math.Min(SaleUnits.Normalize(lines[index].Quantity, whole) + quantity, QuantityCalculator.MaxQuantity)
+            };
         else if (lines.Count < CartCookie.MaxLines)
             lines.Add(new CartLine(productId, Math.Min(quantity, QuantityCalculator.MaxQuantity)));
         else
@@ -55,20 +63,22 @@ public class CartStore(IHttpContextAccessor accessor) : ICartStore
         return true;
     }
 
-    public void Update(int productId, decimal? quantity, int step)
+    public void Update(int productId, decimal? quantity, int step, bool whole = false)
     {
         var lines = Current;
         var index = lines.FindIndex(l => l.ProductId == productId);
         if (index < 0)
             return;
 
-        var typed = quantity is { } q ? CartCookie.Normalize(q) : (decimal?)null;
+        var typed = quantity is { } q ? SaleUnits.Normalize(q, whole) : (decimal?)null;
         if (typed is { } t && (t <= 0 || t > QuantityCalculator.MaxQuantity))
             typed = null; // R8: an invalid typed value is ignored
 
+        // A cookie written before m² became whole-only may still hold 12.5: it counts as 13.
+        var stored = Math.Min(SaleUnits.Normalize(lines[index].Quantity, whole), QuantityCalculator.MaxQuantity);
         decimal next;
         if (step is 1 or -1)
-            next = Math.Clamp((typed ?? lines[index].Quantity) + step, MinQuantity, QuantityCalculator.MaxQuantity);
+            next = Math.Clamp((typed ?? stored) + step, SaleUnits.Min(whole), QuantityCalculator.MaxQuantity);
         else if (typed is { } value)
             next = value;
         else

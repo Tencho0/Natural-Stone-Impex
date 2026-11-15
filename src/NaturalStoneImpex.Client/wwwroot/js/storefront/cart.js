@@ -1,7 +1,6 @@
-// Cart rows (spec §7.4). Without JS each row is an enhanced form (Enter posts the quantity, − and + post a step).
-// With JS, typing posts 400 ms after the last key (not mid-IME-word, not an unparsable value); − and + edit the
-// field and post the same way, so quick presses become one request. One post at a time, so each carries the
-// cookie the last one wrote; edits made meanwhile wait and are put back after the update. Focus stays put.
+// Cart rows (spec §7.4). Without JS each row is an enhanced form (Enter posts the quantity, − and + a step).
+// With JS, typing posts 400 ms after the last key (not mid-IME, not unparsable); − and + edit the field and post
+// the same way. One post at a time, so each carries the last cookie; edits made meanwhile wait. Focus stays put.
 const DELAY = 400;
 const QTY = 'form[data-cart-qty]';
 const REMOVE = 'form[data-cart-remove]';
@@ -13,15 +12,16 @@ let inFlight = 0;        // when the current post started; 0 when idle
 let sent = '';           // "productId:cents" of the quantity post in flight
 let removeNext = null;   // productId whose remove was pressed during a post
 
-// "2,5" / "1 204,5" -> cents, or null when the server would not store it. DecimalInput's parsing and
-// CartCookie.Normalize's rounding (half away from zero), on the digits: "2.555" -> 256, never 255.
-function toCents(text, max) {
+// "2,5" -> cents, or null when the server would not store it: SaleUnits.Normalize on the digits
+// ("2.555" -> 256, never 255; m² rows round up to whole units).
+function toCents(text, max, whole) {
   const clean = String(text).replace(/[\s  ]/g, '').replace(',', '.');
   if (!/^(\d+(\.\d*)?|\.\d+)$/.test(clean)) return null;
-  const [whole, fraction = ''] = clean.split('.');
+  const [units, fraction = ''] = clean.split('.');
   const digits = fraction + '000';
-  let cents = Number(whole || '0') * 100 + Number(digits.slice(0, 2));
+  let cents = Number(units || '0') * 100 + Number(digits.slice(0, 2));
   if (digits[2] >= '5') cents += 1;
+  if (whole) cents = Math.ceil(cents / 100) * 100;
   return cents > 0 && cents <= max * 100 ? cents : null;
 }
 
@@ -35,7 +35,7 @@ function find(selector, id) {
 }
 
 function field(form) {
-  return { input: form.elements.namedItem('quantity'), max: Number(form.dataset.max) || 10000 };
+  return { input: form.elements.namedItem('quantity'), max: Number(form.dataset.max) || 10000, whole: form.hasAttribute('data-whole') };
 }
 
 function busy() {
@@ -64,9 +64,9 @@ function flush() {
     edits.delete(id);
     const form = find(QTY, id);
     if (!form) continue;
-    const { input, max } = field(form);
-    const cents = toCents(text, max);
-    if (cents === null || cents === toCents(input.defaultValue, max)) continue;
+    const { input, max, whole } = field(form);
+    const cents = toCents(text, max, whole);
+    if (cents === null || cents === toCents(input.defaultValue, max, whole)) continue;
     input.value = text;
     sent = id + ':' + cents;
     submit(form);
@@ -96,8 +96,8 @@ function onType(event) {
 function onChange(event) {
   const form = qtyInput(event);
   if (!form) return;
-  const { input, max } = field(form);
-  if (toCents(input.value, max) === null) {
+  const { input, max, whole } = field(form);
+  if (toCents(input.value, max, whole) === null) {
     edits.delete(idOf(form));
     input.value = input.defaultValue;
     return;
@@ -106,29 +106,29 @@ function onChange(event) {
 }
 
 // − and +: the server's rule (CartStore.Update): from the typed value when valid, else the stored one,
-// kept between 0.01 and the maximum.
+// kept between the minimum (0.01, or 1 for m²) and the maximum.
 function onClick(event) {
   const button = event.target instanceof Element ? event.target.closest('button[name="step"]') : null;
   const form = button && button.closest(QTY);
   if (!form) return;
   event.preventDefault();
-  const { input, max } = field(form);
-  const base = toCents(input.value, max) ?? toCents(input.defaultValue, max);
+  const { input, max, whole } = field(form);
+  const base = toCents(input.value, max, whole) ?? toCents(input.defaultValue, max, whole);
   if (base === null) return;
-  const next = Math.min(Math.max(base + Number(button.value) * 100, 1), max * 100);
-  input.value = (next / 100).toFixed(2);
+  const next = Math.min(Math.max(base + Number(button.value) * 100, whole ? 100 : 1), max * 100);
+  input.value = (next / 100).toFixed(whole ? 0 : 2);
   edited(form);
 }
 
-// Enter in a quantity field and the remove button are native enhanced posts: held while another post is in
-// flight. Enter fires "change" first, which may already have sent the same value; that submit is dropped.
+// Enter and the remove button are native enhanced posts, held while another post is in flight. Enter fires
+// "change" first, which may already have sent the same value; that submit is dropped.
 function onSubmit(event) {
   const form = event.target instanceof HTMLFormElement ? event.target : null;
   if (sending || !form || !(form.matches(QTY) || form.matches(REMOVE))) return;
   const id = idOf(form);
   if (form.matches(QTY)) {
-    const { input, max } = field(form);
-    const key = id + ':' + toCents(input.value, max);
+    const { input, max, whole } = field(form);
+    const key = id + ':' + toCents(input.value, max, whole);
     if (busy()) {
       event.preventDefault();
       if (key !== sent) edited(form);
@@ -157,8 +157,7 @@ export function onLoad() {
 export function onUpdate() {
   inFlight = 0;
   sent = '';
-  // The DOM merge keeps a field the user typed in and resets one set by script, so set every field
-  // here: the waiting edit, else the quantity the server rendered ("2,5" shows as "2.50").
+  // The DOM merge keeps typed fields and resets scripted ones: set each to its waiting edit or the server's value.
   const seen = new Set();
   for (const form of document.querySelectorAll(QTY)) {
     const id = idOf(form);

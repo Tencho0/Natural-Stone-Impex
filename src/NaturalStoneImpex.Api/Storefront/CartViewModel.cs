@@ -41,20 +41,23 @@ public sealed class CartViewModel
                 : product.PriceWithVat <= 0 ? OnRequestProblem
                 : null;
             var orderable = problem is null;
+            // m² sell in whole units: a cookie written before that rule (12.5) shows, totals and orders as 13.
+            var quantity = Math.Min(
+                SaleUnits.Normalize(line.Quantity, SaleUnits.IsWhole(product.Unit)), QuantityCalculator.MaxQuantity);
 
             rows.Add(new CartRow(
                 product,
-                line.Quantity,
-                line.Quantity * product.PriceWithVat,
+                quantity,
+                quantity * product.PriceWithVat,
                 orderable,
                 problem,
-                BackOrder: orderable && line.Quantity > product.StockQuantity));
+                BackOrder: orderable && quantity > product.StockQuantity));
 
             if (!orderable)
                 continue;
-            withoutVat += line.Quantity * product.PriceWithoutVat;
-            vat += line.Quantity * product.VatAmount;
-            withVat += line.Quantity * product.PriceWithVat;
+            withoutVat += quantity * product.PriceWithoutVat;
+            vat += quantity * product.VatAmount;
+            withVat += quantity * product.PriceWithVat;
         }
 
         return new CartViewModel

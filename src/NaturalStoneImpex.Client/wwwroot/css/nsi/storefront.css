@@ -1202,6 +1202,12 @@
   accent-color: var(--accent);
 }
 
+.product-calc__note {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--stone);
+}
+
 .product-calc__result {
   display: flex;
   flex-wrap: wrap;

@@ -33,6 +33,39 @@ public class CartStoreTests
     }
 
     [Fact]
+    public void Whole_unit_add_rounds_up_and_rounds_the_stored_line_too()
+    {
+        var (store, _) = Create("12:2.5"); // written before m² became whole-only
+        store.Add(12, 1.2m, whole: true);
+        store.Add(7, 0.4m, whole: true);
+
+        Assert.Equal(5m, store.Lines.Single(l => l.ProductId == 12).Quantity); // 3 + 2
+        Assert.Equal(1m, store.Lines.Single(l => l.ProductId == 7).Quantity);
+    }
+
+    [Fact]
+    public void Whole_unit_update_rounds_typed_value_up_and_steps_stop_at_one()
+    {
+        var (store, _) = Create("12:3");
+        store.Update(12, 12.5m, 0, whole: true);
+        Assert.Equal(13m, store.Lines.Single().Quantity);
+
+        store.Update(12, 1m, -1, whole: true);
+        Assert.Equal(1m, store.Lines.Single().Quantity);
+
+        store.Update(12, null, 1, whole: true);
+        Assert.Equal(2m, store.Lines.Single().Quantity);
+    }
+
+    [Fact]
+    public void Whole_unit_step_starts_from_the_rounded_stored_quantity()
+    {
+        var (store, _) = Create("12:2.5");
+        store.Update(12, null, 1, whole: true);
+        Assert.Equal(4m, store.Lines.Single().Quantity); // 2.5 counts as 3, then + 1
+    }
+
+    [Fact]
     public void Cookie_is_httponly_secure_lax_30_days()
     {
         var (store, ctx) = Create();

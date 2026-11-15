@@ -32,8 +32,8 @@ public class SecurityPipelineTests
         public int Mutations;
         public IReadOnlyList<CartLine> Lines => [];
         public int Count => 0;
-        public bool Add(int productId, decimal quantity) { Mutations++; return true; }
-        public void Update(int productId, decimal? quantity, int step) => Mutations++;
+        public bool Add(int productId, decimal quantity, bool whole = false) { Mutations++; return true; }
+        public void Update(int productId, decimal? quantity, int step, bool whole = false) => Mutations++;
         public void Remove(int productId) => Mutations++;
         public void Clear() => Mutations++;
     }

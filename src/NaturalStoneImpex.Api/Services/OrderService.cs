@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NaturalStoneImpex.Api.Data;
 using NaturalStoneImpex.Api.Models.DTOs;
 using NaturalStoneImpex.Api.Models.Entities;
+using NaturalStoneImpex.Api.Storefront;
 
 namespace NaturalStoneImpex.Api.Services;
 
@@ -86,6 +87,10 @@ public class OrderService : IOrderService
 
             if (!product.IsActive)
                 throw new InvalidOperationException($"Продукт '{product.Name}' не е наличен.");
+
+            // m² sell in whole units (the storefront rounds up before it gets here).
+            if (SaleUnits.IsWhole((int)product.Unit) && item.Quantity != decimal.Truncate(item.Quantity))
+                throw new InvalidOperationException(SaleUnits.NotWholeError);
         }
 
         // Generate order number

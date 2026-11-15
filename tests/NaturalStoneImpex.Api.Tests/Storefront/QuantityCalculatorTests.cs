@@ -14,11 +14,35 @@ public class QuantityCalculatorTests
         new(QuantityMode.Kilograms, null, null, null, k, waste);
 
     [Fact]
-    public void Dimensions_with_waste_4x3_is_13_20()
+    public void Dimensions_with_waste_4x3_rounds_13_20_up_to_14()
     {
         var r = QuantityCalculator.Calculate(Dims("4,00", "3,00", true));
         Assert.True(r.IsValid);
-        Assert.Equal(13.20m, r.Quantity);
+        Assert.Equal(14m, r.Quantity);
+    }
+
+    [Fact]
+    public void Area_without_waste_rounds_up_to_whole_square_metre()
+    {
+        var r = QuantityCalculator.Calculate(Area("12,5", false));
+        Assert.True(r.IsValid);
+        Assert.Equal(13m, r.Quantity);
+    }
+
+    [Fact]
+    public void Whole_area_stays_as_typed()
+    {
+        var r = QuantityCalculator.Calculate(Area("12", false));
+        Assert.True(r.IsValid);
+        Assert.Equal(12m, r.Quantity);
+    }
+
+    [Fact]
+    public void Kilograms_keep_hundredths()
+    {
+        var r = QuantityCalculator.Calculate(Kg("2,5", false));
+        Assert.True(r.IsValid);
+        Assert.Equal(2.5m, r.Quantity);
     }
 
     [Fact]
@@ -30,11 +54,11 @@ public class QuantityCalculatorTests
     }
 
     [Fact]
-    public void Area_with_waste_rounds_up_to_cent()
+    public void Area_with_waste_rounds_up_to_whole_square_metre()
     {
-        var r = QuantityCalculator.Calculate(Area("10,01", true));
+        var r = QuantityCalculator.Calculate(Area("10,01", true)); // 11.011
         Assert.True(r.IsValid);
-        Assert.Equal(11.02m, r.Quantity);
+        Assert.Equal(12m, r.Quantity);
     }
 
     [Fact]
