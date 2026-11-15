@@ -749,7 +749,7 @@
 @media (min-width: 1024px) {
   .home-hero {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-    align-items: end;
+    align-items: center;
     gap: var(--space-8);
     padding-top: var(--space-9);
   }
