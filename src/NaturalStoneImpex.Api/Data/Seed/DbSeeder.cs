@@ -54,8 +54,7 @@ public static class DbSeeder
         await context.SaveChangesAsync();
     }
 
-    // Seeds the product catalog taken from naturalstoneimpex.com (prices converted from BGN to EUR at 1.95583,
-    // assumed VAT-inclusive at 20%). Products without a published price are seeded with 0.00 and stock 0.
+    // Seeds the product catalog taken from naturalstoneimpex.com (prices in EUR, VAT-inclusive at 20%). Products without a published price are seeded with 0.00 and stock 0.
     private static async Task SeedProductsAsync(AppDbContext context, string webRootPath)
     {
         if (await context.Products.AnyAsync())
